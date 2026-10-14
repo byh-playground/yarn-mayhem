@@ -2731,21 +2731,38 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const width=clamp(r*.018+2.4,2.8,5);
       if(!foreground){
         const length=pinned?clamp(r*1.6+70,105,240):clamp(r*1.4+110,140,285);
+        // Clip all rear details at the first adjacent terrain along the needle axis.
+        // Padding contains the eye/thread width; this changes drawing only, never the pin pose.
+        const reach=edge+rear+length+20;
+        let rearLimit=reach;
+        if(pinned)for(const terrain of Composite.allBodies(state.engine.world)){
+          if(!terrain.isStatic||!['wall','terrain'].includes(terrain.label))continue;
+          const b=terrain.bounds;
+          const t=segmentAabb(center.x,center.y,center.x-dx*reach,center.y-dy*reach,b.min.x-6,b.min.y-6,b.max.x+6,b.max.y+6);
+          if(t!==null)rearLimit=Math.min(rearLimit,t*reach);
+        }
+        const rearLine=(x1,y1,x2,y2,w,color)=>{
+          const a=(center.x-x1)*dx+(center.y-y1)*dy,b=(center.x-x2)*dx+(center.y-y2)*dy;
+          if(a>=rearLimit&&b>=rearLimit)return;
+          if(a>rearLimit){const t=(rearLimit-b)/(a-b);x1=x2+(x1-x2)*t;y1=y2+(y1-y2)*t;}
+          else if(b>rearLimit){const t=(rearLimit-a)/(b-a);x2=x1+(x2-x1)*t;y2=y1+(y2-y1)*t;}
+          renderer.line(x1,y1,x2,y2,w,color);
+        };
         for(let strand=0;strand<2;strand++){
           let px=tailX-dx*10,py=tailY-dy*10;
           for(let i=1;i<=16;i++){
             const q=i/16,wave=Math.sin(q*12-age*.020+strand*1.7)*(pinned?1.7:7)*q;
             const nx=tailX-dx*(10+length*q)-dy*(wave+strand*3),ny=tailY-dy*(10+length*q)+dx*(wave+strand*3);
-            renderer.line(px,py,nx,ny,strand?1.1:2,[1,.91,.67,(1-q*.79)*(strand?.35:.75)]);px=nx;py=ny;
+            rearLine(px,py,nx,ny,strand?1.1:2,[1,.91,.67,(1-q*.79)*(strand?.35:.75)]);px=nx;py=ny;
           }
         }
         // Rear shaft and eye are behind the yarn. The body occludes the internal metal.
-        renderer.line(tailX,tailY,entryX+dx*5,entryY+dy*5,width+2,[.12,.24,.28,1]);
-        renderer.line(tailX,tailY,entryX+dx*5,entryY+dy*5,width,[.88,.97,.96,1]);
+        rearLine(tailX,tailY,entryX+dx*5,entryY+dy*5,width+2,[.12,.24,.28,1]);
+        rearLine(tailX,tailY,entryX+dx*5,entryY+dy*5,width,[.88,.97,.96,1]);
         const eye=4+Math.sin(age*.065)*Math.exp(-age/600)*.6;
         for(const sign of [-1,1]){
-          renderer.line(tailX,tailY,tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,2.3,PALETTE.cream);
-          renderer.line(tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,tailX-dx*15,tailY-dy*15,2.3,PALETTE.cream);
+          rearLine(tailX,tailY,tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,2.3,PALETTE.cream);
+          rearLine(tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,tailX-dx*15,tailY-dy*15,2.3,PALETTE.cream);
         }
         return;
       }
