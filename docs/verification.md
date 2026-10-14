@@ -7,7 +7,7 @@
 - No mocks, replacement network, alternate physics or fabricated PASS results. No GPU renderer or real Matter/Nostr/WebRTC result was obtained in this run. Full details: [current patch report](sdk-0.3.1-report.json).
 - The product display/package version is 0.9.1. The existing welcome value `0.9.0` and namespace `bloom-yarn-mayhem-v090` are retained because no game wire payload or contract changed. This preserves the intended 0.9.x room contract without adding a compatibility adapter; mixed-version live interoperability remains unverified.
 - Gameplay, 30TPS, host-authoritative ownership, presentation sampling and fixtures are unchanged. New netcode was not introduced.
-- Candidate only: full real-browser multiplayer verification is still required before Validated/Stable promotion. Historical results below describe 0.9.0 and must not be treated as a passing 0.9.1 run. Publication and deployment are separate pending steps.
+- User-approved scope update (2026-10-14): ship this compatible SDK patch using static code/build verification only; live browser checks are deferred for later user review. Historical results below describe 0.9.0 and must not be treated as a passing 0.9.1 run. Deployment byte verification is separate from gameplay validation.
 
 ---
 
