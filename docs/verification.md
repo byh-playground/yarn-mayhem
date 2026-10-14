@@ -1,3 +1,19 @@
+# 0.11.0 needle ricochet candidate
+
+Base: `53d635d7629c458b8d674f3322ea4516cf45f497` (0.10.1). Control stage 2 replaces straight piercing with a single physically travelling needle, maximum three distinct enemy contacts and 420px per-hop acquisition/travel budget. Stage 1 carry/pin, stage 3 pinned-enemy sword rebound, sword skills, enemy merging and current menu structure are retained. GameKit remains pinned to 0.3.1. No Actions changes.
+
+- Terminal contact (third enemy, or no next eligible enemy) carries its surviving target; intermediate contacts never carry. A target lost in flight is reacquired, including its merged successor. If no live eligible target remains, the needle expires without retroactive damage or pin.
+- Stable distance/ID target choice and swept contact ordering. Visited merge lineage is excluded, preventing repeat-pair loops. Flight state stores scalar IDs, visited IDs, range and bounded trail points; no body references or local random target decisions.
+- Snapshot schema and room admission move together to 0.11.0. Guests still render authority snapshots, not a new rollback/prediction implementation. Precise flight state roundtrips; event IDs deduplicate ricochet presentation on repeated frames.
+- PASS: 26 temporary actual-source checks with real Matter.js 0.20.0, including three bent contacts and delayed damage, early terminal carry/range, lost-target reacquisition/expiry, pending-target merge, visited merge lineage, deterministic ties, two-enemy termination, actual final wall pin, flight-state roundtrip and duplicate FX suppression. Sixteen sword/control/merge/network-fragment regressions retained. DOM/render/audio are test doubles; this is not GPU/audio/RTC validation.
+- PASS: 11 temporary actual DOM/jsdom menu checks; no tree/navigation regression.
+- PASS: syntax/provenance build and whitespace check.
+- PENDING: actual host Chrome gameplay, sharp-bend trails/tip spark/debris/ascending audio, responsive UI, and real multiplayer fixed scenario. Candidate is not merged or declared Stable until that gate passes.
+
+Temporary test scripts remain outside the repository per project rules. Existing fixed user-scenario E2E remains the permanent browser suite. No browser restriction bypass and no fallback renderer.
+
+---
+
 # 0.10.1 menu and stat-tree verification
 
 Base: `4ad0f36f36fe2a7a084194f035440a8ffbbd3378` (0.10.0). UI-only compatible patch; GameKit pin, combat definitions and 0.10.0 room/welcome contracts unchanged. No Actions changes.
