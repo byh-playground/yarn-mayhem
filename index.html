@@ -1317,9 +1317,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       e.control=null;e.controlCooldownUntilMs=state.timeMs+CONFIG.combat.controlCooldownMs;
       e.thinkLeftMs=0;e.windupMs=0;e.body.plugin.dropThrough=false;
       if(present){
-        e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=c.dx;e.controlReleaseDy=c.dy;
+        const dx=c.mode==='pinned'?c.normalX:c.dx,dy=c.mode==='pinned'?c.normalY:c.dy;
+        e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=dx;e.controlReleaseDy=dy;
         if(c.mode==='pinned')Body.setVelocity(e.body,{x:0,y:.5});
-        controlEvent('controlRelease',e,{dx:c.dx,dy:c.dy});
+        controlEvent('controlRelease',e,{dx,dy});
       }
     }
     function launchNeedledEnemy(e,shot){
