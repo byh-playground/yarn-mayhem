@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.11.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.12.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -157,7 +157,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.11.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.12.0</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -215,7 +215,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         groundAccel: 3600, groundBrake: 4200, airAccel: 1350, airBrake: 900, wallDeadzone: 6 },
       shot: { rateMs: 520, holdThresholdMs: 260, speed: 1060, radius: 3.5, power: 5, impulse: 2.2, maxLive: 55 },
       combat: { advancePx:20, advanceMs:90, comboKnockbackRate:.3, launchVelocity:7.5, launchProtectionMs:250,
-        echoDelayMs:300, echoDamageRate:.25, carrySpeed:1200, carryMs:3000, pinMs:1200,
+        echoDelayMs:300, echoDamageRate:.25, needleImpulse:720, flightMs:3000, pinMinSpeed:300, pinMs:1200,
         ricochetRange:420, ricochetTargets:3, controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
       sword: { comboWindowMs: 570, steps: [
         {range:38,arcDegrees:92,damage:27,recoveryMs:155,knockback:3.5},
@@ -288,7 +288,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
       particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
       surfaces:[], platforms:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
-      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), wallContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[],
+      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[],
       toastUntil:0,
       camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
     };
@@ -398,7 +398,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         Composite.clear(state.engine.world,false);
         Engine.clear(state.engine);
       }
-      state.wallContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];state.ricochetTrails=[];
+      state.terrainContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];state.ricochetTrails=[];
       state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
       state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.spawnAttempts=0;state.totalPortals=0;state.sealedPortals=0;state.mapStyle=null;
       $('toastLayer').replaceChildren();
@@ -699,6 +699,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;
 
       actions.releaseAll();actions.consume();
+      Events.on(state.engine,'beforeSolve',captureControlVelocities);
       Events.on(state.engine,'collisionStart',onMatterContact);
       Events.on(state.engine,'collisionActive',onMatterContact);
       // Spawns continue forever until the final kill milestone seals the last portal.
@@ -709,11 +710,33 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       updateHUD(true);
     }
     // === Merging is authoritative, pair-based and performed only after Matter update. ===
+    function captureControlVelocities(){
+      // beforeSolve runs after force integration and before either collision callback/solver.
+      for(const e of state.enemies){
+        const v=velocity(e.body);
+        e.body.plugin.controlVelocity=e.control?.mode==='flying'?{x:v.x*60,y:v.y*60}:null;
+      }
+    }
     function onMatterContact(event) {
       for (const pair of event.pairs) {
         const a=pair.bodyA.parent||pair.bodyA,b=pair.bodyB.parent||pair.bodyB;
         // Callbacks collect only; constraint/world mutation happens after Engine.update.
-        for(const [actor,wall] of [[a,b],[b,a]])if(actor.label==='enemy'&&wall.label==='wall')state.wallContacts.set(actor.plugin.enemyId,wall);
+        for(const [actor,terrain] of [[a,b],[b,a]]){
+          if(actor.label!=='enemy'||!terrain.isStatic||!['wall','terrain'].includes(terrain.label))continue;
+          const incoming=actor.plugin.controlVelocity;if(!incoming)continue;
+          // Matter's normal points B -> A. Project pre-solver relative velocity INTO the surface.
+          const sign=actor===a?-1:1,nx=pair.collision.normal.x*sign,ny=pair.collision.normal.y*sign;
+          const tv=velocity(terrain),speed=(incoming.x-tv.x*60)*nx+(incoming.y-tv.y*60)*ny;
+          if(speed<CONFIG.combat.pinMinSpeed)continue;
+          const id=actor.plugin.enemyId,previous=state.terrainContacts.get(id);
+          if(!previous||speed>previous.speed||(speed===previous.speed&&terrain.id<previous.terrainId)){
+            // Supports may lie inside the terrain before positional resolution. Project onto its impact face.
+            const support=pair.collision.supports[0];
+            const face=Math.min(...terrain.vertices.map(v=>v.x*nx+v.y*ny));
+            const depth=support.x*nx+support.y*ny-face;
+            state.terrainContacts.set(id,{terrainId:terrain.id,nx,ny,speed,x:support.x-nx*depth,y:support.y-ny*depth});
+          }
+        }
         if(a.label==='enemy'&&b.label==='enemy') {
           const ia=a.plugin.enemyId, ib=b.plugin.enemyId;
           if(ia!=null&&ib!=null){const key=ia<ib?ia+':'+ib:ib+':'+ia;state.contactKeys.add(key);state.reboundContacts.add(key);}
@@ -1051,14 +1074,15 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         if(attenuation>.03)sound('ricochet'+step,.65*attenuation);
       }else if(kind==='wallPin'||kind==='reboundImpact'){
         const pin=kind==='wallPin';
-        const impactX=pin&&Number.isFinite(payload.wallX)?payload.wallX:x;
-        ring(impactX,y,clamp(payload.radius||RADII[tier-1]*.85,24,110),pin?260:190,PALETTE.gold);
-        ring(impactX,y,clamp((payload.radius||RADII[tier-1])*.52,15,65),150,PALETTE.cream);
+        const impactX=pin&&Number.isFinite(payload.anchorX)?payload.anchorX:x;
+        const impactY=pin&&Number.isFinite(payload.anchorY)?payload.anchorY:y;
+        ring(impactX,impactY,clamp(payload.radius||RADII[tier-1]*.85,24,110),pin?260:190,PALETTE.gold);
+        ring(impactX,impactY,clamp((payload.radius||RADII[tier-1])*.52,15,65),150,PALETTE.cream);
         // Stitches peel away from the impact, then fall under VFX-only gravity.
         for(let i=0;i<12;i++){
           const phase=i*2.399,tangent=(i%2?1:-1)*(50+i*6),back=55+(i%4)*27;
           const ttl=210+(i%5)*45;
-          state.particles.push({x:impactX+Math.cos(phase)*5,y:y+Math.sin(phase)*9,
+          state.particles.push({x:impactX+Math.cos(phase)*5,y:impactY+Math.sin(phase)*9,
             vx:-dir.x*back-dir.y*tangent,vy:-dir.y*back+dir.x*tangent-45,
             ttl,maxTtl:ttl,size:1.4+(i%3)*.7,color:i%3?color:PALETTE.cream});
         }
@@ -1231,8 +1255,9 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
               chain.hits++;chain.path.push([shot.x,shot.y]);chain.rangeLeft=CONFIG.combat.ricochetRange;
               if(chain.hits<CONFIG.combat.ricochetTargets)next=ricochetTarget(shot);
             }
-            // Only a terminal impact carries its surviving target toward the wall.
-            hitEnemy(match.target,{...shot,carry:shot.carry&&!next});
+            // The first surviving impact owns the impulse; the needle continues independently.
+            hitEnemy(match.target,shot);
+            if(match.target.alive)shot.carry=false;
             if(chain){
               const payload={tier:match.target.tier,step:chain.hits,path:chain.path.map(p=>[...p])};
               presentControlEvent('ricochet',shot.x,shot.y,payload);emitCombatEvent('ricochet',shot.x,shot.y,payload);
@@ -1276,7 +1301,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       else if(shot.kind==='slash'&&shot.step===3&&shot.launch&&!e.control){
         Body.setVelocity(e.body,{x:velocity(e.body).x,y:-CONFIG.combat.launchVelocity});
         e.impulseUntilMs=state.timeMs+CONFIG.combat.launchProtectionMs;
-      }else if(shot.kind==='needle'&&shot.owner==='player'&&shot.carry)carryEnemy(e,shot);
+      }else if(shot.kind==='needle'&&shot.owner==='player'&&shot.carry)launchNeedledEnemy(e,shot);
       return true;
     }
     // Control is a single mutually exclusive authority state. Its Matter constraint
@@ -1292,66 +1317,59 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       e.control=null;e.controlCooldownUntilMs=state.timeMs+CONFIG.combat.controlCooldownMs;
       e.thinkLeftMs=0;e.windupMs=0;e.body.plugin.dropThrough=false;
       if(present){
-        e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=c.dx;e.controlReleaseDy=c.dy;
+        const dx=c.mode==='pinned'?c.normalX:c.dx,dy=c.mode==='pinned'?c.normalY:c.dy;
+        e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=dx;e.controlReleaseDy=dy;
         if(c.mode==='pinned')Body.setVelocity(e.body,{x:0,y:.5});
-        controlEvent('controlRelease',e,{dx:c.dx,dy:c.dy});
+        controlEvent('controlRelease',e,{dx,dy});
       }
     }
-    function carryEnemy(e,shot){
+    function launchNeedledEnemy(e,shot){
       if(!e.alive||e.control||state.timeMs<e.controlCooldownUntilMs)return false;
       const n=normalize(shot.vx,shot.vy),pos=e.body.position;
-      e.control={mode:'carried',ownerId:shot.ownerId,dx:n.x,dy:n.y,startedMs:state.timeMs,
-        untilMs:state.timeMs+CONFIG.combat.carryMs,originX:pos.x,originY:pos.y,wallX:0,wallSide:0};
-      e.windupMs=0;e.goalId=null;e.goalKind='none';e.body.plugin.dropThrough=true;
-      setWorldVelocity(e.body,n.x*CONFIG.combat.carrySpeed,n.y*CONFIG.combat.carrySpeed);
+      e.control={mode:'flying',ownerId:shot.ownerId,dx:n.x,dy:n.y,startedMs:state.timeMs,
+        untilMs:state.timeMs+CONFIG.combat.flightMs,originX:pos.x,originY:pos.y,anchorX:0,anchorY:0,normalX:0,normalY:0};
+      e.windupMs=0;e.goalId=null;e.goalKind='none';e.body.plugin.dropThrough=false;
+      const v=velocity(e.body);
+      setWorldVelocity(e.body,v.x*60+n.x*CONFIG.combat.needleImpulse,v.y*60+n.y*CONFIG.combat.needleImpulse);
       return true;
     }
-    function pinEnemy(e,wall){
-      const c=e.control;if(c?.mode!=='carried'||wall.label!=='wall')return;
-      const side=wall.position.x<e.body.position.x?-1:1;
-      // Only the wall toward the shot can catch it. Platforms/viewport edges cannot.
-      if(c.dx*side<=0)return;
+    function pinEnemy(e,contact){
+      const c=e.control;if(c?.mode!=='flying')return;
       c.mode='pinned';c.startedMs=state.timeMs;c.untilMs=state.timeMs+CONFIG.combat.pinMs;
-      c.wallSide=side;c.wallX=side<0?wall.bounds.max.x:wall.bounds.min.x;
+      c.normalX=contact.nx;c.normalY=contact.ny;c.anchorX=contact.x;c.anchorY=contact.y;
       Body.setVelocity(e.body,{x:0,y:0});Body.setAngularVelocity(e.body,0);
       e.controlConstraint=Constraint.create({bodyA:e.body,pointB:{...e.body.position},length:0,stiffness:1,damping:1});
       Composite.add(state.engine.world,e.controlConstraint);
-      controlEvent('wallPin',e,{dx:c.dx,dy:c.dy,wallX:c.wallX,wallSide:c.wallSide});
+      controlEvent('wallPin',e,{dx:c.normalX,dy:c.normalY,anchorX:c.anchorX,anchorY:c.anchorY});
     }
     function reboundEnemy(e,shot){
       const old=e.control;if(old?.mode!=='pinned')return false;
-      const dx=-old.wallSide,origin={...e.body.position};
+      const dx=-old.normalX,dy=-old.normalY,origin={...e.body.position};
       releaseEnemyControl(e);
-      e.control={mode:'rebound',ownerId:shot.ownerId,dx,dy:-.16,startedMs:state.timeMs,
+      e.control={mode:'rebound',ownerId:shot.ownerId,dx,dy,startedMs:state.timeMs,
         untilMs:state.timeMs+CONFIG.combat.reboundMs,originX:origin.x,originY:origin.y,
-        wallX:old.wallX,wallSide:old.wallSide,damage:shot.damage*CONFIG.combat.reboundDamageRate};
-      setWorldVelocity(e.body,dx*CONFIG.combat.reboundSpeed,-CONFIG.combat.reboundSpeed*.16);
+        anchorX:old.anchorX,anchorY:old.anchorY,normalX:old.normalX,normalY:old.normalY,damage:shot.damage*CONFIG.combat.reboundDamageRate};
+      setWorldVelocity(e.body,dx*CONFIG.combat.reboundSpeed,dy*CONFIG.combat.reboundSpeed);
       return true;
     }
     function updateEnemyControl(dtMs){
       for(const e of state.enemies){
         const c=e.control;if(!c)continue;
         if(state.timeMs>=c.untilMs){releaseEnemyControl(e);continue;}
-        if(c.mode==='carried'){
-          e.body.plugin.dropThrough=true;
-          const drag=1-e.body.frictionAir*dtMs/(1000/60);
-          setWorldVelocity(e.body,c.dx*CONFIG.combat.carrySpeed/drag,c.dy*CONFIG.combat.carrySpeed/drag);
-          // Cancel gravity only for the carried flight; release restores it naturally.
-          e.body.force.y-=e.body.mass*state.engine.gravity.y*state.engine.gravity.scale;
-        }else if(c.mode==='pinned')Body.setAngularVelocity(e.body,0);
+        if(c.mode==='pinned')Body.setAngularVelocity(e.body,0);
       }
     }
     function resolveControlContacts(){
-      if(!state.wallContacts.size&&!state.reboundContacts.size)return;
+      if(!state.terrainContacts.size&&!state.reboundContacts.size)return;
       const enemies=new Map(state.enemies.map(e=>[e.id,e]));
-      for(const [id,wall] of state.wallContacts){const e=enemies.get(id);if(e?.alive)pinEnemy(e,wall);}
+      for(const [id,contact] of state.terrainContacts){const e=enemies.get(id);if(e?.alive)pinEnemy(e,contact);}
       for(const key of state.reboundContacts){
         const [ia,ib]=key.split(':').map(Number),a=enemies.get(ia),b=enemies.get(ib);
         if(!a?.alive||!b?.alive)continue;
         for(const [e,target] of [[a,b],[b,a]]){
           const c=e.control;if(c?.mode!=='rebound'||!target.alive)continue;
           const shot={kind:'rebound',ownerId:c.ownerId,x:target.body.position.x,y:target.body.position.y,
-            vx:c.dx*CONFIG.combat.reboundSpeed,vy:0,damage:c.damage,impulse:6};
+            vx:c.dx*CONFIG.combat.reboundSpeed,vy:c.dy*CONFIG.combat.reboundSpeed,damage:c.damage,impulse:6};
           releaseEnemyControl(e,false);
           // The same contact must not immediately fuse away the collision damage.
           // Briefly preserve the separating impact on both bodies before ordinary AI resumes.
@@ -1362,10 +1380,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           const v=velocity(e.body);Body.setVelocity(e.body,{x:v.x*.2,y:v.y});
           // Contact consumes the rebound once, including protected split fragments.
           if(hitEnemy(target,shot))target.impulseUntilMs=protectedUntil;
-          controlEvent('reboundImpact',e,{dx:c.dx,dy:0});
+          controlEvent('reboundImpact',e,{dx:c.dx,dy:c.dy});
         }
       }
-      state.wallContacts.clear();state.reboundContacts.clear();
+      state.terrainContacts.clear();state.reboundContacts.clear();
     }
     function updateSwordEchoes(){
       if(!state.swordEchoes.length)return;
@@ -1506,8 +1524,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       {id:'blade1',branch:'검술',name:'이어베기',symbol:'⚔',cost:1,requires:[],max:1,desc:'1·2타 적중 시 짧게 전진 · 약한 밀침으로 연격 유지'},
       {id:'bladeLaunch',branch:'검술',name:'올려베기',symbol:'⤴',cost:1,requires:['blade1'],max:1,desc:'3타로 살아남은 적을 띄움 · 점프 추격은 직접 선택'},
       {id:'bladeEcho',branch:'검술',name:'풀어베기',symbol:'✧',cost:1,requires:['bladeLaunch'],max:1,desc:'3타로 분열시키면 두 조각에 0.3초 뒤 25% 잔격'},
-      {id:'needleCarry',branch:'제어',name:'밀어꿰기',symbol:'➤',cost:1,requires:[],max:1,desc:'바늘에 맞고 생존한 적을 날려 바깥 벽에 1.2초 고정'},
-      {id:'needleThread',branch:'제어',name:'튕겨꿰기',symbol:'↯',cost:1,requires:['needleCarry'],max:1,desc:'바늘이 420px 안의 서로 다른 적 최대 3체로 튕김 · 마지막 생존자만 벽 운반'},
+      {id:'needleCarry',branch:'제어',name:'밀어꿰기',symbol:'➤',cost:1,requires:[],max:1,desc:'첫 생존 적에게 피격 방향 임펄스 · 빠른 지형 충돌 시 1.2초 고정'},
+      {id:'needleThread',branch:'제어',name:'튕겨꿰기',symbol:'↯',cost:1,requires:['needleCarry'],max:1,desc:'바늘이 420px 안의 서로 다른 적 최대 3체로 튕김 · 첫 생존 적의 날아감과 독립된 연쇄'},
       {id:'needleRebound',branch:'제어',name:'회수절단',symbol:'⋙',cost:1,requires:['needleThread'],max:1,desc:'고정된 적이 3타에 생존하면 튕김 · 첫 적에 50% 충돌 피해'},
       {id:'dashCapacity',branch:'기동',name:'발걸음 예비',symbol:'▰',cost:1,requires:[],max:3,desc:'최대 대시 +1'},
       {id:'dashRecharge',branch:'기동',name:'빠른 숨고르기',symbol:'◉',cost:1,requires:[],max:5,desc:'대시 충전 간격 −12%'},
@@ -1689,7 +1707,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           p(a.lastShotDir.x),p(a.lastShotDir.y),a.techRevision,a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs)]),
         enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),p(e.body.angle),p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
           e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
-            p(e.control.originX),p(e.control.originY),p(e.control.wallX),e.control.wallSide]:null,
+            p(e.control.originX),p(e.control.originY),p(e.control.anchorX),p(e.control.anchorY),e.control.normalX,e.control.normalY]:null,
           p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy)]),
         shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,sh.x,sh.y,sh.vx,sh.vy,sh.damage,sh.radius,sh.kind,sh.remainingMs,sh.impulse??0,!!sh.carry,[...(sh.hitIds||[])],sh.ricochet?{...sh.ricochet,path:sh.ricochet.path.map(a=>[...a])}:null]),
         holes:state.spawnHoles.map(h=>[h.id,h.sealed?1:0,p(h.openProgress),h.spawned?1:0]),
@@ -1706,7 +1724,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport)return;
-      sendPacket(transport,{t:'welcome',version:'0.11.0',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.12.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1781,7 +1799,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         if(!Array.isArray(data)||data.length!==15||!Number.isFinite(data[2])||!Number.isFinite(data[3]))continue;
         const [id,tier,x,y,angle,hp,maxHp,flash,credit,control,cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy]=data;
         if(![cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy].every(Number.isFinite))continue;
-        if(control!==null&&(!Array.isArray(control)||control.length!==10||!['carried','pinned','rebound'].includes(control[0])||
+        if(control!==null&&(!Array.isArray(control)||control.length!==12||!['flying','pinned','rebound'].includes(control[0])||
           typeof control[1]!=='string'||control[1].length>128||!control.slice(2).every(Number.isFinite)))continue;
         if(!Number.isSafeInteger(id)||!Number.isInteger(tier)||tier<1||tier>10||!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0||hp<0||hp>maxHp||!Number.isFinite(angle)||!Number.isFinite(flash))continue;
         let enemy=oldEnemies.get(id);
@@ -1789,7 +1807,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         if(!enemy){enemy=createEnemy(tier,x,y,{killCredit:!!credit});enemy.id=id;enemy.body.plugin.enemyId=id;}
         Body.setPosition(enemy.body,{x,y});Body.setAngle(enemy.body,angle);enemy.hp=hp;enemy.maxHp=maxHp;enemy.hitFlashUntil=flash;
         enemy.control=control?{mode:control[0],ownerId:control[1],dx:control[2],dy:control[3],startedMs:control[4],untilMs:control[5],
-          originX:control[6],originY:control[7],wallX:control[8],wallSide:control[9]}:null;
+          originX:control[6],originY:control[7],anchorX:control[8],anchorY:control[9],normalX:control[10],normalY:control[11]}:null;
         enemy.controlCooldownUntilMs=cooldown;enemy.impulseUntilMs=impulseUntil;
         enemy.controlReleaseUntilMs=releaseUntil;enemy.controlReleaseDx=releaseDx;enemy.controlReleaseDy=releaseDy;
         mobIds.add(id);
@@ -1868,7 +1886,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.11.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.12.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -1948,7 +1966,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0110',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0120',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2269,7 +2287,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       updateEnemyAI(dtMs);
       updateShots(dtMs);
       updateSwordEchoes();updateEnemyControl(dtMs);
-      state.contactKeys.clear();state.wallContacts.clear();state.reboundContacts.clear();
+      state.contactKeys.clear();state.terrainContacts.clear();state.reboundContacts.clear();
       Engine.update(state.engine,dtMs);
       if(settlePlayerDeaths())return;
       updateContactState();
@@ -2637,8 +2655,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
             renderer.line(px,py,nx,ny,strand?1.1:2,[1,.91,.67,(1-q*.79)*(strand?.35:.75)]);px=nx;py=ny;
           }
         }
-        if(pinned&&Number.isFinite(c.wallX)){
-          const anchorX=c.wallX,anchorY=p.y+dy*r*.3;
+        if(pinned){
+          const {anchorX,anchorY}=c;
           renderer.line(ex,ey,anchorX,anchorY,1.8,[1,.94,.72,.88]);
           for(const side of [-1,1])renderer.line(anchorX-5,anchorY+side*7,anchorX+5,anchorY+side*2,1.8,[1,.92,.72,.78]);
         }
@@ -2670,10 +2688,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const age=control?Math.max(0,state.timeMs-control.startedMs):0;
       // A damped spring squashes only pixels. Keep the near-wall silhouette touching its anchor.
       const squash=pinned?.09+.26*Math.exp(-age/235)*Math.cos(age*.026):0;
-      const stretch=control?.mode==='carried'?.06*Math.exp(-age/300):0;
-      const sx=1-squash+stretch,sy=1+squash*.48-stretch*.35;
-      const visualX=pos.x+(pinned?(control.wallSide||Math.sign(control.dx)||1)*r*squash:0);
-      drawYarnBall(visualX,pos.y,r,tier,pose.angle,hit,false,e.visualSeed,
+      const stretch=control?.mode==='flying'?.06*Math.exp(-age/300):0;
+      const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
+      const sx=1-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch,sy=1-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
+      const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash;
+      drawYarnBall(visualX,visualY,r,tier,pose.angle,hit,false,e.visualSeed,
         e.hp<=e.maxHp*.5?'panic':e.goalKind==='attack'?'angry':'normal',sx,sy);
       drawEnemyControl(e,pose,true);
       if(tier>=2 || e.hp<e.maxHp){
