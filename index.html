@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>BLOOM · YARNFALL 0.8.3 — 실타래 진화 액션</title>
+<title>털실 대소동 / Yarn Mayhem 0.9.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -67,7 +67,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .modal-card{position:relative;width:min(560px,calc(100vw - 26px));max-height:calc(100dvh - 35px);overflow:auto;background:linear-gradient(150deg,#1f4247f9,#17333cf9);border:1px solid #94bfad78;border-radius:25px;box-shadow:0 24px 90px #051c2db5,inset 0 1px #d2fff122;padding:clamp(22px,4.5vw,40px);text-align:center}
 .modal-card::before{content:"";position:absolute;inset:8px;border:2px dashed #a9dbc02e;border-radius:19px;pointer-events:none}
 .brand{font-size:11px;letter-spacing:.36em;font-weight:800;color:#8ccec0;margin-bottom:6px}
-h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.035em;font-weight:900;line-height:1;margin:4px 0 6px;color:#f8e8bd;text-shadow:0 5px #102d3577}
+h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035em;font-weight:900;line-height:1;margin:4px 0 6px;color:#f8e8bd;text-shadow:0 5px #102d3577}
 .hangul{font-size:12px;color:#cfeee1;font-weight:700;letter-spacing:.22em;margin:8px 0 14px}
 .modal-sub{color:#bcd8d1;font-size:14px;line-height:1.9;max-width:430px;margin:14px auto 18px;word-break:keep-all}
 .hero-yarns{position:relative;height:114px;margin:12px auto 8px;max-width:360px;display:flex;justify-content:center;align-items:center;gap:2px}
@@ -91,7 +91,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
 #loading[hidden]{display:none}#error{white-space:pre-wrap;line-height:1.8;color:#ffc4b2;max-width:480px}
 @media(max-width:740px),(pointer:coarse){.version-label{right:10px;bottom:calc(155px + env(safe-area-inset-bottom,0px));font-size:9px}#mobile{display:flex}#hint{display:none}#radar{width:95px;height:58px}#hud{padding:calc(12px + env(safe-area-inset-top,0px)) 10px 0;gap:5px}.status-strip{min-width:151px;padding:7px 9px}.mini-caption{font-size:9px}.hud-left{gap:5px}.stage-pill,.level-pill{font-size:10px;padding:6px 9px}.bar-row{font-size:9px;gap:5px}.bar{height:7px}#hpNumber{font-size:9px}#dashHud{top:calc(115px + env(safe-area-inset-top,0px));padding:5px 10px}.dash-label{font-size:9px}.dash-orb{width:17px;height:9px}.icon-button{width:32px;height:32px}#stageToast{top:28%}}
 @media(max-width:390px){#mobile{padding:0 12px}#stick{width:116px;height:116px}#fireButton{width:102px;height:102px}.modal-card{padding:22px 16px}#radar{display:none}#dashHud{top:calc(112px + env(safe-area-inset-top,0px))}}
-@media (max-height:570px){#modal{padding:8px}.modal-card{padding:17px;max-height:calc(100dvh - 14px)}.hero-yarns{height:72px}.hero-yarn.y1{width:42px;height:42px}.hero-yarn.y2{width:52px;height:52px}.hero-yarn.y3{width:65px;height:65px}h1{font-size:52px}.modal-sub{margin:8px auto}.controls-note{margin:13px 0 0;padding-top:10px}#mobile{bottom:10px}#stick{width:100px;height:100px}#fireButton{width:92px;height:92px}#dashHud{top:11px;left:57%}}
+@media (max-height:570px){#modal{padding:8px}.modal-card{padding:17px;max-height:calc(100dvh - 14px)}.hero-yarns{height:72px}.hero-yarn.y1{width:42px;height:42px}.hero-yarn.y2{width:52px;height:52px}.hero-yarn.y3{width:65px;height:65px}h1{font-size:42px}.modal-sub{margin:8px auto}.controls-note{margin:13px 0 0;padding-top:10px}#mobile{bottom:10px}#stick{width:100px;height:100px}#fireButton{width:92px;height:92px}#dashHud{top:11px;left:57%}}
 
 #techOpen{pointer-events:auto;border-radius:12px;background:#194f4dbd;border:1px solid #b9dfb97d;font-size:12px;font-weight:800;min-width:68px;height:38px;color:#dcf6cf}
 #techOpen.ready{box-shadow:0 0 0 2px #eed89083,0 0 19px #f9da8266}
@@ -116,7 +116,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
 </head>
 <body>
 <div id="app" class="theme-1">
-  <canvas id="gl" tabindex="0" aria-label="YARNFALL 게임 화면"></canvas>
+  <canvas id="gl" tabindex="0" aria-label="털실 대소동 게임 화면"></canvas>
   <div class="orn"></div>
   <div id="hud" hidden>
     <div class="hud-left">
@@ -134,7 +134,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.8.3 · UNIFIED RUNTIME</div>
+  <div id="toastLayer"></div><div class="version-label">v0.9.0</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -143,9 +143,9 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
   <div id="modal"><div class="modal-card" id="modalCard">
     <div class="brand">BLOOM · PHYSICS ACTION</div>
     <div class="hero-yarns" aria-hidden="true"><div class="hero-yarn y1">˙ᴗ˙</div><div class="hero-yarn y2">•ᴗ•</div><div class="hero-yarn y3">◕ᴗ◕</div></div>
-    <h1>YARNFALL</h1><div class="hangul">실타래 진화 소동</div>
+    <h1>Yarn Mayhem</h1><div class="hangul">털실 대소동</div>
     <p class="modal-sub" id="modalText">맵 곳곳의 실구멍에서 적이 끊임없이 솟아납니다.<br>적을 처치하면 구멍이 하나씩 봉쇄되고, 마지막 구멍이 막혀도 남은 적을 모두 처치해야 스테이지가 끝납니다.<br>같은 티어는 접촉 즉시 합쳐지고 2티어 이상은 죽으면 둘로 분열합니다.</p>
-    
+
      <div id="roomControls" data-gamekit-ui><input id="roomCode" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4자리 방 코드 (자동 생성)"><button id="hostRoom">1~4인 방 만들기</button><button id="joinRoom">방 참가</button><div id="roomStatus">혼자 플레이하거나 방 코드를 공유해 최대 4명까지 함께하세요.</div></div>
     <div id="kpi" class="kpi" hidden></div>
     <button class="primary" id="mainButton">게임 시작 →</button>
@@ -159,15 +159,16 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@6d9125a58bf63e4b7b0f68a6882c30e9858172bc/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@63c62dae8d339f6f0329c0940206806f69509630/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const [{ Renderer2D }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer }, { createNostrDynamicRoom }] = await Promise.all([
+    const [{ Renderer2D }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer }, { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
       import(GAMEKIT_DIST + 'input.js'),
       import(GAMEKIT_DIST + 'simloop.js'),
       import(GAMEKIT_DIST + 'audio.js'),
       import(GAMEKIT_DIST + 'transport.js'),
+      import(GAMEKIT_DIST + 'interpolation.js'),
     ]);
     const Matter = globalThis.Matter;
     const { Engine, Bodies, Body, Composite, Events } = Matter;
@@ -251,12 +252,12 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     let muted = false;
     const state = {
       phase:'MENU', tick:0, timeMs:0, stage:1, theme:1, kills:0, defeats:0, merges:0, splits:0,
-      xp:0, level:1, xpGoal:10, pendingLevels:0, score:0, shotsFired:0,
+      xp:0, level:1, xpGoal:10, score:0, shotsFired:0,
       stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
       particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
       surfaces:[], platforms:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
       nextEnemyId:1, nextShotId:1, contactKeys:new Set(),
-      stageHintUntil:0, toastUntil:0, lastDashAt:-1e5,
+      toastUntil:0,
       camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
     };
     const newStats=()=>({
@@ -276,15 +277,13 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     function velocity(body) { return Body.getVelocity(body); }
     function worldVelocity(body) { const v=velocity(body);return {x:v.x*60,y:v.y*60}; }
     function setWorldVelocity(body,vx,vy) { Body.setVelocity(body,{x:vx/60,y:vy/60}); }
-    const pools = {surfaces:[],bodies:[]};
-    let inputAdapter = null, loop = null, disposed=false, lastFrame=0, rafFrames=0, fps=60, lastHudFrame=-1;
+    let inputAdapter = null, loop = null, disposed=false, lastFrame=0, fps=60, lastHudFrame=-1;
     let mobilePad = {pointerId:null,x:0,y:0};
     let mobileDash = {pointerId:null,pressed:false};
     let mobileJump = {pointerId:null,held:false,pressed:false};
     let mobileAttack = {pointerId:null,down:false,pendingTap:false,axis:null,originX:0,originY:0};
     let pointerAim = {x:0,y:0,seen:false,source:'mouse'};
     let cameraSize = {w:0,h:0,dpr:1};
-    let fireLeftMs = 0;
     // Authoritative host simulation; guest consumes compact state frames.
     const wire = new TextEncoder(), unwire = new TextDecoder();
     const net={role:'solo',room:null,abort:null,code:null,connection:'offline',
@@ -297,11 +296,10 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     // the players in the world. In solo the roster is a single 'solo' actor.
     const sessionRoster=()=>net.room?.players??[localId()];
     const idOfBody=body=>{for(const actor of state.players.values())if(actor.body===body)return actor;return null;};
-    let cameraTarget=null;
 
     let hintTimeout=0;
     const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
-    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'6d9125a58bf63e4b7b0f68a6882c30e9858172bc',matterVersion:Matter.version||'0.20.0'};
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'63c62dae8d339f6f0329c0940206806f69509630',matterVersion:Matter.version||'0.20.0'};
     // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
     // The collision normal prevents catching the platform's corner as a side wall.
     const nativeDetectorCollisions = Matter.Detector.collisions;
@@ -595,10 +593,10 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       Body.setInertia(body,Infinity);
       Composite.add(state.engine.world,body);
       body.plugin.dropThrough=false;body.plugin.footOffset=17;body.plugin.halfWidth=15;
-      return {id,body,stats:actorStats,techPoints:Math.max(0,state.level-1),upgrades:Object.create(null),hp:actorStats.maxHp,maxHp:actorStats.maxHp,dashCharges:actorStats.dashMax,
-        rechargeLeftMs:0,dashUntilMs:0,hitInvulnerableUntil:0,face:1,contactUntilMs:0,
+      return {id,body,stats:actorStats,techPoints:Math.max(0,state.level-1),upgrades:Object.create(null),hp:actorStats.maxHp,maxHp:actorStats.maxHp,dash:{charges:actorStats.dashMax,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},
+        hitInvulnerableUntil:0,face:1,contactUntilMs:0,
         coyoteLeftMs:0,jumpBufferLeftMs:0,jumpCutPending:false,
-        lastShotDir:{x:1,y:0},techRevision:0,deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,attackHeldSinceMs:null,needleNextMs:0,slashes:[],lastDashAt:-1e5,
+        lastShotDir:{x:1,y:0},techRevision:0,deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,attackHeldSinceMs:null,needleNextMs:0,slashes:[],
       };
     }
     function createEnemy(tier,x,y,extra={}) {
@@ -658,18 +656,18 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       state.camera.y=state.player.body.position.y-40;state.camera.shake=0;
       state.stageKills=0;state.stageKillGoal=stageKillTarget(stage);state.stageMerges=0;state.stageSplits=0;
       state.nextSpawnAtMs=state.timeMs+CONFIG.enemy.spawn.firstMs;
-      state.contactKeys.clear();state.shots=[];fireLeftMs=0;
+      state.contactKeys.clear();state.shots=[];
       mobileDash.pressed=false;mobileDash.pointerId=null;
       mobilePad.x=0;mobilePad.y=0;mobilePad.pointerId=null;
       mobileJump.pressed=false;mobileJump.held=false;
       mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;
-      state.lastDashAt=-1e5;
+
       actions.releaseAll();actions.consume();
       Events.on(state.engine,'collisionStart',onMatterContact);
       Events.on(state.engine,'collisionActive',onMatterContact);
       // Spawns continue forever until the final kill milestone seals the last portal.
       if(!preview){
-        state.stageHintUntil=state.timeMs+1350;
+
         stageToast('STAGE '+String(stage).padStart(2,'0'),state.mapStyle+' · '+state.totalPortals+'개 구멍 봉쇄 후 잔당 소탕',1400);
       }
       updateHUD(true);
@@ -1244,7 +1242,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       p.body.plugin.dropThrough=false;
       p.hp=Math.max(1,Math.ceil(p.maxHp*CONFIG.player.respawnHpRate));
       p.spectating=false;p.deathApplied=false;p.deathUntilMs=0;
-      p.dashCharges=p.stats.dashMax;p.rechargeLeftMs=0;p.dashUntilMs=0;
+      p.dash.charges=p.stats.dashMax;p.dash.rechargeLeftMs=0;p.dash.untilMs=0;
       p.jumpBufferLeftMs=0;p.coyoteLeftMs=0;p.attackHeldSinceMs=null;
       p.hitInvulnerableUntil=state.timeMs+CONFIG.player.respawnProtectionMs;
       emitCombatEvent('playerRevive',spawnX,spawnY,{playerId:p.id});
@@ -1296,7 +1294,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       st.maxHp+=n('hp')*25;
       p.maxHp=st.maxHp;
       if(oldMax!==st.maxHp)p.hp=clamp(p.hp+(st.maxHp-oldMax),0,p.maxHp);
-      if(oldDashMax!==st.dashMax)p.dashCharges=clamp(p.dashCharges+st.dashMax-oldDashMax,0,st.dashMax);
+      if(oldDashMax!==st.dashMax)p.dash.charges=clamp(p.dash.charges+st.dashMax-oldDashMax,0,st.dashMax);
     }
     function buyTech(player,id){
       const node=TECH_INDEX.get(id);if(!node||!player||!player.upgrades)return false;
@@ -1392,8 +1390,8 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         merges:state.merges,splits:state.splits,score:state.score,xp:state.xp,level:state.level,xpGoal:state.xpGoal,
         sealedPortals:state.sealedPortals,
         players:[...state.players.values()].map(a=>[a.id,p(a.body.position.x),p(a.body.position.y),p(a.body.velocity.x),p(a.body.velocity.y),
-          p(a.hp),p(a.maxHp),a.face,a.dashCharges,p(a.rechargeLeftMs),a.comboStep,p(a.swingUntilMs),a.techPoints,a.upgrades,
-          p(a.lastShotDir.x),p(a.lastShotDir.y),a.techRevision,a.hitInvulnerableUntil,a.dashUntilMs,p(a.deathUntilMs)]),
+          p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.comboStep,p(a.swingUntilMs),a.techPoints,a.upgrades,
+          p(a.lastShotDir.x),p(a.lastShotDir.y),a.techRevision,a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs)]),
         enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),p(e.body.angle),p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0]),
         shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,p(sh.x),p(sh.y),p(sh.vx),p(sh.vy),p(sh.damage),p(sh.radius),sh.kind,p(sh.remainingMs)]),
         holes:state.spawnHoles.map(h=>[h.id,h.sealed?1:0,p(h.openProgress),h.spawned?1:0]),
@@ -1410,7 +1408,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport)return;
-      sendPacket(transport,{t:'welcome',version:'0.8.3',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.9.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1464,10 +1462,10 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         const actor=addRemotePlayer(id);alive.add(id);
         Body.setPosition(actor.body,{x:clamp(x,-100,CONFIG.world.width+100),y:clamp(y,-100,CONFIG.world.height+200)});
         Body.setVelocity(actor.body,{x:clamp(vx,-50,50),y:clamp(vy,-50,50)});
-        actor.face=face<0?-1:1;actor.dashCharges=charges;actor.rechargeLeftMs=recharge;
+        actor.face=face<0?-1:1;actor.dash.charges=charges;actor.dash.rechargeLeftMs=recharge;
         actor.comboStep=combo;actor.swingUntilMs=swing;actor.techPoints=points;
         actor.lastShotDir=normalize(ax,ay);
-        actor.hitInvulnerableUntil=hurtUntil;actor.dashUntilMs=dashUntil;
+        actor.hitInvulnerableUntil=hurtUntil;actor.dash.untilMs=dashUntil;
         if(actor.techRevision!==revision){
           actor.upgrades=upgrades&&typeof upgrades==='object'&&!Array.isArray(upgrades)?upgrades:Object.create(null);
           actor.techRevision=revision;
@@ -1528,6 +1526,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
           canvas.focus({preventScroll:true});
         }
       }
+      capturePresentation();
       updateHUD(true);updateDeathNotice();
     }
     function handleRoomMessage(peerId,payload){
@@ -1562,7 +1561,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.8.3'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.9.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -1642,7 +1641,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarnfall-v083',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v090',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -1730,17 +1729,17 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     }
     function processDashRecharge(dtMs,p=state.player) {
       const stats=p.stats;
-      if(p.dashCharges>=stats.dashMax){p.rechargeLeftMs=0;return;}
-      p.rechargeLeftMs-=dtMs;
-      while(p.rechargeLeftMs<=0 && p.dashCharges<stats.dashMax){
-        p.dashCharges++;
-        if(p.dashCharges<stats.dashMax)p.rechargeLeftMs+=stats.dashRechargeMs;
-        else p.rechargeLeftMs=0;
+      if(p.dash.charges>=stats.dashMax){p.dash.rechargeLeftMs=0;return;}
+      p.dash.rechargeLeftMs-=dtMs;
+      while(p.dash.rechargeLeftMs<=0 && p.dash.charges<stats.dashMax){
+        p.dash.charges++;
+        if(p.dash.charges<stats.dashMax)p.dash.rechargeLeftMs+=stats.dashRechargeMs;
+        else p.dash.rechargeLeftMs=0;
       }
     }
     function dash(directionX,p=state.player) {
       const stats=p.stats,now=state.timeMs;
-      if(!p.dashCharges||now-p.lastDashAt<125||Math.abs(directionX)<.20)return false;
+      if(!p.dash.charges||now-p.dash.lastAt<125||Math.abs(directionX)<.20)return false;
       const n=Math.sign(directionX),v=velocity(p.body);
       const contact=state.contacts.get(p.body.id);
       if(n<0&&(contact?.wallLeft||p.body.position.x-halfWidth(p.body)<CONFIG.player.wallDeadzone))return false;
@@ -1749,11 +1748,11 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       const startSpeed=Math.min(22,stats.dashSpeed/60+forward*.19);
       // Dash has no Y boost, and never overrides gravity or jump velocity.
       Body.setVelocity(p.body,{x:n*startSpeed,y:v.y});
-      p.dashCharges--;
-      if(p.dashCharges===stats.dashMax-1)p.rechargeLeftMs=stats.dashRechargeMs;
-      p.dashUntilMs=now+CONFIG.player.dashHoldMs;
+      p.dash.charges--;
+      if(p.dash.charges===stats.dashMax-1)p.dash.rechargeLeftMs=stats.dashRechargeMs;
+      p.dash.untilMs=now+CONFIG.player.dashHoldMs;
       p.face=n;
-      p.lastDashAt=now;
+      p.dash.lastAt=now;
       state.camera.shake=Math.max(state.camera.shake,2.2);
       spawnBurst(p.body.position.x,p.body.position.y,8,115,PALETTE.player);
       ring(p.body.position.x,p.body.position.y,44,270,PALETTE.player);
@@ -1782,7 +1781,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       }
       if(controls.active)p.face=Math.sign(controls.x);
       if(controls.dashPressed)dash(controls.active?controls.x:p.face,p);
-      if(state.timeMs>=p.dashUntilMs){
+      if(state.timeMs>=p.dash.untilMs){
         // Motor only controls X; gravity, jump, impact and vertical solver own Y.
         // Wall contact clips only the component INTO the wall, not tangential movement.
         const old=worldVelocity(b),target=controls.active?controls.x*stats.moveSpeed:0;
@@ -1906,6 +1905,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
     function resume() {
       $('modal').hidden=true;
       state.phase='PLAYING';
+      capturePresentation();
       loop?.resetTiming?.();
       canvas.focus({preventScroll:true});
     }
@@ -1962,15 +1962,34 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       if(state.toastUntil && state.timeMs>state.toastUntil){$('stageToast').classList.remove('show');state.toastUntil=0;}
       if(state.tick%5===0)updateHUD();
     }
-    function updateSimulation(dtMs){
+    function updateSimulation(dtMs,inputs=readWorldInputs()){
       if(disposed)return;
-      const inputs=readWorldInputs();
       if(inputs===null)return;
       const beforePhase=state.phase;
       stepWorld(dtMs,inputs);
+      capturePresentation();
       // Network output is a consequence of the single authoritative step.
       // Broadcast terminal transitions immediately instead of waiting for a tick.
       if(state.phase!==beforePhase||state.tick%2===0)broadcastFrame();
+    }
+    class BodyPose extends RenderObject {
+      static renderSchema = {'position.x':this.POSITION_X,'position.y':this.POSITION_Y,angle:this.ANGLE};
+    }
+    class ShotPose extends RenderObject {
+      static renderSchema = {x:this.POSITION_X,y:this.POSITION_Y};
+    }
+    const presentation={runtime:new PresentationRuntime({stepMs:CONFIG.tickMs,snapDistance:180}),
+      revision:0,sequence:0,worldKey:null,frame:null};
+    function capturePresentation(){
+      const key=state.runId+':'+state.stage+':'+net.role;
+      const reset=key!==presentation.worldKey;
+      if(reset){presentation.worldKey=key;presentation.revision++;}
+      const entities=[];
+      for(const p of state.players.values())entities.push({id:'p:'+p.id,generation:p.hp>0?1:0,source:p.body,type:BodyPose});
+      for(const e of state.enemies)entities.push({id:'e:'+e.id,generation:e.tier,source:e.body,type:BodyPose});
+      for(const shot of state.shots)entities.push({id:'s:'+shot.id,generation:0,source:shot,type:ShotPose});
+      presentation.runtime.capture({revision:presentation.revision,sequence:++presentation.sequence,
+        timeMs:state.timeMs,mode:reset?'reset':'continuous',entities},performance.now());
     }
     // === Code-only yarn visual language, shared by tiers and the player. ===
     function rgbScale(color,k,a=color[3]??1){return [color[0]*k,color[1]*k,color[2]*k,a];}
@@ -2256,10 +2275,10 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         }
       }
     }
-    function drawEntity(e) {
-      const pos=e.body.position,tier=e.tier,r=e.body.circleRadius;
+    function drawEntity(e,pose) {
+      const pos=pose.position,tier=e.tier,r=e.body.circleRadius;
       if(!worldVisible(pos.x,pos.y,r))return;
-      const floor=shadowUnder(e.body,r);
+      const floor=shadowUnder(pose,r);
       const height=Math.max(0,floor-(pos.y+r));
       const scale=clamp(1-height/430,.22,1);
       renderer.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
@@ -2268,7 +2287,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         const t=1-(e.popUntilMs-state.timeMs)/380;
         renderer.ellipse(pos.x,pos.y+r*.8,r*(1-t*.45),r*.19,[1,.88,.65,(1-t)*.32],12);
       }
-      drawYarnBall(pos.x,pos.y,r,tier,e.body.angle,hit,false,e.visualSeed,
+      drawYarnBall(pos.x,pos.y,r,tier,pose.angle,hit,false,e.visualSeed,
         e.hp<=e.maxHp*.5?'panic':e.goalKind==='attack'?'angry':'normal');
       if(tier>=2 || e.hp<e.maxHp){
         const width=r*1.6,y=pos.y-r-12;
@@ -2288,9 +2307,9 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
       }
     }
-    function drawPlayer(now,p=state.player) {
+    function drawPlayer(now,p,pose) {
       if(!p)return;
-      const pos=p.body.position,r=CONFIG.player.radius;
+      const pos=pose.position,r=CONFIG.player.radius;
       if(p.hp<=0){
         // Distinct "fallen" silhouette, not a normal-looking actor frozen at 0 HP.
         renderer.ellipse(pos.x,pos.y,r+3,r+3,[.59,.66,.69,.26],18);
@@ -2311,7 +2330,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         }
         return;
       }
-      const shadowY=shadowUnder(p.body,r);
+      const shadowY=shadowUnder(pose,r);
       const scale=clamp(1-(shadowY-pos.y-r)/430,.25,1);
       renderer.ellipse(pos.x,shadowY+1,r*1.1*scale,r*.27*scale,[.06,.17,.21,.29*scale],15);
       const flash=now<p.hitInvulnerableUntil&&(Math.floor(now/75)%2===0);
@@ -2327,7 +2346,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         if(fillWidth>0)renderer.rect(pos.x-20+fillWidth*.5,pos.y-r-14,fillWidth,3,labelColor);
         renderer.ellipse(pos.x,pos.y-r-22,3,3,labelColor,10);
       }
-      if(now<p.dashUntilMs) {
+      if(now<p.dash.untilMs) {
         const v=velocity(p.body),norm=normalize(v.x,v.y);
         for(let i=1;i<=3;i++){
           renderer.ellipse(pos.x-norm.x*i*15,pos.y-norm.y*i*15,r*(1-i*.16),r*(1-i*.16),[.49,.95,.78,.24-i*.047],14);
@@ -2361,7 +2380,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       // Spectate a living teammate while waiting for the host's revive.
       const observed=state.player?.hp>0?state.player:
         [...state.players.values()].find(actor=>actor.hp>0)??state.player;
-      const p=observed?.body?.position;
+      const p=observed?presentation.frame.modelFor(observed.body)?.position:null;
       if(!p)return;
       const cam=state.camera;
       const zoom=cameraSize.w<650?.91:1.06;
@@ -2375,10 +2394,12 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       if(!renderer.beginFrame([0,0,0,0]))return;
       drawBackdrop();
       drawSpawnHoles();
-      for(const enemy of state.enemies)drawEntity(enemy);
+      for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
       drawAbsorptions();
       drawSplitFrays();
-      for(const shot of state.shots){
+      for(const source of state.shots){
+        const pose=presentation.frame.modelFor(source);if(!pose)continue;
+        const shot={...source,...pose};
         if(!worldVisible(shot.x,shot.y,30))continue;
         const enemy=shot.owner==='enemy';
         const c=enemy?[1,.62,.65,1]:PALETTE.shot;
@@ -2389,7 +2410,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         renderer.line(shot.x-dir.x*16,shot.y-dir.y*16,shot.x-dir.x*38,shot.y-dir.y*38,2,
           enemy?[1,.54,.6,.31]:[.7,1,.88,.32]);
       }
-      for(const actor of state.players.values())drawPlayer(state.timeMs,actor);
+      for(const actor of state.players.values()){const pose=presentation.frame.modelFor(actor.body);if(pose)drawPlayer(state.timeMs,actor,pose);}
       for(const q of state.particles){
         if(!worldVisible(q.x,q.y,10))continue;
         renderer.ellipse(q.x,q.y,q.size,q.size,[q.color[0],q.color[1],q.color[2],q.color[3]*(q.ttl/q.maxTtl)],9);
@@ -2451,8 +2472,8 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       }
       for(let i=0;i<stats.dashMax;i++){
         const orb=orbRoot.children[i];
-        if(i<p.dashCharges){orb.className='dash-orb';orb.style.removeProperty('--charge');}
-        else if(i===p.dashCharges){orb.className='dash-orb partial';orb.style.setProperty('--charge',clamp((1-p.rechargeLeftMs/stats.dashRechargeMs)*100,0,100)+'%');}
+        if(i<p.dash.charges){orb.className='dash-orb';orb.style.removeProperty('--charge');}
+        else if(i===p.dash.charges){orb.className='dash-orb partial';orb.style.setProperty('--charge',clamp((1-p.dash.rechargeLeftMs/stats.dashRechargeMs)*100,0,100)+'%');}
         else{orb.className='dash-orb empty';orb.style.removeProperty('--charge');}
       }
       if(state.tick%11===0||force)drawRadar();
@@ -2464,7 +2485,8 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       const now=performance.now();
       if(now-lastFrame>0){const instantaneous=1000/(now-lastFrame);fps=fps*.92+Math.min(120,instantaneous)*.08;}
       if(net.role==='join'&&net.remoteReady){updateVfx(Math.min(50,Math.max(0,now-lastFrame)));}
-      lastFrame=now;metrics.frames++;rafFrames++;
+      lastFrame=now;metrics.frames++;
+      presentation.frame=presentation.runtime.frame(now);
       renderWorld();
       updateDeathNotice();
     }
@@ -2473,13 +2495,13 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       Object.assign(stats,newStats());
       for(const player of state.players.values()){
         Object.assign(player.stats,newStats());player.upgrades=Object.create(null);
-        player.techPoints=0;player.maxHp=player.stats.maxHp;player.hp=player.maxHp;player.dashCharges=player.stats.dashMax;
+        player.techPoints=0;player.maxHp=player.stats.maxHp;player.hp=player.maxHp;player.dash.charges=player.stats.dashMax;
       }
     }
     function startNewRun() {
-      state.runId++;state.kills=0;state.defeats=0;state.merges=0;state.splits=0;state.level=1;state.xp=0;state.xpGoal=10;state.pendingLevels=0;state.score=0;
+      state.runId++;state.kills=0;state.defeats=0;state.merges=0;state.splits=0;state.level=1;state.xp=0;state.xpGoal=10;state.score=0;
       state.shotsFired=0;state.timeMs=0;state.tick=0;state.preservedHp=CONFIG.player.maxHp;
-      state.lastDashAt=-1e5;fireLeftMs=0;
+
       pointerAim.seen=false;pointerAim.source='virtual';
       resetPlayerStats();startStage(1);broadcastFrame();
     }
@@ -2503,7 +2525,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
             pointerAim.x=e.x;pointerAim.y=e.y;pointerAim.seen=true;pointerAim.source=e.pointerType;
           }
         },
-        onRelease:()=>{mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;mobilePad.x=0;mobilePad.y=0;mobilePad.pointerId=null;mobileDash.pressed=false;mobileJump.held=false;mobileJump.pressed=false;},
+        onRelease:()=>{pointerAim.seen=false;mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;mobilePad.x=0;mobilePad.y=0;mobilePad.pointerId=null;mobileDash.pressed=false;mobileJump.held=false;mobileJump.pressed=false;},
       });
       // Virtual controls are UI elements, so they don't register in the game canvas adapter.
       const stick=$('stick'),knob=$('stickKnob');
@@ -2592,17 +2614,18 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
       document.body.addEventListener('pointerdown',()=>{audio.unlock().catch(()=>{});},{once:true});
     }
     const session={
-      inputSize:1,profile:{tickRate:30,maxCatchupSteps:3},pace:1,closed:false,resimulating:false,
+      profile:{tickRate:30,maxCatchupSteps:3},pace:1,closed:false,resimulating:false,
       poll(){},
-      advance(){updateSimulation(CONFIG.tickMs);return {status:'advanced'};},
+      advance(inputs){updateSimulation(CONFIG.tickMs,inputs);return {status:'advanced'};},
       releaseInput(){actions.releaseAll();mobilePad.x=0;mobilePad.y=0;mobileDash.pressed=false;mobileAttack.down=false;mobileAttack.pendingTap=false;mobileJump.held=false;mobileJump.pressed=false;},
     };
     bindMain();
     initRoomUI();initTechUI();
     bindInput();
     initStage(1,true);
+    capturePresentation();
     resize();
-    loop=createLoop({session,getInput:()=>new Uint8Array(1),render:renderFrame,onError:error=>{
+    loop=createLoop({session,getInput:()=>({input:readWorldInputs()}),render:renderFrame,onError:error=>{
       console.error('[YARNFALL] simloop',error);
       showFatal(error);
     }});
@@ -2624,7 +2647,7 @@ h1{font-family:Georgia,serif;font-size:clamp(54px,12vw,88px);letter-spacing:-.03
         activeSplitFrays:state.frays.length,
         uncreditedFragments:state.enemies.filter(e=>!e.killCredit).length,
         hp:state.player?.hp,death:{spectating:!!state.player?.spectating,untilMs:state.player?.deathUntilMs??0,noticeVisible:!$('deathNotice').hidden},
-        dash:state.player?.dashCharges,dashMax:stats.dashMax,projectiles:state.shots.length,
+        dash:state.player?.dash.charges,dashMax:stats.dashMax,projectiles:state.shots.length,
         grounded:state.player?isGrounded(state.player):false,standing:state.player?standingSurface(state.player)?.kind??null:null,
         oneWayPlatforms:state.oneWayByBody.size,playerDrop:!!state.player?.body.plugin.dropThrough,
         supportContactCount:[...state.contacts.values()].filter(c=>c.support).length,

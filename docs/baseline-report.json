@@ -1,0 +1,115 @@
+{
+  "checks": [
+    {
+      "name": "real boot and 30 TPS",
+      "status": "PASS",
+      "evidence": {
+        "phase": "PLAYING",
+        "tps": 30
+      }
+    },
+    {
+      "name": "keyboard movement",
+      "status": "PASS",
+      "evidence": {
+        "before": {
+          "x": 315,
+          "y": 1633.050000013
+        },
+        "after": {
+          "x": 437.5319039999998,
+          "y": 1633.050000013
+        }
+      }
+    },
+    {
+      "name": "hold attack",
+      "status": "PASS",
+      "evidence": 1
+    },
+    {
+      "name": "solo HP zero team wipe",
+      "status": "PASS"
+    },
+    {
+      "name": "restart",
+      "status": "PASS"
+    },
+    {
+      "name": "real Nostr/WebRTC admission",
+      "status": "PASS",
+      "evidence": {
+        "host": {
+          "role": "host",
+          "code": "9131",
+          "players": 2,
+          "connected": 1,
+          "remoteReady": false,
+          "runId": 1
+        },
+        "guest": {
+          "role": "join",
+          "code": "9131",
+          "players": 2,
+          "connected": 1,
+          "remoteReady": true,
+          "runId": 1
+        }
+      }
+    },
+    {
+      "name": "guest command roundtrip",
+      "status": "PASS",
+      "evidence": {
+        "before": {
+          "x": 315,
+          "y": 1586
+        },
+        "after": {
+          "x": 382.7,
+          "y": 1633.1
+        }
+      }
+    },
+    {
+      "name": "guest HP0 spectator",
+      "status": "PASS",
+      "evidence": {
+        "spectating": true,
+        "untilMs": 5533.3,
+        "noticeVisible": true
+      }
+    },
+    {
+      "name": "authoritative timed revive",
+      "status": "PASS",
+      "evidence": {
+        "hp": 100
+      }
+    },
+    {
+      "name": "multiplayer team wipe",
+      "status": "PASS"
+    },
+    {
+      "name": "no runtime exceptions",
+      "status": "PASS",
+      "evidence": []
+    }
+  ],
+  "errors": [],
+  "networkFailures": [],
+  "notTested": [
+    "4 peers",
+    "different devices/NAT",
+    "long sessions",
+    "mobile touch hardware"
+  ],
+  "mock": false,
+  "browser": "155.0.4283.45",
+  "dependencies": {
+    "matter": "0.20.0",
+    "gamekit": "6d9125a58bf63e4b7b0f68a6882c30e9858172bc"
+  },
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Ti (0x00002191) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+}
