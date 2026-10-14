@@ -1,3 +1,16 @@
+# 0.9.1 SDK patch verification
+
+2026-10-14, Linux candidate. GameKit v0.3.1 dist `72b09b260edf9650353017acb49c06873fe9f5a1`, source `baa96876876a08013ad28b5a71c83bfadd285fab`. The six imported modules were SHA-256 checked against the official distribution manifest; hashes are recorded in [gamekit-manifest.json](gamekit-manifest.json) and emitted in build.json.
+
+- PASS: `npm run build`, JavaScript module syntax, runtime/manifest distribution-pin consistency, deployment HTML generation.
+- ENVIRONMENT BLOCKED: existing `tests/scenario.cjs` with real `/usr/bin/chromium`, using a temporary runner to select that executable. Both normal and escalated attempts terminated before browser startup with `process_singleton_posix.cc: socket() failed: Operation not permitted` (SIGABRT). Neither attempt reached dependency loading or gameplay. Each finished well within 180 seconds.
+- No mocks, replacement network, alternate physics or fabricated PASS results. No GPU renderer or real Matter/Nostr/WebRTC result was obtained in this run. Full details: [current patch report](sdk-0.3.1-report.json).
+- The product display/package version is 0.9.1. The existing welcome value `0.9.0` and namespace `bloom-yarn-mayhem-v090` are retained because no game wire payload or contract changed. This preserves the intended 0.9.x room contract without adding a compatibility adapter; mixed-version live interoperability remains unverified.
+- Gameplay, 30TPS, host-authoritative ownership, presentation sampling and fixtures are unchanged. New netcode was not introduced.
+- User-approved scope update (2026-10-14): ship this compatible SDK patch using static code/build verification only; live browser checks are deferred for later user review. Historical results below describe 0.9.0 and must not be treated as a passing 0.9.1 run. Deployment byte verification is separate from gameplay validation.
+
+---
+
 # 0.9.0 migration verification
 
 Source: YARNFALL 0.8.3, SHA-256 `2f1ae7673df01d9e43803147f6d0e4f2cf6f8c3a4eba385726287ccc6f8e57bf`. Original Git bytes match; Windows checkout initially used CRLF, now `.gitattributes` fixes LF. No gameplay-rule rewrite.
