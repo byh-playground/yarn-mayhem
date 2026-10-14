@@ -1,3 +1,20 @@
+# 0.10.1 menu and stat-tree verification
+
+Base: `4ad0f36f36fe2a7a084194f035440a8ffbbd3378` (0.10.0). UI-only compatible patch; GameKit pin, combat definitions and 0.10.0 room/welcome contracts unchanged. No Actions changes.
+
+Reference review: current `bloom-reference/rules/visual-ux.html` (P1, P4, P6, P7), development and project-management rules, plus current `bloom-bounko/index.html` direct category buttons / mini paths / stable details. As-is: all rules and multiplayer forms were stacked on the title; ten disabled-or-purchasable cards mixed inspection with spending. New flow: title → start → single/multiplayer; separate help; four directly visible categories and inspectable nodes with explicit purchase.
+
+- PASS: syntax/provenance build and `git diff --check`.
+- PASS: 11 temporary actual-source UI checks using jsdom 26.1.0 and actual DOM. Title visibility, start/back without starting a run, locked inspection, return route/focus, point spending only on explicit purchase, completed nodes, all categories and independent mobility roots, prerequisite navigation, help restoration, room role controls, pause/clear/dead menus, and direct tech routes without purchasing.
+- PASS: 18 existing temporary combat diagnostics rerun with actual Matter.js 0.20.0. DOM/render/audio/transport presentation stubs; no real RTC claim. Updated temporary DOM stub for new datasets, then all 18 passed. No combat implementation edits.
+- SOURCE REVIEW: 320/390 narrow layouts, three-node rows, 44px buttons, desktop split detail, short landscape shrinkable internal regions. Two review issues corrected: close restores the originating submenu; short landscape allows internal scrolling instead of fixed minimum rows overflowing.
+- NOT RUN / ENVIRONMENT BLOCKED: actual browser screenshots/layout at 320/390/desktop, GPU gameplay, audio, live RTC and physical touch. Cloud browser rejects local `file:` navigation by protocol policy; previous game initialization failed for required WebGL, and shell Chromium has AF_UNIX restrictions. No restriction bypass or renderer fallback. Source review and jsdom are not visual verification.
+- Existing fixed browser scenario updated for the new start/multiplayer hierarchy and separate inspection/purchase. It is not reported as passing this version; its runtime environment remains blocked. Temporary diagnostics are outside the repository and are not permanent tests.
+
+Implementation and focused checks complete; actual visual/RTC validation remains outstanding. CI and deployed-byte verification are separate from gameplay validation. This does not claim Stable visual certification.
+
+---
+
 # 0.10.0 combat behavior trees
 
 2026-10-14, dot Linux. Base `78e7e96000b88b0380b79e34faa58f66708c6d7e` (0.9.2). GameKit v0.3.1 / pinned distribution unchanged. No Actions changes, renderer fallback, network simulator or legacy compatibility layer.

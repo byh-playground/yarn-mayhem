@@ -2,7 +2,7 @@
 
 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘검과 바늘 탄환으로 실구멍을 봉쇄하고, 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.10.0**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.10.1**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
@@ -13,7 +13,14 @@ Merge-and-split yarn enemies, needle-sword combat and a stat tree in a physics a
 - A/D·방향키 이동, W/Space 점프, S/↓ 유지로 발판 내려가기, Shift 대시.
 - 마우스 클릭은 검 3연격, 길게 누르면 바늘 발사. T 또는 스탯 버튼은 스탯 트리입니다. 시작·일시정지·결과 화면에서도 열 수 있습니다.
 - 모바일은 이동 패드와 점프·대시·공격 버튼을 사용합니다.
-- 시작 화면에서 방을 만들고 4자리 코드를 공유합니다. 방장이 물리와 판정을 실행하고 참가자는 입력을 보내며 확정 상태를 받습니다. 30TPS입니다.
+- 시작 → 싱글 플레이로 바로 시작하거나, 시작 → 멀티 플레이에서 방을 만들고 4자리 코드를 공유합니다. 방장이 물리와 판정을 실행하고 참가자는 입력을 보내며 확정 상태를 받습니다. 30TPS입니다.
+
+## 메뉴와 스탯 트리
+
+- 메인은 시작·스탯 트리·플레이 방법만 표시합니다. 뒤로 / Esc로 한 단계 돌아가며, 모드 선택만으로 새 게임이 시작되지 않습니다.
+- 검술·제어·기동·생존 버튼으로 계열을 바로 바꿉니다. 노드는 잠겨 있어도 선택해 효과와 선행 조건을 확인할 수 있으며, 별도의 **투자하기** 버튼으로 포인트를 사용합니다.
+- 화살표는 선행 관계, 금색 선택 테두리는 현재 조회, 문구는 잠김·포인트 부족·투자 가능·완료를 표시합니다. 트리 상단의 포인트·닫기와 상세 하단의 투자 버튼은 별도 영역입니다.
+- `#/start`, `#/multiplayer`, `#/help`, `#/tech/bladeEcho`로 메뉴/선택을 복원합니다. URL 진입은 구매나 게임 시작을 실행하지 않습니다.
 
 ## 검술 · 제어 트리
 
@@ -39,13 +46,15 @@ npm test
 
 Windows 테스트는 설치된 Edge를 사용합니다. Linux에서는 `npx playwright install --with-deps chromium` 후 실행합니다. `TEST_URL`로 공개 URL을 검증할 수 있습니다. 실행 상한은 180초이며 외부 Nostr/RTC 장애는 실패로 기록합니다. 산출물은 `test-results/`에 보관합니다.
 
+0.10.1 메뉴/트리는 실제 DOM(jsdom)에서 11개 화면·선택·투자 흐름과 18개 실제 Matter.js 전투 진단을 통과했습니다. 브라우저 화면 크기별 시각·터치·RTC 검증은 환경 차단으로 미검증입니다. 게임·통신 계약은 0.10.0과 같습니다.
+
 0.10.0은 실제 Matter.js 0.20.0으로 전투·벽 고정·해제·분열·스냅샷을 실행한 임시 Node 검사와 정적 빌드를 통과했습니다. DOM·렌더·오디오는 검사 대역이며, 실제 GPU 화면·사운드·RTC·터치 입력은 이번 버전에서 미검증입니다. 기존 브라우저의 소켓/WebGL 차단을 우회하지 않았습니다. 범위는 [검증 기록](docs/verification.md)을 확인하세요.
 
 PR CI는 문법과 배포 산출물을 검사합니다. 실제 RTC 검증은 로컬 E2E이며 CI 성공만으로 대신하지 않습니다. main 병합 뒤 Actions Pages가 동일 HTML과 [빌드 정보](https://byh-playground.github.io/yarn-mayhem/build.json)를 배포합니다.
 
 ## 출처와 변경
 
-- 원본: [ChatGPT 대화](https://chatgpt.com/c/6acdad70-5744-83ee-8cfc-ac9fcd46158c)의 `YARNFALL_0.8.3.html`.
+- 원본 파일: `YARNFALL_0.8.3.html`.
 - 원본 SHA-256: `2f1ae7673df01d9e43803147f6d0e4f2cf6f8c3a4eba385726287ccc6f8e57bf`.
 - 최초 원문: Git 커밋 `aa6bd458523378ee69bd5d4ecfa9b51f1dbaa39a`의 `source/original.html`. 현행 실행 복사본은 중복 보관하지 않습니다.
 - GameKit v0.3.1: `72b09b260edf9650353017acb49c06873fe9f5a1`. rendering, input, simloop, audio, transport, interpolation을 사용합니다.
