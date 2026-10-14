@@ -1,3 +1,16 @@
+# 0.13.1 through-body pinned needle candidate
+
+Base: `834b31055c7f481c42f734d4ddeb0c1d3aa92072` (0.13.0). Previously the wall connector was drawn behind the opaque yarn while the foreground needle ended in the rear half of the body. The body itself touched the wall, leaving no exposed front shaft. Pinned drawing also retained launch direction even when the actual impact was a floor.
+
+- Rear shaft, eye and thread are drawn before the body. The front shaft and two small puncture marks are drawn after the body; the hidden middle is never painted across the face. Both ends use one axis through the deformed visible body and the persisted actual contact point. The tip terminates at a terrain seam; no line continues beyond that face or floats with the actor.
+- The authoritative pin pose moves at most 18px away from the collision normal to expose the front shaft. Placement checks other bodies and halves the gap when an overlap would deepen; a fully blocked placement keeps the original contact pose. The single Matter constraint owns this final position, which is replicated normally. No render-only world offset, projectile spawn, damage event or new gameplay needle is added.
+- One-shot impulse, >=300px/s inward normal-speed requirement, 1.2s pin, rebound, cooldown and death cleanup are unchanged. Snapshot fields remain unchanged; pin and release presentation use the existing actor control lifecycle. Product patch 0.13.1 retains the 0.13.0 room/welcome and progression contract.
+- PASS: five temporary actual-Matter/renderer-call geometry checks: right/left/floor real contacts, exposed authoritative clearance, rear/front axis and exact tip endpoint, renderer non-mutation, snapshot positions/anchor/normal, release/death cleanup, reduced gap near an obstacle and no relocation through occupied geometry. These are geometry assertions, NOT browser/GPU visual PASS.
+- PASS: 33 existing actual-Matter combat checks plus two speed measurements; 13 progression checks; syntax/build and whitespace checks. Actual renderer primitives were additionally inspected as a temporary diagnostic illustration; this is not a gameplay screenshot.
+- PENDING: actual PC Edge visual comparison on left/right walls and floor/platform, body occlusion and tip anchoring, release, real two-peer presentation and mobile-sized viewport. Physical mobile/audio quality remain unverified. No browser restriction bypass or new permanent diagnostic artifacts.
+
+---
+
 # 0.13.0 persistent owned progression verification
 
 Base: `bf3e39133f94d11e2da4389bea6e1c06721d59b7` (0.12.0). `startNewRun()` unconditionally cleared every actor's investments and unspent points. Actor recreation also depended on a global local-stats alias and a revision cache that could skip restoring an unchanged revision onto a fresh actor.

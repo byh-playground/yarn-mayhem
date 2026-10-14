@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.13.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.13.1</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -157,7 +157,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.13.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.13.1</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -215,7 +215,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         groundAccel: 3600, groundBrake: 4200, airAccel: 1350, airBrake: 900, wallDeadzone: 6 },
       shot: { rateMs: 520, holdThresholdMs: 260, speed: 1060, radius: 3.5, power: 5, impulse: 2.2, maxLive: 55 },
       combat: { advancePx:20, advanceMs:90, comboKnockbackRate:.3, launchVelocity:7.5, launchProtectionMs:250,
-        echoDelayMs:300, echoDamageRate:.25, needleImpulse:720, flightMs:3000, pinMinSpeed:300, pinMs:1200,
+        echoDelayMs:300, echoDamageRate:.25, needleImpulse:720, flightMs:3000, pinMinSpeed:300, pinMs:1200, pinGap:18,
         ricochetRange:420, ricochetTargets:3, controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
       sword: { comboWindowMs: 570, steps: [
         {range:38,arcDegrees:92,damage:27,recoveryMs:155,knockback:3.5},
@@ -1337,6 +1337,18 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const c=e.control;if(c?.mode!=='flying')return;
       c.mode='pinned';c.startedMs=state.timeMs;c.untilMs=state.timeMs+CONFIG.combat.pinMs;
       c.normalX=contact.nx;c.normalY=contact.ny;c.anchorX=contact.x;c.anchorY=contact.y;
+      // Leave a short exposed shaft between yarn and terrain, in the authoritative pose.
+      // Never deepen an overlap with another body while moving away from the impact face.
+      const origin={...e.body.position},obstacles=Composite.allBodies(state.engine.world).filter(b=>b!==e.body&&b.id!==contact.terrainId);
+      const overlaps=new Map(Matter.Query.collides(e.body,obstacles).map(hit=>[hit.bodyA===e.body?hit.bodyB.id:hit.bodyA.id,hit.depth]));
+      let gap=CONFIG.combat.pinGap;
+      while(gap>=1){
+        Body.setPosition(e.body,{x:origin.x-contact.nx*gap,y:origin.y-contact.ny*gap});
+        const blocked=Matter.Query.collides(e.body,obstacles).some(hit=>hit.depth>(overlaps.get(hit.bodyA===e.body?hit.bodyB.id:hit.bodyA.id)||0)+.1);
+        if(!blocked)break;
+        gap*=.5;
+      }
+      if(gap<1)Body.setPosition(e.body,origin);
       Body.setVelocity(e.body,{x:0,y:0});Body.setAngularVelocity(e.body,0);
       e.controlConstraint=Constraint.create({bodyA:e.body,pointB:{...e.body.position},length:0,stiffness:1,damping:1});
       Composite.add(state.engine.world,e.controlConstraint);
@@ -2674,7 +2686,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }
     }
-    function drawEnemyControl(e,pose,foreground=false){
+    function drawEnemyControl(e,pose,bodyVisual,foreground=false){
       const p=pose.position,r=e.body.circleRadius,now=state.timeMs;
       const c=e.control&&e.control.mode!=='rebound'&&e.control.untilMs>now?e.control:null;
       if(!worldVisible(p.x,p.y,r+300))return;
@@ -2691,33 +2703,54 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
         return;
       }
-      const dx=c.dx??1,dy=c.dy??0,age=Math.max(0,now-c.startedMs);
-      const pinned=c.mode==='pinned',vibration=Math.sin(age*.065)*Math.exp(-age/600)*(pinned?3.6:1.8);
-      const ex=p.x-dx*r*.65,ey=p.y-dy*r*.65;
-      const tailX=ex-dx*(r*.5+27)-dy*vibration,tailY=ey-dy*(r*.5+27)+dx*vibration;
+      const pinned=c.mode==='pinned',age=Math.max(0,now-c.startedMs);
+      // Both exposed ends share one axis through the visible yarn and the actual contact.
+      // Interpolated actor poses may move, but the embedded point never follows the camera/body.
+      const center=bodyVisual;
+      const axis=pinned?normalize(c.anchorX-center.x,c.anchorY-center.y):{x:c.dx,y:c.dy};
+      const dx=axis.x,dy=axis.y;
+      const edge=(r+2)/Math.hypot(dx/center.sx,dy/center.sy);
+      const rear=clamp(r*.45+22,30,75),tailX=center.x-dx*(edge+rear),tailY=center.y-dy*(edge+rear);
+      const entryX=center.x-dx*edge,entryY=center.y-dy*edge;
+      const exitX=center.x+dx*edge,exitY=center.y+dy*edge;
+      const tipX=pinned?c.anchorX:center.x+dx*(edge+23),tipY=pinned?c.anchorY:center.y+dy*(edge+23);
+      const width=clamp(r*.018+2.4,2.8,5);
       if(!foreground){
         const length=pinned?clamp(r*1.6+70,105,240):clamp(r*1.4+110,140,285);
         for(let strand=0;strand<2;strand++){
-          let px=tailX,py=tailY;
+          let px=tailX-dx*10,py=tailY-dy*10;
           for(let i=1;i<=16;i++){
             const q=i/16,wave=Math.sin(q*12-age*.020+strand*1.7)*(pinned?1.7:7)*q;
-            const nx=tailX-dx*length*q-dy*(wave+strand*3),ny=tailY-dy*length*q+dx*(wave+strand*3);
+            const nx=tailX-dx*(10+length*q)-dy*(wave+strand*3),ny=tailY-dy*(10+length*q)+dx*(wave+strand*3);
             renderer.line(px,py,nx,ny,strand?1.1:2,[1,.91,.67,(1-q*.79)*(strand?.35:.75)]);px=nx;py=ny;
           }
         }
-        if(pinned){
-          const {anchorX,anchorY}=c;
-          renderer.line(ex,ey,anchorX,anchorY,1.8,[1,.94,.72,.88]);
-          for(const side of [-1,1])renderer.line(anchorX-5,anchorY+side*7,anchorX+5,anchorY+side*2,1.8,[1,.92,.72,.78]);
+        // Rear shaft and eye are behind the yarn. The body occludes the internal metal.
+        renderer.line(tailX,tailY,entryX+dx*5,entryY+dy*5,width+2,[.12,.24,.28,1]);
+        renderer.line(tailX,tailY,entryX+dx*5,entryY+dy*5,width,[.88,.97,.96,1]);
+        const eye=4+Math.sin(age*.065)*Math.exp(-age/600)*.6;
+        for(const sign of [-1,1]){
+          renderer.line(tailX,tailY,tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,2.3,PALETTE.cream);
+          renderer.line(tailX-dx*7-dy*eye*sign,tailY-dy*7+dx*eye*sign,tailX-dx*15,tailY-dy*15,2.3,PALETTE.cream);
         }
         return;
       }
-      // Shaft stays embedded for the complete control interval; the eye quivers independently.
-      renderer.line(tailX,tailY,ex+dx*13,ey+dy*13,3.5,[.21,.36,.39,.92]);
-      renderer.line(tailX,tailY,ex+dx*13,ey+dy*13,1.8,[.96,1,.94,1]);
-      renderer.line(tailX-dy*3,tailY+dx*3,tailX-dx*8,tailY-dy*8,1.6,PALETTE.gold);
-      renderer.line(tailX+dy*3,tailY-dx*3,tailX-dx*8,tailY-dy*8,1.6,PALETTE.gold);
-      renderer.ellipse(ex,ey,3,3,[1,.89,.60,.85],9);
+      // Only the exit segment is foreground; never draw a full needle over the face.
+      renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*6,tipY-dy*6,width+2,[.12,.24,.28,1]);
+      renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*6,tipY-dy*6,width,[.88,.97,.96,1]);
+      renderer.line(tipX-dx*6,tipY-dy*6,tipX,tipY,1.5,PALETTE.cream);
+      // Two small punctures connect the visible ends without exposing the buried middle.
+      for(const side of [-1,1]){
+        const x=center.x+dx*edge*side,y=center.y+dy*edge*side;
+        renderer.line(x-dy*5,y+dx*5,x+dy*5,y-dx*5,3.3,[.12,.25,.27,.95]);
+        renderer.line(x-dy*5-dx*2*side,y+dx*5-dy*2*side,x-dy*2-dx*3*side,y+dx*2-dy*3*side,1.3,PALETTE.gold);
+      }
+      if(pinned){
+        // The terrain seam covers the final millimetres: no floating tip or line beyond the face.
+        const nx=c.normalX,ny=c.normalY;
+        renderer.line(tipX-ny*7,tipY+nx*7,tipX+ny*7,tipY-nx*7,3,[.07,.16,.19,1]);
+        for(const side of [-1,1])renderer.line(tipX-ny*side*7,tipY+nx*side*7,tipX+nx*4-ny*side*10,tipY+ny*4+nx*side*10,1.4,PALETTE.gold);
+      }
     }
     function drawEntity(e,pose) {
       const pos=pose.position,tier=e.tier,r=e.body.circleRadius;
@@ -2727,7 +2760,6 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const height=Math.max(0,floor-(pos.y+r));
       const scale=clamp(1-height/430,.22,1);
       renderer.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
-      drawEnemyControl(e,pose);
       const hit=state.timeMs<e.hitFlashUntil;
       if(e.fromHole&&state.timeMs<e.popUntilMs){
         const t=1-(e.popUntilMs-state.timeMs)/380;
@@ -2736,15 +2768,17 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const control=e.control&&e.control.untilMs>state.timeMs?e.control:null;
       const pinned=control?.mode==='pinned';
       const age=control?Math.max(0,state.timeMs-control.startedMs):0;
-      // A damped spring squashes only pixels. Keep the near-wall silhouette touching its anchor.
+      // A damped spring squashes only pixels, preserving the exposed shaft gap.
       const squash=pinned?.09+.26*Math.exp(-age/235)*Math.cos(age*.026):0;
       const stretch=control?.mode==='flying'?.06*Math.exp(-age/300):0;
       const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
       const sx=1-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch,sy=1-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
       const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash;
+      const bodyVisual={x:visualX,y:visualY,sx,sy};
+      drawEnemyControl(e,pose,bodyVisual);
       drawYarnBall(visualX,visualY,r,tier,pose.angle,hit,false,e.visualSeed,
         e.hp<=e.maxHp*.5?'panic':e.goalKind==='attack'?'angry':'normal',sx,sy);
-      drawEnemyControl(e,pose,true);
+      drawEnemyControl(e,pose,bodyVisual,true);
       if(tier>=2 || e.hp<e.maxHp){
         const width=r*1.6,y=pos.y-r-12;
         renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
