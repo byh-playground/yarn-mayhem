@@ -1,3 +1,28 @@
+# 0.10.0 combat behavior trees
+
+2026-10-14, dot Linux. Base `78e7e96000b88b0380b79e34faa58f66708c6d7e` (0.9.2). GameKit v0.3.1 / pinned distribution unchanged. No Actions changes, renderer fallback, network simulator or legacy compatibility layer.
+
+- PASS: `npm run build`, module syntax/provenance, `git diff --check`.
+- PASS: 18 temporary actual-source diagnostics using real Matter.js 0.20.0, including canonical `stepWorld` (30TPS). Completed in under one second, below the 180-second ceiling. DOM, renderer, audio and transport presentation were stubbed; these tests are not a browser/game E2E or live RTC result.
+  - Swept needle hit order and once-per-target handling; independent three-target carry.
+  - Actual outer-wall collision creates one pin constraint; platforms do not pin.
+  - Carry expiry, pin expiry/gravity restoration, repeat-hit non-refresh and cooldown.
+  - Enemy death and stage reset remove constraints and pending echoes.
+  - Third-hit death schedules exactly two delayed 25% echoes after fragment grace, with no recursive echo or extra kill credit; dead enemies cannot be launched/carried/rebounded.
+  - Third-hit survivor launch resists AI overwrite; pinned survivor rebounds inward and damages the first other enemy once.
+  - Controlled same-tier bodies cannot merge; normal merging resumes after release.
+  - Host snapshot/guest reconstruction and existing event-ID deduplication, without network transport. A 160-controlled-enemy frame (14,131 bytes / four fragments) reconstructs only when all fragments arrive; reverse order and duplicates are handled. Fixed sparse-array completion in the existing fragmentation path.
+  - Same-tier rebound collision retains damage instead of instantly fusing; protected allies do not count as a successful sword hit or trigger advance.
+  - First/second sword hits advance only on contact through actual physics.
+- PASS: 200 temporary VFX geometry cases across ten tiers and carried/pinned/rebound/released states. 17,530 finite primitives, no body/entity mutation, wall flecks at wall contact X and rebound without an embedded needle. This is geometry validation, not a screenshot, GPU render or perceptual impact review.
+- NOT RUN / ENVIRONMENT BLOCKED: actual GPU gameplay, audio playback, real Nostr/WebRTC and physical touch. Existing shell-browser startup is denied at AF_UNIX socket creation; supported cloud-browser game initialization previously failed with `WebGL 1 is required; no Canvas2D fallback`. Those restrictions were not bypassed. Historical 0.9.0 browser results below do not validate this version.
+- Temporary diagnostic code/dependencies were kept outside the repository and are not added to permanent test commands. The existing fixed user-scenario browser suite remains the runtime E2E path.
+- Version 0.10.0 replaces the old numerical sword/control nodes and enemy snapshot shape. Welcome and room namespace both require the new contract; no mixed-version compatibility is claimed.
+
+Implementation and these focused checks are complete; real visual/RTC validation remains outstanding. CI build and public deployed-byte verification are separate from gameplay validation.
+
+---
+
 # 0.9.1 SDK patch verification
 
 2026-10-14, Linux candidate. GameKit v0.3.1 dist `72b09b260edf9650353017acb49c06873fe9f5a1`, source `baa96876876a08013ad28b5a71c83bfadd285fab`. The six imported modules were SHA-256 checked against the official distribution manifest; hashes are recorded in [gamekit-manifest.json](gamekit-manifest.json) and emitted in build.json.
