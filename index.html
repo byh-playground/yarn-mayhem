@@ -204,7 +204,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     const actions = new ActionState();
     const CONFIG = Object.freeze({
       tickMs: 1000 / 30,
-      world: { width: 3050, height: 1830, groundY: 1650, stepHeight: 128, platformWidth: 520, platformRows: 7 },
+      world: { width: 3050, height: 1830, groundY: 1650, stepHeight: 128, platformWidth: 520, platformRows: 7, wallReveal:40 },
       enemy: { maxTier: 10, aiRetargetMs: 270, counterAttackMs: 1350,
         split: { mergeLockMs: 1350, flightMs: 720, graceMs: 280, launchSpeed: 690, upSpeed: 510 },
         spawn: { popSpeed: 790, openMs: 320, closeMs: 520, firstMs: 760, reopenWaitMs: 110,
@@ -287,7 +287,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       xp:0, level:1, xpGoal:10, score:0, shotsFired:0,
       stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
       particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
-      surfaces:[], platforms:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
+      surfaces:[], platforms:[], collisionWalls:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
       nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[],
       toastUntil:0,
       camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
@@ -401,7 +401,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
       state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.spawnAttempts=0;state.totalPortals=0;state.sealedPortals=0;state.mapStyle=null;
       $('toastLayer').replaceChildren();
-      state.surfaces=[];state.platforms=[];state.oneWayByBody.clear();state.surfacesByBody.clear();
+      state.surfaces=[];state.platforms=[];state.collisionWalls=[];state.oneWayByBody.clear();state.surfacesByBody.clear();
       state.contacts.clear();state.navGraph.clear();state.routeCache.clear();state.groundSurface=null;state.contactKeys.clear();
     }
     // Traversable terrain: only level ground and FLAT, one-way ledges. No bowl / tall solid spawn walls.
@@ -2575,6 +2575,20 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         const x=i*53+13,y=385+Math.sin(i*7)*260;
         renderer.ellipse(x,y,2.5,2.5,[.95,.99,.79,.08],7);
       }
+      // Render the existing collision faces, not a decorative wall at a different coordinate.
+      const halfHeight=cameraSize.h/(2*state.camera.zoom)+80;
+      for(const wall of state.collisionWalls){
+        const side=wall.position.x<CONFIG.world.width/2?-1:1;
+        const face=side<0?wall.bounds.max.x:wall.bounds.min.x;
+        if(!worldVisible(face,state.camera.y,80))continue;
+        const top=Math.max(wall.bounds.min.y,state.camera.y-halfHeight),bottom=Math.min(wall.bounds.max.y,state.camera.y+halfHeight);
+        if(bottom<=top)continue;
+        renderer.rect(wall.position.x,(top+bottom)/2,wall.bounds.max.x-wall.bounds.min.x,bottom-top,mapPaint.body);
+        renderer.line(face,top,face,bottom,3,mapPaint.hem);
+        for(let y=Math.ceil(top/32)*32;y<bottom;y+=32){
+          renderer.line(face+side*7,y-5,face+side*19,y+5,1.8,mapPaint.detail);
+        }
+      }
       for(const s of state.surfaces){
         const isFloor=s.kind==='ground';
         if(!worldVisible((s.x1+s.x2)*.5,s.top,(s.x2-s.x1)*.5+80))continue;
@@ -2736,11 +2750,16 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         return;
       }
       // Only the exit segment is foreground; never draw a full needle over the face.
-      renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*6,tipY-dy*6,width+2,[.12,.24,.28,1]);
-      renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*6,tipY-dy*6,width,[.88,.97,.96,1]);
-      renderer.line(tipX-dx*6,tipY-dy*6,tipX,tipY,1.5,PALETTE.cream);
+      const exposed=Math.hypot(tipX-center.x,tipY-center.y)-edge;
+      if(exposed>1){
+        const taper=Math.min(6,exposed*.5);
+        renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*taper,tipY-dy*taper,width+2,[.12,.24,.28,1]);
+        renderer.line(exitX-dx*3,exitY-dy*3,tipX-dx*taper,tipY-dy*taper,width,[.88,.97,.96,1]);
+        renderer.line(tipX-dx*taper,tipY-dy*taper,tipX,tipY,1.5,PALETTE.cream);
+      }
       // Two small punctures connect the visible ends without exposing the buried middle.
       for(const side of [-1,1]){
+        if(side>0&&exposed<=1)continue;
         const x=center.x+dx*edge*side,y=center.y+dy*edge*side;
         renderer.line(x-dy*5,y+dx*5,x+dy*5,y-dx*5,3.3,[.12,.25,.27,.95]);
         renderer.line(x-dy*5-dx*2*side,y+dx*5-dy*2*side,x-dy*2-dx*3*side,y+dx*2-dy*3*side,1.3,PALETTE.gold);
@@ -2876,7 +2895,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const zoom=cameraSize.w<650?.91:1.06;
       cam.zoom=zoom;
       const halfW=cameraSize.w/(zoom*2),halfH=cameraSize.h/(zoom*2);
-      const targetX=clamp(p.x,halfW,CONFIG.world.width-halfW);
+      const targetX=clamp(p.x,halfW-CONFIG.world.wallReveal,CONFIG.world.width-halfW+CONFIG.world.wallReveal);
       const targetY=clamp(p.y-40,halfH,CONFIG.world.height-halfH);
       cam.x+=(targetX-cam.x)*.115;cam.y+=(targetY-cam.y)*.115;
       const shake=cam.shake;
