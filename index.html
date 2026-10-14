@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.10.1</title>
+<title>털실 대소동 / Yarn Mayhem 0.11.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -157,7 +157,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.10.1</div>
+  <div id="toastLayer"></div><div class="version-label">v0.11.0</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -172,7 +172,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     <p class="modal-sub" id="modalText">합치고 갈라지는 털실 적을 베고,<br>실구멍을 모두 봉쇄하세요.</p>
     <div id="modeChoices" class="menu-choices" hidden><button id="soloStart" class="menu-choice">싱글 플레이<small>혼자 새로운 모험 시작</small></button><button id="multiOpen" class="menu-choice">멀티 플레이<small>방 코드로 최대 4명이 함께</small></button></div>
     <div id="roomControls" hidden data-gamekit-ui><label for="roomCode" style="grid-column:1/-1;text-align:left;font-size:13px">방 코드 · 만들 때는 비워도 됩니다</label><input id="roomCode" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4자리 방 코드" autocomplete="off"><button id="hostRoom">방 만들기</button><button id="joinRoom">방 참가</button><div id="roomStatus" role="status" aria-live="polite">방을 만들거나 코드를 입력해 참가하세요.</div></div>
-    <div id="helpContent" hidden><h3>목표</h3><p>적을 처치하면 실구멍이 하나씩 막힙니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p><h3>조작</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li><li>공격: 클릭 3연격 · 길게 눌러 바늘 발사</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul><h3>성장</h3><p>검술은 전진 → 띄우기 → 분열 잔격, 제어는 벽 고정 → 관통 → 회수절단으로 이어집니다. 기동과 생존은 반복 투자할 수 있습니다. 새 모험을 시작하면 투자는 초기화됩니다.</p></div>
+    <div id="helpContent" hidden><h3>목표</h3><p>적을 처치하면 실구멍이 하나씩 막힙니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p><h3>조작</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li><li>공격: 클릭 3연격 · 길게 눌러 바늘 발사</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul><h3>성장</h3><p>검술은 전진 → 띄우기 → 분열 잔격, 제어는 벽 고정 → 3체 튕겨꿰기 → 회수절단으로 이어집니다. 기동과 생존은 반복 투자할 수 있습니다. 새 모험을 시작하면 투자는 초기화됩니다.</p></div>
     <div id="kpi" class="kpi" hidden></div>
     <button class="primary" id="mainButton">시작 →</button>
     <div class="menu-actions"><button id="techMenuOpen" type="button" aria-controls="techPanel" aria-expanded="false">스탯 트리</button><button id="helpOpen" type="button">플레이 방법</button></div>
@@ -216,7 +216,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       shot: { rateMs: 520, holdThresholdMs: 260, speed: 1060, radius: 3.5, power: 5, impulse: 2.2, maxLive: 55 },
       combat: { advancePx:20, advanceMs:90, comboKnockbackRate:.3, launchVelocity:7.5, launchProtectionMs:250,
         echoDelayMs:300, echoDamageRate:.25, carrySpeed:1200, carryMs:3000, pinMs:1200,
-        controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
+        ricochetRange:420, ricochetTargets:3, controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
       sword: { comboWindowMs: 570, steps: [
         {range:38,arcDegrees:92,damage:27,recoveryMs:155,knockback:3.5},
         {range:46,arcDegrees:108,damage:35,recoveryMs:175,knockback:4.7},
@@ -269,6 +269,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         dash: {category: 'action', layers: [{kind:'tone',hz:240,end:640,ms:110,gain:.21,type:'triangle'}, {kind:'noise',hz:520,ms:65,gain:.09}]},
         hit: {category: 'action', gapMs: 60, layers: [{kind:'tone',hz:230,end:110,ms:100,gain:.23,type:'sine'}, {kind:'noise',hz:580,ms:50,gain:.12}]},
         wallPin:{category:'action',gapMs:48,layers:[{kind:'noise',hz:1700,ms:42,gain:.20},{kind:'tone',hz:210,end:65,ms:115,gain:.29,type:'sine'},{kind:'tone',hz:940,end:510,ms:75,gain:.10,type:'triangle'}]},
+        ...Object.fromEntries([1,2,3].map(step=>['ricochet'+step,{category:'action',gapMs:0,layers:[{kind:'noise',hz:2200+step*450,ms:28,gain:.16},{kind:'tone',hz:600+step*230,end:390+step*180,ms:80,gain:.22,type:'triangle'},{kind:'tone',hz:170,end:65,ms:65,gain:.18,type:'sine'}]}])),
         merge: {category: 'action', gapMs: 70, layers: [{kind:'tone',hz:340,end:910,ms:180,gain:.23,type:'sine'}, {kind:'tone',hz:560,end:1050,ms:150,gain:.13,type:'triangle',delay:36}]},
         jump: {category:'action',gapMs:75,layers:[{kind:'tone',hz:340,end:560,ms:90,gain:.12,type:'triangle'}]},
         pop: {category:'action',gapMs:85,layers:[{kind:'tone',hz:180,end:470,ms:160,gain:.17,type:'triangle'},{kind:'noise',hz:900,ms:90,gain:.09}]},
@@ -287,14 +288,14 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
       particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
       surfaces:[], platforms:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
-      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), wallContacts:new Map(), reboundContacts:new Set(), swordEchoes:[],
+      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), wallContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[],
       toastUntil:0,
       camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
     };
     const newStats=()=>({
       attackPower:29, needlePower:CONFIG.shot.power, swordReachRate:1, swordArcBonus:0,
       swordCooldownRate:1, meleeKnockbackRate:1, fireIntervalMs:CONFIG.shot.rateMs,
-      projectileImpulse:CONFIG.shot.impulse, needlePierce:1,
+      projectileImpulse:CONFIG.shot.impulse, needleRicochet:false,
       swordAdvance:false, swordLaunch:false, swordEcho:false, needleCarry:false, needleRebound:false,
       dashMax:CONFIG.player.dashCharges, dashRechargeMs:CONFIG.player.rechargeMs,
       dashSpeed:CONFIG.player.dashSpeed, moveSpeed:CONFIG.player.moveSpeed, maxHp:CONFIG.player.maxHp,
@@ -397,7 +398,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         Composite.clear(state.engine.world,false);
         Engine.clear(state.engine);
       }
-      state.wallContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];
+      state.wallContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];state.ricochetTrails=[];
       state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
       state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.spawnAttempts=0;state.totalPortals=0;state.sealedPortals=0;state.mapStyle=null;
       $('toastLayer').replaceChildren();
@@ -767,6 +768,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         const va=velocity(a.body),vb=velocity(b.body);
         removeEnemy(a);removeEnemy(b);
         const merged=createEnemy(tier,x,y,{merged:true,killCredit:a.killCredit||b.killCredit});
+        for(const shot of state.shots){
+          if(!shot.ricochet)continue;
+          if(shot.hitIds.has('e'+a.id)||shot.hitIds.has('e'+b.id))shot.hitIds.add('e'+merged.id);
+          if(shot.ricochet.targetId===a.id||shot.ricochet.targetId===b.id)shot.ricochet.targetId=merged.id;
+        }
         Body.setVelocity(merged.body,{x:(va.x+vb.x)*.5,y:(va.y+vb.y)*.5-1.2});
         state.absorptions.push({x,y,ax,ay,bx,by,fromTier:tier-1,tier,r:RADII[tier-2],
           ageMs:0,durationMs:260,seed:(a.visualSeed+b.visualSeed)*.5});
@@ -1033,7 +1039,17 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const dir=normalize(Number.isFinite(payload.dx)?payload.dx:1,Number.isFinite(payload.dy)?payload.dy:0);
       const listener=state.player?.body?.position||state.camera;
       const attenuation=clamp(1-distance({x,y},listener)/1050,0,1);
-      if(kind==='wallPin'||kind==='reboundImpact'){
+      if(kind==='ricochet'){
+        const step=clamp(Math.round(payload.step||1),1,3);
+        ring(x,y,18+step*4,150,PALETTE.cream);
+        spawnBurst(x,y,7+step*2,125+step*25,color);
+        if(Array.isArray(payload.path)&&payload.path.length<=4&&payload.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))){
+          state.ricochetTrails.push({path:payload.path.map(p=>[...p]),ttl:230});
+          if(state.ricochetTrails.length>24)state.ricochetTrails.shift();
+        }
+        state.camera.shake=Math.max(state.camera.shake,(2+step*.7)*attenuation);
+        if(attenuation>.03)sound('ricochet'+step,.65*attenuation);
+      }else if(kind==='wallPin'||kind==='reboundImpact'){
         const pin=kind==='wallPin';
         const impactX=pin&&Number.isFinite(payload.wallX)?payload.wallX:x;
         ring(impactX,y,clamp(payload.radius||RADII[tier-1]*.85,24,110),pin?260:190,PALETTE.gold);
@@ -1068,7 +1084,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       state.shots.push({id:state.nextShotId++,owner:'player',ownerId:player.id,
         x:pos.x+aim.x*r,y:pos.y+aim.y*r,vx:aim.x*CONFIG.shot.speed,vy:aim.y*CONFIG.shot.speed,
         radius:CONFIG.shot.radius,remainingMs:1450,damage:player.stats.needlePower,
-        impulse:player.stats.projectileImpulse,carry:player.stats.needleCarry,kind:'needle',pierce:player.stats.needlePierce,hitIds:new Set()});
+        impulse:player.stats.projectileImpulse,carry:player.stats.needleCarry,kind:'needle',hitIds:new Set(),
+        ricochet:player.stats.needleRicochet?{hits:0,targetId:null,rangeLeft:CONFIG.combat.ricochetRange,path:[[pos.x+aim.x*r,pos.y+aim.y*r]]}:null});
       state.shotsFired++;
       spawnBurst(pos.x+aim.x*32,pos.y+aim.y*32,3,85,PALETTE.gold);
       ring(pos.x+aim.x*28,pos.y+aim.y*28,13,110,PALETTE.gold);
@@ -1153,38 +1170,81 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const t=(-b-Math.sqrt(disc))/(2*a);
       return t>=0&&t<=1?t:null;
     }
+    // One authoritative flight path for solo and host. References are IDs, not bodies.
+    function ricochetTarget(shot){
+      let best=null,bestDistance=Infinity;
+      const limit=Math.min(CONFIG.combat.ricochetRange,shot.ricochet.rangeLeft);
+      for(const e of state.enemies){
+        if(!e.alive||state.timeMs<e.damageGraceUntilMs||shot.hitIds.has('e'+e.id))continue;
+        const d=distance(shot,e.body.position);
+        if(d>limit)continue;
+        if(d<bestDistance||(d===bestDistance&&e.id<best.id)){best=e;bestDistance=d;}
+      }
+      return best;
+    }
+    function steerRicochet(shot){
+      const chain=shot.ricochet;
+      let target=state.enemies.find(e=>e.id===chain.targetId&&e.alive&&!shot.hitIds.has('e'+e.id)&&state.timeMs>=e.damageGraceUntilMs);
+      if(!target||distance(shot,target.body.position)>chain.rangeLeft+target.body.circleRadius)target=ricochetTarget(shot);
+      if(!target)return false;
+      chain.targetId=target.id;
+      const dir=normalize(target.body.position.x-shot.x,target.body.position.y-shot.y);
+      shot.vx=dir.x*CONFIG.shot.speed;shot.vy=dir.y*CONFIG.shot.speed;
+      return true;
+    }
     function updateShots(dtMs){
       for(let i=state.shots.length-1;i>=0;i--){
         const shot=state.shots[i];shot.remainingMs-=dtMs;
         if(shot.remainingMs<=0){state.shots.splice(i,1);continue;}
-        const start={x:shot.x,y:shot.y},end={x:start.x+shot.vx*dtMs/1000,y:start.y+shot.vy*dtMs/1000};
         if(!shot.hitIds)shot.hitIds=new Set();
-        const targets=[];
-        // A needle passes through one-way platforms (no terrain raycast). It can hit
-        // every player, including same-team allies, and hostile monsters.
-        for(const enemy of state.enemies){
-          if(!enemy.alive||state.timeMs<enemy.damageGraceUntilMs||shot.hitIds.has('e'+enemy.id)||
-            (shot.owner==='enemy'&&shot.ownerId===enemy.id))continue;
-          const t=segmentCircle(start,end,enemy.body.position,enemy.body.circleRadius+shot.radius*.6);
-          if(t!==null)targets.push({t,target:enemy,key:'e'+enemy.id});
+        let leftMs=dtMs,exhausted=false;
+        // At most three contacts; recompute the swept segment after each real bend.
+        while(leftMs>1e-6&&!exhausted){
+          const chain=shot.ricochet;
+          if(chain&&chain.targetId!==null&&!steerRicochet(shot)){exhausted=true;break;}
+          const speed=Math.hypot(shot.vx,shot.vy);
+          const travelMs=chain?.hits?Math.min(leftMs,chain.rangeLeft/Math.max(speed,1)*1000):leftMs;
+          const start={x:shot.x,y:shot.y},end={x:start.x+shot.vx*travelMs/1000,y:start.y+shot.vy*travelMs/1000};
+          const targets=[];
+          // Preserve physical friendly fire and one-way-platform pass-through.
+          for(const enemy of state.enemies){
+            if(!enemy.alive||state.timeMs<enemy.damageGraceUntilMs||shot.hitIds.has('e'+enemy.id)||
+              (shot.owner==='enemy'&&shot.ownerId===enemy.id))continue;
+            const t=segmentCircle(start,end,enemy.body.position,enemy.body.circleRadius+shot.radius*.6);
+            if(t!==null)targets.push({t,target:enemy,key:'e'+enemy.id});
+          }
+          for(const player of state.players.values()){
+            if(player.hp<=0||player.id===shot.ownerId||shot.hitIds.has('p'+player.id))continue;
+            const t=segmentCircle(start,end,player.body.position,CONFIG.player.radius+shot.radius*.6);
+            if(t!==null)targets.push({t,target:player,key:'p'+player.id});
+          }
+          targets.sort((a,b)=>a.t-b.t||(a.target.tier&&b.target.tier?a.target.id-b.target.id:a.key<b.key?-1:a.key>b.key?1:0));
+          const match=targets[0],fraction=match?.t??1;
+          shot.x=start.x+(end.x-start.x)*fraction;shot.y=start.y+(end.y-start.y)*fraction;
+          if(chain?.hits)chain.rangeLeft=Math.max(0,chain.rangeLeft-speed*travelMs*fraction/1000);
+          leftMs-=travelMs*fraction;
+          if(!match){exhausted=leftMs>1e-6||!!(chain?.hits&&chain.rangeLeft<=1e-6);break;}
+          shot.hitIds.add(match.key);
+          if(match.target.tier){
+            let next=null;
+            if(chain){
+              chain.hits++;chain.path.push([shot.x,shot.y]);chain.rangeLeft=CONFIG.combat.ricochetRange;
+              if(chain.hits<CONFIG.combat.ricochetTargets)next=ricochetTarget(shot);
+            }
+            // Only a terminal impact carries its surviving target toward the wall.
+            hitEnemy(match.target,{...shot,carry:shot.carry&&!next});
+            if(chain){
+              const payload={tier:match.target.tier,step:chain.hits,path:chain.path.map(p=>[...p])};
+              presentControlEvent('ricochet',shot.x,shot.y,payload);emitCombatEvent('ricochet',shot.x,shot.y,payload);
+              chain.targetId=next?.id??null;
+            }
+            exhausted=!next;
+          }else{
+            hitActor(match.target,{damage:shot.damage,x:shot.x,y:shot.y},state.players.get(shot.ownerId));
+            exhausted=true;
+          }
         }
-        for(const player of state.players.values()){
-          if(player.hp<=0||player.id===shot.ownerId||shot.hitIds.has('p'+player.id))continue;
-          const t=segmentCircle(start,end,player.body.position,CONFIG.player.radius+shot.radius*.6);
-          if(t!==null)targets.push({t,target:player,key:'p'+player.id});
-        }
-        targets.sort((a,b)=>a.t-b.t);
-        let exhausted=false;
-        for(const match of targets){
-          shot.hitIds.add(match.key);shot.x=start.x+(end.x-start.x)*match.t;shot.y=start.y+(end.y-start.y)*match.t;
-          if(match.target.tier)hitEnemy(match.target,shot);
-          else hitActor(match.target,{damage:shot.damage,x:shot.x,y:shot.y},state.players.get(shot.ownerId));
-          shot.pierce=(shot.pierce??1)-1;
-          if(shot.pierce<=0){exhausted=true;break;}
-        }
-        if(exhausted){state.shots.splice(i,1);continue;}
-        shot.x=end.x;shot.y=end.y;
-        if(end.x<0||end.x>CONFIG.world.width||end.y<0||end.y>CONFIG.world.height)state.shots.splice(i,1);
+        if(exhausted||shot.x<0||shot.x>CONFIG.world.width||shot.y<0||shot.y>CONFIG.world.height)state.shots.splice(i,1);
       }
     }
     function hitEnemy(e,shot) {
@@ -1447,7 +1507,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       {id:'bladeLaunch',branch:'검술',name:'올려베기',symbol:'⤴',cost:1,requires:['blade1'],max:1,desc:'3타로 살아남은 적을 띄움 · 점프 추격은 직접 선택'},
       {id:'bladeEcho',branch:'검술',name:'풀어베기',symbol:'✧',cost:1,requires:['bladeLaunch'],max:1,desc:'3타로 분열시키면 두 조각에 0.3초 뒤 25% 잔격'},
       {id:'needleCarry',branch:'제어',name:'밀어꿰기',symbol:'➤',cost:1,requires:[],max:1,desc:'바늘에 맞고 생존한 적을 날려 바깥 벽에 1.2초 고정'},
-      {id:'needleThread',branch:'제어',name:'줄꿰기',symbol:'↣',cost:1,requires:['needleCarry'],max:1,desc:'바늘 하나로 최대 3체를 각자 날려 벽에 꿰기'},
+      {id:'needleThread',branch:'제어',name:'튕겨꿰기',symbol:'↯',cost:1,requires:['needleCarry'],max:1,desc:'바늘이 420px 안의 서로 다른 적 최대 3체로 튕김 · 마지막 생존자만 벽 운반'},
       {id:'needleRebound',branch:'제어',name:'회수절단',symbol:'⋙',cost:1,requires:['needleThread'],max:1,desc:'고정된 적이 3타에 생존하면 튕김 · 첫 적에 50% 충돌 피해'},
       {id:'dashCapacity',branch:'기동',name:'발걸음 예비',symbol:'▰',cost:1,requires:[],max:3,desc:'최대 대시 +1'},
       {id:'dashRecharge',branch:'기동',name:'빠른 숨고르기',symbol:'◉',cost:1,requires:[],max:5,desc:'대시 충전 간격 −12%'},
@@ -1462,7 +1522,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const oldMax=st.maxHp,oldDashMax=st.dashMax;
       Object.assign(st,newStats());
       st.swordAdvance=n('blade1')>0;st.swordLaunch=n('bladeLaunch')>0;st.swordEcho=n('bladeEcho')>0;
-      st.needleCarry=n('needleCarry')>0;st.needlePierce=n('needleThread')>0?3:1;st.needleRebound=n('needleRebound')>0;
+      st.needleCarry=n('needleCarry')>0;st.needleRicochet=n('needleThread')>0;st.needleRebound=n('needleRebound')>0;
       st.dashMax+=n('dashCapacity');
       st.dashRechargeMs=Math.max(320,st.dashRechargeMs*(1-n('dashRecharge')*.12));
       st.moveSpeed*=1+n('speed')*.1;
@@ -1612,6 +1672,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       if($('copyRoom'))$('copyRoom').hidden=net.role==='solo';
     }
     function netRosterInfo(){return {epoch:net.room?.epoch??0,players:net.room?.players??[],hostId:net.room?.coordinatorId??null};}
+    function validRicochet(chain){
+      return chain===null||(chain&&Number.isInteger(chain.hits)&&chain.hits>=0&&chain.hits<=3&&
+        (chain.targetId===null||Number.isSafeInteger(chain.targetId))&&Number.isFinite(chain.rangeLeft)&&chain.rangeLeft>=0&&chain.rangeLeft<=CONFIG.combat.ricochetRange&&
+        Array.isArray(chain.path)&&chain.path.length===chain.hits+1&&chain.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)));
+    }
     function packWorld(){
       const p=number=>Math.round((Number.isFinite(number)?number:0)*10)/10;
       return {
@@ -1626,7 +1691,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
             p(e.control.originX),p(e.control.originY),p(e.control.wallX),e.control.wallSide]:null,
           p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy)]),
-        shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,p(sh.x),p(sh.y),p(sh.vx),p(sh.vy),p(sh.damage),p(sh.radius),sh.kind,p(sh.remainingMs)]),
+        shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,sh.x,sh.y,sh.vx,sh.vy,sh.damage,sh.radius,sh.kind,sh.remainingMs,sh.impulse??0,!!sh.carry,[...(sh.hitIds||[])],sh.ricochet?{...sh.ricochet,path:sh.ricochet.path.map(a=>[...a])}:null]),
         holes:state.spawnHoles.map(h=>[h.id,h.sealed?1:0,p(h.openProgress),h.spawned?1:0]),
         fx:state.fxNet.slice(-18),
       };
@@ -1641,7 +1706,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport)return;
-      sendPacket(transport,{t:'welcome',version:'0.10.0',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.11.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1730,7 +1795,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         mobIds.add(id);
       }
       for(const e of [...state.enemies])if(!mobIds.has(e.id))removeEnemy(e);
-      state.shots=frame.shots.filter(a=>Array.isArray(a)&&a.length>=11&&[a[3],a[4],a[5],a[6],a[7],a[8],a[10]].every(Number.isFinite)).map(a=>({id:a[0],owner:a[1]?'player':'enemy',ownerId:a[2],x:a[3],y:a[4],vx:a[5],vy:a[6],damage:a[7],radius:a[8],kind:a[9],remainingMs:a[10]}));
+      state.shots=frame.shots.filter(a=>Array.isArray(a)&&a.length===15&&[a[3],a[4],a[5],a[6],a[7],a[8],a[10],a[11]].every(Number.isFinite)&&Array.isArray(a[13])&&a[13].length<=160&&a[13].every(id=>typeof id==='string')&&validRicochet(a[14])).map(a=>({id:a[0],owner:a[1]?'player':'enemy',ownerId:a[2],x:a[3],y:a[4],vx:a[5],vy:a[6],damage:a[7],radius:a[8],kind:a[9],remainingMs:a[10],impulse:a[11],carry:a[12]===true,hitIds:new Set(a[13]),ricochet:a[14]?{...a[14],path:a[14].path.map(p=>[...p])}:null}));
       for(const [id,sealed,open,spawned]of frame.holes||[]){const h=state.spawnHoles.find(h=>h.id===id);if(h){h.sealed=!!sealed;h.openProgress=open;h.spawned=!!spawned;}}
       // One-shot VFX is marked by monotonically increasing authority IDs: no duplicates on snapshots.
       for(const event of frame.fx||[]){
@@ -1741,7 +1806,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           if(a)a.slashes.push({step:event.payload.step,x:event.x,y:event.y,angle:event.payload.angle,
             reach:event.payload.reach,halfArc:event.payload.halfArc,startedMs:state.timeMs,untilMs:state.timeMs+200});
         }
-        if(['wallPin','controlRelease','reboundImpact','swordEcho'].includes(event.kind))presentControlEvent(event.kind,event.x,event.y,event.payload||{});
+        if(['wallPin','controlRelease','reboundImpact','swordEcho','ricochet'].includes(event.kind))presentControlEvent(event.kind,event.x,event.y,event.payload||{});
         if(event.kind==='needle')ring(event.x,event.y,18,180,PALETTE.gold);
         if(event.kind==='hit'){ring(event.x,event.y,22,165,[1,.85,.57,.9]);spawnBurst(event.x,event.y,5,90,PALETTE.gold);}
         if(event.kind==='kill')spawnBurst(event.x,event.y,14,140,CONFIG.colors['t'+clamp(event.payload?.tier||1,1,10)]);
@@ -1803,7 +1868,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.10.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.11.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -1883,7 +1948,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0100',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0110',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2091,6 +2156,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         q.x+=q.vx*dtMs/1000;q.y+=q.vy*dtMs/1000;q.vy+=290*dtMs/1000;
       }
       for(let i=state.rings.length-1;i>=0;i--){state.rings[i].ageMs+=dtMs;if(state.rings[i].ageMs>=state.rings[i].duration)state.rings.splice(i,1);}
+      for(let i=state.ricochetTrails.length-1;i>=0;i--){state.ricochetTrails[i].ttl-=dtMs;if(state.ricochetTrails[i].ttl<=0)state.ricochetTrails.splice(i,1);}
       state.camera.shake*=Math.exp(-dtMs/160);
     }
     function renderStageClear(){
@@ -2126,7 +2192,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       $('modalCard').querySelector('h1').textContent=victory?'WIN!':'GAME OVER';
       $('modalCard').querySelector('.hero-yarns').hidden=false;
       $('modalCard').querySelector('.hangul').textContent='진화한 실타래의 반격';
-      $('modalText').innerHTML='클릭 3연격 · 홀드 바늘. 검술 트리는 전진→띄우기→분열 잔격, 제어 트리는 벽 꿰기→3체 관통→회수절단입니다.<br>벽에 꽂힌 적은 1.2초 행동이 멈추며 피해는 계속 받습니다. 3타에 생존하면 회수절단으로 안쪽에 튕깁니다.<br>구멍을 모두 봉쇄하고 남은 몬스터까지 제거해야 클리어됩니다.';
+      $('modalText').innerHTML='클릭 3연격 · 홀드 바늘. 검술 트리는 전진→띄우기→분열 잔격, 제어 트리는 벽 꿰기→3체 튕겨꿰기→회수절단입니다.<br>벽에 꽂힌 적은 1.2초 행동이 멈추며 피해는 계속 받습니다. 3타에 생존하면 회수절단으로 안쪽에 튕깁니다.<br>구멍을 모두 봉쇄하고 남은 몬스터까지 제거해야 클리어됩니다.';
       $('modalControls').hidden=true;
       const kpi=$('kpi');kpi.hidden=false;kpi.replaceChildren();
       for(const t of ['스테이지 '+state.stage,'유효 처치 '+state.kills+' · 실제 격파 '+state.defeats,'합체 '+state.merges+' · 분열 '+state.splits]){
@@ -2409,6 +2475,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       {body:[.40,.39,.33,1],hem:[.75,.68,.46,.78],detail:[.99,.87,.66,.25]},
       {body:[.32,.37,.51,1],hem:[.53,.61,.85,.82],detail:[.83,.89,1,.29]},
     ]);
+    function drawNeedleTrail(path,alpha){
+      for(let i=1;i<path.length;i++){
+        const a=path[i-1],b=path[i];
+        renderer.line(a[0],a[1],b[0],b[1],4,[.6,1,.88,alpha*.3]);
+        renderer.line(a[0],a[1],b[0],b[1],1.4,[1,.95,.75,alpha]);
+      }
+    }
     function drawBackdrop() {
       // Biome-specific yarn trims make each topology recognizable without clutter.
       const mapPaint=MAP_SURFACE_PALETTES[(state.stage-1)%MAP_SURFACE_PALETTES.length];
@@ -2711,13 +2784,16 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
       drawAbsorptions();
       drawSplitFrays();
+      for(const trail of state.ricochetTrails)drawNeedleTrail(trail.path,trail.ttl/230*.6);
       for(const source of state.shots){
         const pose=presentation.frame.modelFor(source);if(!pose)continue;
         const shot={...source,...pose};
         if(!worldVisible(shot.x,shot.y,30))continue;
+        if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path,[shot.x,shot.y]],.7);
         const enemy=shot.owner==='enemy';
         const c=enemy?[1,.62,.65,1]:PALETTE.shot;
         const dir=normalize(shot.vx,shot.vy);
+        if(shot.ricochet)renderer.ellipse(shot.x+dir.x*13,shot.y+dir.y*13,3.2,3.2,PALETTE.cream,8);
         renderer.line(shot.x-dir.x*15,shot.y-dir.y*15,shot.x+dir.x*13,shot.y+dir.y*13,3,c);
         renderer.line(shot.x+dir.x*13-dir.y*4,shot.y+dir.y*13+dir.x*4,
           shot.x+dir.x*13+dir.y*4,shot.y+dir.y*13-dir.x*4,1.8,PALETTE.cream);
