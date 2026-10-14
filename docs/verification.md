@@ -1,3 +1,16 @@
+# 0.14.0 primary needles, underside pins and shared enemy dash
+
+Base: `40abcfa103ddff6765067a96955d6eb957c11c05` (0.13.1).
+
+- Real Microsoft Edge 155.0.4283.45 through Playwright msedge, headless. PC 1280 and touch-enabled 390 browser viewport. No browser or simulation mock.
+- PASS: 46 fixed combat checks and 26 existing browser/actual RTC checks; runtime/page errors 0 and combat console errors 0. Edge NVIDIA D3D11 renderer was observed in the existing RTC scenario.
+- Fixed combat scenario covers immediate primary needle, upward underside pin at the existing 300px/s threshold, 1200ms release, preserved wall pin, low-speed/non-needle exclusion, ordinary one-way upward passage, charge target tracking/no damage, shared dash charge consumption, locked launch/dodge, harmless approach, explicit post-dash attack damage and recovery, T6 projectile and authoritative tell snapshot.
+- Existing scenario additionally covers actual Nostr/WebRTC admission, host and guest owned progression, guest commands and guest primary needle, host underside pin received by guest, deaths/revive/team wipe, merge and split growth.
+- Physics fixtures arrange bodies and bounded ticks through gated QA helpers, then execute production collision/control/motor paths. Pin fixtures use the production needle-hit handler. The owned needle tree is also purchased and exercised with actual needle projectiles through pin and recut/rebound. Primary input and RTC checks use real browser input and transport. This does not claim every arranged fixture is manual gameplay.
+- NOT VERIFIED: physical mobile hardware, audible sound, four peers, long sessions, broader NAT/device conditions. Existing fixed GameKit distribution is unchanged.
+
+---
+
 # 0.13.1 through-body pinned needle candidate
 
 Base: `834b31055c7f481c42f734d4ddeb0c1d3aa92072` (0.13.0). Previously the wall connector was drawn behind the opaque yarn while the foreground needle ended in the rear half of the body. The body itself touched the wall, leaving no exposed front shaft. Pinned drawing also retained launch direction even when the actual impact was a floor.
