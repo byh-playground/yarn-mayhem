@@ -1,3 +1,20 @@
+# 0.12.0 first-survivor impulse and terrain pin candidate
+
+Base: `2cd241e9b30d4b77140b9b6ea678e62467c8c064` (0.11.0). The prior implementation selected the terminal ricochet target, rewrote its velocity to 1200px/s every tick, canceled gravity, passed through platforms, and accepted only outer-wall contacts. That did not implement the requested first-target physical impulse and fast terrain impact.
+
+- First surviving needle contact consumes the one-shot launch opportunity. Its incoming shot direction adds 720px/s once; subsequent needle ricochets keep their own trajectory. Dead targets are never resurrected, and the next actually contacted survivor may receive the impulse. Already controlled/cooldown-protected survivors do not refresh or transfer the opportunity to later targets.
+- Flight uses ordinary Matter gravity, air friction and existing one-way terrain. Before-solver integrated velocity is captured once per physics tick. Real static terrain contacts project relative velocity onto the inward collision normal; only >=300px/s qualifies. No forced destination, distance-based snap, platform bypass, zero-speed post-solver check, or special grounded timer.
+- Real contact points are projected onto the terrain face for pin VFX. One enemy-owned constraint holds for 1.2s. Stored contact normal controls wall/floor squash and outward sword rebound. Flight expires after 3s without promising a pin. Cooldown, merge exclusion, death cleanup and split rules remain intact.
+- 0.12.0 room/welcome and 12-field control snapshot replace 0.11.0 together. The existing carry flag now tracks the shot's remaining launch opportunity. No compatibility wrapper, duplicate simulation or body reference is added to snapshots.
+- PASS: 30 temporary actual-source scenarios with real Matter.js 0.20.0, plus two recorded speed measurements. Includes first-target independence, delayed ricochet damage and retargeting, dead-first target, actual platform and outer-wall pin, gravity/drag, tangential/resting floor rejection, normal-based floor rebound, constraint lifetime, controlled merge exclusion, sword regressions, snapshots and duplicate FX, and 160 controlled enemies in four wire chunks. DOM/render/audio are test doubles, not browser validation.
+- At 30TPS, initialized normal speeds 250 and 350px/s became 245.5 and 343.7px/s after air drag before solving: the first did not pin; the second pinned, despite final velocity being zero. A 960px/s tangent with 60px/s inward speed did not pin. These measurements justify the normal-component threshold rather than total speed.
+- PASS: 11 actual DOM/jsdom menu/navigation checks; `npm run build`; `git diff --check`.
+- PENDING: actual PC Edge gameplay, visible first-target flight/terrain anchor, audio, and fixed real two-peer RTC scenario on this candidate. No Linux browser restriction was retried or bypassed. Parent coordinates this gate before merge/deployment.
+
+Temporary diagnostic scripts remain outside the repository. Permanent scenario suite and Actions/Pages path are unchanged.
+
+---
+
 # 0.11.0 needle ricochet candidate
 
 Base: `53d635d7629c458b8d674f3322ea4516cf45f497` (0.10.1). Control stage 2 replaces straight piercing with a single physically travelling needle, maximum three distinct enemy contacts and 420px per-hop acquisition/travel budget. Stage 1 carry/pin, stage 3 pinned-enemy sword rebound, sword skills, enemy merging and current menu structure are retained. GameKit remains pinned to 0.3.1. No Actions changes.
