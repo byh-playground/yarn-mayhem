@@ -1,3 +1,22 @@
+# 0.13.0 persistent owned progression verification
+
+Base: `bf3e39133f94d11e2da4389bea6e1c06721d59b7` (0.12.0). `startNewRun()` unconditionally cleared every actor's investments and unspent points. Actor recreation also depended on a global local-stats alias and a revision cache that could skip restoring an unchanged revision onto a fresh actor.
+
+- Actor-owned `progress` contains only cumulative `earnedPoints` and `upgrades`. Remaining points are derived from costs. `deriveTechStats` is the sole stat formula used by creation, purchase and snapshot restoration. The global stats alias, blanket reset and redundant revision cache are removed.
+- New runs reset world/XP/combat and refill HP/dash, preserving each actor's progression. Stage changes and identity remapping preserve it too. Browser storage `yarn-mayhem.progress` contains only the local player's progression. No HP/world/other player's state is saved. Invalid storage is ignored with a notice; storage errors keep session state and show a warning.
+- Admission hello carries the guest's personal progression, not final stats. Host validates known nodes, integer levels/maxima/prerequisites and spent <= earned before creating the actor. Duplicate hello cannot replace an admitted actor's authoritative progress. Pending roster peers do not become blank actors during a host restart. Confirmed guest snapshots save only that guest's progression.
+- The same `stepWorld`/world actions remain authoritative for solo and host; only command delivery changes. Guests still consume snapshots rather than running a second simulation. All player snapshot rows are validated before any stage/actor/profile mutation, and derived stats are rebuilt without a revision shortcut. The 0.13.0 room contract replaces 0.12.0 admission and player snapshot shape, with no legacy adapter.
+- PASS: 13 temporary actual-source/Matter progression checks: repeated start/restart, reload/save fields, corrupt or invalid profiles, unavailable storage, host conversion/next stage, pending join/restart, duplicate hello, confirmed guest purchase, recreated actor, leave/reload, identical 60-tick solo/local vs host/remote-command complete snapshots, atomic rejection of invalid player snapshots, and pending/retried invalid welcome. Storage/transport/DOM are doubles; this does not claim actual browser/RTC success.
+- PASS: 33 existing actual-Matter combat/control regressions plus two recorded speed measurements; 11 jsdom menu checks; module/build and whitespace checks.
+- PASS: actual PC Microsoft Edge 155 / NVIDIA on runtime commit `8ad12c140263e937a6943b1b36ca7fee9ad9b859`, 18 focused checks, zero runtime errors. UI investment survives solo start/restart/reload; distinct host/guest investments survive real RTC admission; confirmed guest investment survives leave/reload and a 390px solo viewport. Real keyboard dash capacity (3 solo, 4 guest), HP/survival, needle flight/pin, and an empty profile were exercised.
+- The original `npm test` scenario stopped after 13 checks: its guest pre-start investment clicked the control skill without first selecting the Control tab. This was a test navigation error, not a product PASS. The PC temporary scenario with that missing tab selection passed 23 checks. The checked-in scenario now includes the same tab selection; no runtime HTML changes were made after the above product QA.
+- Runtime HTML SHA-256 remains `0ee3a8f028c02cec1bf03988c6c0ef62a270de9f8368fb12ea5f267352cb3d57`. Build, scenario syntax and whitespace checks passed after the test/document-only correction. The uncorrected original scenario is not reported as passing.
+- NOT VERIFIED: physical mobile devices, audible sound quality/playback, long sessions and wider multi-device/NAT conditions. The 390px browser viewport is not a physical phone. No repeated attempt at the earlier cancelled public-byte comparison.
+
+Temporary checks remain outside the repository. No new workflow, dependency, save engine, alternate renderer or simulation.
+
+---
+
 # 0.12.0 first-survivor impulse and terrain pin candidate
 
 Base: `2cd241e9b30d4b77140b9b6ea678e62467c8c064` (0.11.0). The prior implementation selected the terminal ricochet target, rewrote its velocity to 1200px/s every tick, canceled gravity, passed through platforms, and accepted only outer-wall contacts. That did not implement the requested first-target physical impulse and fast terrain impact.
