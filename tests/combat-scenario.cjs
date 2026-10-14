@@ -16,6 +16,11 @@ const server=http.createServer((q,r)=>{r.setHeader('Content-Type','text/html; ch
   if(width===390)await page.locator('#fireButton').tap();else await page.mouse.click(900,400);
   await page.waitForTimeout(100);
   check(width+' primary needle immediate',await page.evaluate(n=>__YARN_MAYHEM.snapshot().shotsFired>n,start));
+  const dashBefore=await page.evaluate(()=>__YARN_MAYHEM.snapshot());
+  if(width===390){await page.locator('#dashButton').tap();await page.waitForTimeout(100)}else{await page.locator('#gl').focus();await page.keyboard.down('Shift');await page.waitForTimeout(100);await page.keyboard.up('Shift')}
+  const dashAfter=await page.evaluate(()=>__YARN_MAYHEM.snapshot());
+  check(width+' actual dash input moves rolling body and consumes charge',dashAfter.dash<dashBefore.dash&&dashAfter.player.x>dashBefore.player.x+20,{before:dashBefore.player,after:dashAfter.player,charges:dashAfter.dash});
+  await page.screenshot({path:path.join(out,width+'-player-dash.png')});
   await page.evaluate(()=>__YARN_MAYHEM.qaStopSimulation());
   const fixture=await page.evaluate(()=>{const q=__YARN_MAYHEM;q.qaClearEnemies();const p=q.snapshot().mapLayout.find(p=>p.kind==='platform');return p});
   report.platform=fixture;
@@ -42,7 +47,7 @@ const server=http.createServer((q,r)=>{r.setHeader('Content-Type','text/html; ch
   check(width+' charge tracks target without damage',tracked.attack.dx<0&&await page.evaluate(()=>__YARN_MAYHEM.snapshot().hp)===hp,tracked);
   const launched=await page.evaluate(id=>{const q=__YARN_MAYHEM;let e;for(let i=0;i<20;i++){q.qaStep();e=q.qaEnemies().find(a=>a.id===id);if(e?.attack?.phase==='dash')break}return e},ai.id);
   check(width+' shared dash charge consumed',launched?.attack?.phase==='dash'&&launched.dash.charges===1&&launched.vx<0,launched);
-  check(width+' dash approach contact harmless',await page.evaluate(()=>__YARN_MAYHEM.snapshot().hp)===hp);
+  check(width+' launched dash contact damage',await page.evaluate(()=>__YARN_MAYHEM.snapshot().hp)<hp);
   const locked=await page.evaluate(id=>{const q=__YARN_MAYHEM,e=q.qaEnemies().find(a=>a.id===id);q.qaPlayer(e.x+300,e.y);q.qaStep();return q.qaEnemies().find(a=>a.id===id)},ai.id);
   check(width+' launch direction locked and dodgeable',locked.attack.dx===launched.attack.dx&&locked.vx<0,locked);
   const contact=await page.evaluate(id=>{const q=__YARN_MAYHEM;let e;for(let i=0;i<8;i++){q.qaStep();e=q.qaEnemies().find(a=>a.id===id);if(e?.attack?.phase==='attack')break}q.qaPlayer(e.x-40,e.y);q.qaPlayerVelocity(0,0);q.qaStep();return {enemy:q.qaEnemies().find(a=>a.id===id),hp:q.snapshot().hp}},ai.id);
@@ -53,10 +58,20 @@ const server=http.createServer((q,r)=>{r.setHeader('Content-Type','text/html; ch
   check(width+' T6 existing projectile route',ranged.enemy?.attack?.kind==='ranged'&&ranged.shots.some(s=>s[1]===0&&s[9]==='needle'),ranged);
   const frame=await page.evaluate(()=>__YARN_MAYHEM.qaNetworkFrame());
   check(width+' authoritative enemy tell snapshot',frame.enemies.some(e=>e.length===16&&e[15]?.[5]==='ranged'));
-  const tree=await page.evaluate(p=>{const q=__YARN_MAYHEM;q.qaClearEnemies();const reward=q.qaSpawn(10,2500,1200);q.qaHit(reward.id,99999);q.qaClearEnemies();const purchased=['needleCarry','needleThread','needleRebound'].map(id=>q.qaBuyTech(id));const x=(p.x1+p.x2)/2;q.qaPlayer(x,p.top+107);q.qaPlayerVelocity(0,0);const e=q.qaSpawn(2,x,p.top+16+26+30);q.qaSetEnemyGoal(e.id,'none');q.qaNeedle(-Math.PI/2);let pinned;for(let i=0;i<12;i++){q.qaStep();const r=q.qaEnemies().find(a=>a.id===e.id);if(r?.control?.mode==='pinned'){pinned=r;break}}if(pinned){q.qaPlayer(x,pinned.y+50);q.qaPlayerVelocity(0,0);q.qaNeedle(-Math.PI/2);q.qaStep()}return {purchased,pinned,after:q.qaEnemies().find(a=>a.id===e.id)}},fixture);
+  const tree=await page.evaluate(p=>{const q=__YARN_MAYHEM;q.qaClearEnemies();const reward=q.qaSpawn(10,2500,1200);q.qaHit(reward.id,99999);q.qaClearEnemies();const purchased=['needleCarry','needleThread','needleRebound'].map(id=>q.qaBuyTech(id));const x=(p.x1+p.x2)/2;q.qaPlayer(x,p.top+107);q.qaPlayerVelocity(0,0);const e=q.qaSpawn(3,x,p.top+16+36+30);q.qaSetEnemyGoal(e.id,'none');q.qaNeedle(-Math.PI/2);let pinned;for(let i=0;i<12;i++){q.qaStep();const r=q.qaEnemies().find(a=>a.id===e.id);if(r?.control?.mode==='pinned'){pinned=r;break}}if(pinned){q.qaPlayer(x,pinned.y+50);q.qaPlayerVelocity(0,0);q.qaNeedle(-Math.PI/2);q.qaStep()}return {purchased,pinned,after:q.qaEnemies().find(a=>a.id===e.id)}},fixture);
   check(width+' owned needle control tree physical shot pin',tree.purchased.every(Boolean)&&tree.pinned?.control?.mode==='pinned',tree);
   check(width+' underside needle normal axis',Math.abs(tree.pinned.control.anchorX-tree.pinned.x)<3,tree.pinned.control);
   check(width+' primary needle recut releases rebound',tree.after?.control?.mode==='rebound'&&tree.after.control.dy>0,tree.after);
+  // Fixed user flow: earned ricochet skill, one real primary input, three visible impacts.
+  const chainStart=await page.evaluate(()=>{const q=__YARN_MAYHEM;q.qaStart();q.qaQuietArena();q.qaClearEnemies();q.qaStep(35);q.qaPlayer(1000,1517);q.qaPlayerVelocity(0,0);const a=q.qaSpawn(2,1080,1391),b=q.qaSpawn(3,1120,1500),c=q.qaSpawn(4,980,1365);for(const e of [a,b,c])q.qaSetEnemyGoal(e.id,'none');q.qaStep(5);return {id:a.id,fx:Math.max(0,...q.qaNetworkFrame().fx.map(e=>e.id))}});
+  await page.evaluate(()=>{__YARN_MAYHEM.qaSetPhase('PAUSED');__YARN_MAYHEM.qaStartSimulation()});await page.waitForTimeout(400);
+  const aim=await page.evaluate(id=>{const q=__YARN_MAYHEM,e=q.qaEnemies().find(e=>e.id===id);return q.qaWorldPoint(e.x,e.y)},chainStart.id);
+  await page.evaluate(()=>__YARN_MAYHEM.qaSetPhase('PLAYING'));
+  if(width===390)await page.locator('#fireButton').tap();else{await page.mouse.move(aim.x,aim.y);await page.mouse.down();await page.waitForTimeout(65);await page.mouse.up();}
+  await page.waitForFunction(after=>__YARN_MAYHEM.qaNetworkFrame().fx.filter(e=>e.id>after&&e.kind==='hit'&&e.payload.step>0).length>=3,chainStart.fx,{timeout:5000});
+  const chain=await page.evaluate(after=>({hits:__YARN_MAYHEM.qaNetworkFrame().fx.filter(e=>e.id>after&&e.kind==='hit'&&e.payload.step>0),shots:__YARN_MAYHEM.snapshot().shotsFired}),chainStart.fx);
+  check(width+' one primary input chains three actual 29 damage hits',chain.shots===1&&chain.hits.map(e=>e.payload.step).join(',')==='1,2,3'&&chain.hits.every(e=>e.payload.amount===29)&&new Set(chain.hits.map(e=>e.payload.targetId)).size===3,chain);
+  await page.screenshot({path:path.join(out,width+'-chain.png')});await page.evaluate(()=>__YARN_MAYHEM.qaStopSimulation());
   await page.evaluate(()=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaStartSimulation()});
   check(width+' viewport',await page.evaluate(()=>document.documentElement.scrollWidth===innerWidth));
   await context.close();

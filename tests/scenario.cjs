@@ -39,11 +39,12 @@ check('host investment survives room/start',await host.evaluate(()=>__YARN_MAYHE
 check('guest investment survives join/start',await guest.evaluate(()=>__YARN_MAYHEM.qaPlayers().some(p=>p.upgrades.needleCarry===1)));
 check('real Nostr/WebRTC admission',(await snap(host)).room.connected===1&& (await snap(guest)).room.connected===1,{host:(await snap(host)).room,guest:(await snap(guest)).room});
 a=await snap(guest);await guest.keyboard.down('d');await guest.waitForTimeout(500);await guest.keyboard.up('d');b=await snap(guest);check('guest command roundtrip',b.player.x>a.player.x+25,{before:a.player,after:b.player});
+check('canonical rolling rotation reaches guest',await guest.evaluate(()=>__YARN_MAYHEM.qaNetworkFrame().players.some(p=>Math.abs(p[19])>.5)));
 const guestId=await guest.evaluate(()=>__YARN_MAYHEM.snapshot().runtime.roster.find(id=>{const p=__YARN_MAYHEM.qaPlayers().find(x=>x.id===id);return p&&Math.abs(p.x-__YARN_MAYHEM.snapshot().player.x)<.2}));
 await host.evaluate(()=>__YARN_MAYHEM.qaClearEnemies());
 await guest.mouse.click(850,400);
-await host.waitForFunction(id=>__YARN_MAYHEM.qaNetworkFrame().shots.some(s=>s[1]===1&&s[2]===id&&s[9]==='needle'),guestId);
-check('guest primary uses authoritative needle path',true);
+await host.waitForFunction(id=>__YARN_MAYHEM.qaNetworkFrame().shots.some(s=>s[1]===1&&s[2]===id&&s[9]==='needle'&&s[7]===29),guestId);
+check('guest owned primary uses authoritative 29 damage needle path',true);
 const controlled=await host.evaluate(()=>{const q=__YARN_MAYHEM,p=q.snapshot().mapLayout.find(p=>p.kind==='platform'),e=q.qaSpawn(2,(p.x1+p.x2)/2,p.top+16+26+30);q.qaSetEnemyGoal(e.id,'none');q.qaNeedleHit(e.id,0,-1);return e.id});
 await guest.waitForFunction(id=>__YARN_MAYHEM.qaEnemies().find(e=>e.id===id)?.control?.mode==='pinned',controlled);
 check('host underside pin reaches guest',await guest.evaluate(id=>__YARN_MAYHEM.qaEnemies().find(e=>e.id===id).control.normalY<-.48,controlled));

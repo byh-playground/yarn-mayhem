@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.14.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.15.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -157,7 +157,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.14.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.15.0</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사 · E 검술(구매 후)</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -172,7 +172,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     <p class="modal-sub" id="modalText">바늘로 합치고 갈라지는 털실 적을 맞히고,<br>실구멍을 모두 봉쇄하세요.</p>
     <div id="modeChoices" class="menu-choices" hidden><button id="soloStart" class="menu-choice">싱글 플레이<small>혼자 새로운 모험 시작</small></button><button id="multiOpen" class="menu-choice">멀티 플레이<small>방 코드로 최대 4명이 함께</small></button></div>
     <div id="roomControls" hidden data-gamekit-ui><label for="roomCode" style="grid-column:1/-1;text-align:left;font-size:13px">방 코드 · 만들 때는 비워도 됩니다</label><input id="roomCode" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4자리 방 코드" autocomplete="off"><button id="hostRoom">방 만들기</button><button id="joinRoom">방 참가</button><div id="roomStatus" role="status" aria-live="polite">방을 만들거나 코드를 입력해 참가하세요.</div></div>
-    <div id="helpContent" hidden><h3>목표</h3><p>적을 처치하면 실구멍이 하나씩 막힙니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p><h3>조작</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li><li>기본 공격: 클릭/터치 즉시 바늘 발사 · 유지 연사</li><li>검술 구매 후: E / 별도 검술 버튼</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul><h3>성장</h3><p>검술은 전진 → 띄우기 → 분열 잔격, 제어는 벽·플랫폼 아래 고정 → 3체 튕겨꿰기 → 바늘 재명중 회수절단으로 이어집니다. 기동과 생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></div>
+    <div id="helpContent" hidden><h3>목표</h3><p>적을 처치하면 실구멍이 하나씩 막힙니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다. 충전 예고 뒤 굴러오는 적의 대시 접촉은 피해를 줍니다.</p><h3>조작</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li><li>기본 공격: 클릭/터치 즉시 바늘 발사 · 유지 연사</li><li>검술 구매 후: E / 별도 검술 버튼</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul><h3>성장</h3><p>검술은 전진 → 띄우기 → 분열 잔격, 제어는 벽·플랫폼 아래 고정 → 바늘의 실제 순차 비행과 3체 튕겨꿰기 → 바늘 재명중 회수절단으로 이어집니다. 기동과 생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></div>
     <div id="kpi" class="kpi" hidden></div>
     <button class="primary" id="mainButton">시작 →</button>
     <div class="menu-actions"><button id="techMenuOpen" type="button" aria-controls="techPanel" aria-expanded="false">스탯 트리</button><button id="helpOpen" type="button">플레이 방법</button></div>
@@ -213,8 +213,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         jumpSpeed: 12.8, jumpBufferMs: 130, coyoteMs: 100, jumpCutRate: .50,
         respawnMs: 5000, respawnHpRate: .5, respawnProtectionMs: 1500,
         groundAccel: 3600, groundBrake: 4200, airAccel: 1350, airBrake: 900, wallDeadzone: 6 },
-      shot: { rateMs: 520, holdThresholdMs: 260, speed: 1060, radius: 3.5, power: 5, impulse: 2.2, maxLive: 55 },
-      combat: { advancePx:20, advanceMs:90, comboKnockbackRate:.3, launchVelocity:7.5, launchProtectionMs:250,
+      rolling:{friction:.45,staticFriction:.8,airDrag:.002},
+      feedback:{chainPauseMs:70,chainLegMs:90,trailMs:450,impactMs:180},
+      shot: { rateMs: 520, speed: 1060, radius: 3.5, impulse: 2.2, maxLive: 55 },
+      combat: { basePower:29, advancePx:20, advanceMs:90, comboKnockbackRate:.3, launchVelocity:7.5, launchProtectionMs:250,
         echoDelayMs:300, echoDamageRate:.25, needleImpulse:720, flightMs:3000, pinMinSpeed:300, pinMs:1200, pinGap:18,
         ricochetRange:420, ricochetTargets:3, controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
       sword: { comboWindowMs: 570, steps: [
@@ -232,16 +234,16 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     // Tier data is the SSOT for movement, attack, rewards and face. The physics
     // radius follows sqrt(2) each generation: every merger doubles circle area.
     const TIER_DEFS=Object.freeze([
-      {hp:21, xp:2, speed:145, hop:11.9, range:0, face:'happy', attack:'none'},
-      {hp:48, xp:5, speed:152, hop:12, range:385, face:'curious', attack:'needle'},
-      {hp:108, xp:12, speed:158, hop:12.3, range:410, face:'cheeky', attack:'lunge'},
-      {hp:225, xp:24, speed:138, hop:12.2, range:490, face:'grumpy', attack:'fan'},
-      {hp:480, xp:50, speed:120, hop:12.5, range:620, face:'proud', attack:'slam'},
-      {hp:920, xp:90, speed:110, hop:12.5, range:680, face:'sleepy', attack:'wovenFan'},
-      {hp:1800, xp:160, speed:98, hop:12.7, range:730, face:'ferocious', attack:'ram'},
-      {hp:3400, xp:270, speed:87, hop:13, range:820, face:'shocked', attack:'spiral'},
-      {hp:6500, xp:440, speed:76, hop:13.2, range:910, face:'sly', attack:'ambush'},
-      {hp:12000, xp:700, speed:64, hop:13.5, range:990, face:'royal', attack:'grandSlam'},
+      {hp:21, xp:2, speed:145, hop:11.9, range:0, face:'happy'},
+      {hp:48, xp:5, speed:152, hop:12, range:385, face:'curious'},
+      {hp:108, xp:12, speed:158, hop:12.3, range:410, face:'cheeky'},
+      {hp:225, xp:24, speed:138, hop:12.2, range:490, face:'grumpy'},
+      {hp:480, xp:50, speed:120, hop:12.5, range:620, face:'proud'},
+      {hp:920, xp:90, speed:110, hop:12.5, range:680, face:'sleepy'},
+      {hp:1800, xp:160, speed:98, hop:12.7, range:730, face:'ferocious'},
+      {hp:3400, xp:270, speed:87, hop:13, range:820, face:'shocked'},
+      {hp:6500, xp:440, speed:76, hop:13.2, range:910, face:'sly'},
+      {hp:12000, xp:700, speed:64, hop:13.5, range:990, face:'royal'},
     ].map((spec,index)=>Object.freeze({...spec,tier:index+1,radius:18*(Math.SQRT2**index)})));
     if(TIER_DEFS.length!==CONFIG.enemy.maxTier)throw new Error('tier definition mismatch');
     const RADII=TIER_DEFS.map(t=>t.radius);
@@ -288,18 +290,20 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
       particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
       surfaces:[], platforms:[], collisionWalls:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
-      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[],
+      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), swordEchoes:[], ricochetTrails:[], impactMarks:[],
       toastUntil:0,
       camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
     };
     const newStats=()=>({
-      attackPower:29, needlePower:CONFIG.shot.power, swordReachRate:1, swordArcBonus:0,
+      attackPower:CONFIG.combat.basePower, needlePower:CONFIG.combat.basePower, swordReachRate:1, swordArcBonus:0,
       swordCooldownRate:1, meleeKnockbackRate:1, fireIntervalMs:CONFIG.shot.rateMs,
       projectileImpulse:CONFIG.shot.impulse, needleRicochet:false,
       swordAdvance:false, swordLaunch:false, swordEcho:false, needleCarry:false, needleRebound:false,
       dashMax:CONFIG.player.dashCharges, dashRechargeMs:CONFIG.player.rechargeMs,
       dashSpeed:CONFIG.player.dashSpeed, moveSpeed:CONFIG.player.moveSpeed, maxHp:CONFIG.player.maxHp,
     });
+    let effectSeed=0x1badcafe;
+    function effectRandom(){effectSeed=(Math.imul(effectSeed,1664525)+1013904223)>>>0;return effectSeed/4294967296;}
     let randState = 0x6b456fed;
     function seed(n) { randState = n >>> 0 || 1; }
     function random() { randState = (Math.imul(randState,1664525)+1013904223)>>>0; return randState/4294967296; }
@@ -407,7 +411,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         Composite.clear(state.engine.world,false);
         Engine.clear(state.engine);
       }
-      state.terrainContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];state.ricochetTrails=[];
+      state.terrainContacts.clear();state.reboundContacts.clear();state.swordEchoes=[];state.ricochetTrails=[];state.impactMarks=[];effectSeed=0x1badcafe;
       state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
       state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.spawnAttempts=0;state.totalPortals=0;state.sealedPortals=0;state.mapStyle=null;
       $('toastLayer').replaceChildren();
@@ -417,7 +421,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     // Traversable terrain: only level ground and FLAT, one-way ledges. No bowl / tall solid spawn walls.
     function makeTerrain(x1,x2,top,thick=16,kind='platform') {
       const body=Bodies.rectangle((x1+x2)/2,top+thick/2,x2-x1,thick,{
-        isStatic:true,friction:.035,frictionStatic:0,restitution:0,label:'terrain',
+        isStatic:true,friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,restitution:0,label:'terrain',
         collisionFilter:{category:1,mask:0xffff},
       });
       const surface={id:state.surfaces.length,x1,x2,top,thick,body,kind,oneWay:kind==='platform'};
@@ -630,23 +634,23 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
       const actorStats=deriveTechStats(progress);
-      const body=Bodies.rectangle(x,y,30,34,{
-        label:'player',chamfer:{radius:8},friction:.015,frictionStatic:0,frictionAir:.002,restitution:0,density:.002,
+      const body=Bodies.circle(x,y,CONFIG.player.radius,{
+        label:'player',friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,
+        frictionAir:CONFIG.rolling.airDrag,restitution:0,density:.002,
         collisionFilter:{category:2,mask:1|2|4},
       });
-      Body.setInertia(body,Infinity);
       Composite.add(state.engine.world,body);
-      body.plugin.dropThrough=false;body.plugin.footOffset=17;body.plugin.halfWidth=15;
+      body.plugin.dropThrough=false;
       return {id,body,stats:actorStats,progress,hp:actorStats.maxHp,maxHp:actorStats.maxHp,dash:{charges:actorStats.dashMax,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},
         hitInvulnerableUntil:0,face:1,contactUntilMs:0,
         coyoteLeftMs:0,jumpBufferLeftMs:0,jumpCutPending:false,
-        lastShotDir:{x:1,y:0},deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,attackHeldSinceMs:null,needleNextMs:0,slashes:[],swordAdvance:null,
+        lastShotDir:{x:1,y:0},deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,needleNextMs:0,slashes:[],swordAdvance:null,
       };
     }
     function createEnemy(tier,x,y,extra={}) {
       const radius=RADII[tier-1];
       const body=Bodies.circle(x,y,radius,{
-        label:'enemy',friction:.055,frictionStatic:.12,frictionAir:.009,restitution:.12,density:.0014,
+        label:'enemy',friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,frictionAir:CONFIG.rolling.airDrag,restitution:.12,density:.0014,
         collisionFilter:{category:4,mask:1|2|4},
       });
       const baseHp=enemyHP[tier-1]*(1+(state.stage-1)*.065);
@@ -660,7 +664,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         splitFlightUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.flightMs:0,
         damageGraceUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.graceMs:0,
         thinkLeftMs:random()*160,goalId:null,goalKind:'none',attackLeftMs:500+random()*600,
-        jumpLeftMs:250+random()*320,stuckMs:0,previousX:x,windupMs:0,
+        jumpLeftMs:250+random()*320,stuckMs:0,previousX:x,
         stats:{dashMax:CONFIG.player.dashCharges,dashRechargeMs:CONFIG.player.rechargeMs,dashSpeed:CONFIG.player.dashSpeed},
         dash:{charges:CONFIG.player.dashCharges,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},attack:null,
         navFrom:null,dropFromTop:null,hopTarget:null,
@@ -764,8 +768,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function playerContact(enemy,player=state.player) {
       if(!player||player.hp<=0)return;
-      // Only the explicit post-dash attack window opens contact damage.
-      if(enemy.control||enemy.attack?.phase!=='attack'||state.timeMs>=enemy.attack.untilMs)return;
+      // The telegraphed launched dash and its follow-through own collision damage.
+      if(enemy.control||!['dash','attack'].includes(enemy.attack?.phase)||state.timeMs>=enemy.attack.untilMs)return;
       const damage=8+enemy.tier*2;
       if(state.timeMs<player.hitInvulnerableUntil)return;
       hurtPlayer(damage,enemy.body.position,player);
@@ -942,9 +946,9 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           const underAttack=now<e.recentHitUntilMs && dp<attackRange;
           // The dominant behavior is FUSION, even with a nearby player.
           // Counterattack is a temporary exception only when actively hit.
-          if(partner && (panic||e.tier===1||!underAttack)){
+          if(partner && (panic||(!underAttack&&!enemyCanEngage(e,p)))){
             e.goalKind='merge';e.goalId=partner.id;
-          }else if(underAttack||!partner||e.tier===CONFIG.enemy.maxTier){
+          }else if(underAttack||enemyCanEngage(e,p)||!partner||e.tier===CONFIG.enemy.maxTier){
             e.goalKind='attack';e.goalId=0;
           }else{e.goalKind='wander';e.goalId=null;}
         }
@@ -970,7 +974,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         const limit=state.contacts.get(b.id);
         if(limit?.wallLeft&&newVx<0)newVx=0;
         if(limit?.wallRight&&newVx>0)newVx=0;
-        Body.setVelocity(b,{x:newVx,y:v.y});
+        setRollingVelocity(e,newVx,v.y);
         const moved=Math.abs(pos.x-e.previousX);
         if(moved<.6&&Math.abs(dx)>35)e.stuckMs+=dtMs;
         else e.stuckMs=Math.max(0,e.stuckMs-dtMs*1.8);
@@ -983,8 +987,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           e.hopTarget=intent.nextId??null;
           e.jumpLeftMs=350+random()*200;e.stuckMs=0;
         }
-        const close=Math.hypot(targetPoint.x-pos.x,targetPoint.y-pos.y)<footOffset(b)*2+10;
-        if(e.goalKind==='attack'&&dp<Math.max(385,TIER_DEFS[e.tier-1].range)&&e.attackLeftMs<=0)enemyAttack(e,p,close);
+        if(e.goalKind==='attack'&&e.attackLeftMs<=0&&(enemyCanEngage(e,p)||(e.tier>=CONFIG.enemy.rangedTier&&dp<TIER_DEFS[e.tier-1].range)))enemyAttack(e,p);
       }
     }
     function fireFan(e,dir,count,spread,speed,damage,kind){
@@ -994,13 +997,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         enemyProjectile(e,{x:Math.cos(angle),y:Math.sin(angle)},speed,damage,kind);
       }
     }
-    function fireRing(e,count,speed,damage,rotation=0){
-      for(let i=0;i<count;i++){
-        const angle=i*Math.PI*2/count+rotation;
-        enemyProjectile(e,{x:Math.cos(angle),y:Math.sin(angle)},speed,damage,'royal');
-      }
-    }
-    function enemyAttack(e,playerPoint,close){
+    function enemyAttack(e,playerPoint){
       if(!e.dash.charges||e.attack)return;
       const target=[...state.players.values()].filter(p=>p.hp>0).sort((a,b)=>distance(a.body.position,playerPoint)-distance(b.body.position,playerPoint))[0];
       if(!target)return;
@@ -1016,7 +1013,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         // Track the chosen living target while charging; lock at the launch boundary.
         const dir=normalize(target.body.position.x-e.body.position.x,target.body.position.y-e.body.position.y);
         a.dx=dir.x;a.dy=dir.y;
-        Body.setVelocity(e.body,{x:0,y:v.y});
+        setRollingVelocity(e,0,v.y);
         if(now>=a.untilMs){
           if(!dash(Math.abs(a.dx)<.2?(target.body.position.x>=e.body.position.x?1:-1):a.dx,e)){
             a.phase='recover';a.untilMs=now+CONFIG.enemy.recoveryMs;
@@ -1027,14 +1024,14 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }else if(a.phase==='dash'&&now>=a.untilMs){
         a.phase='attack';a.untilMs=now+CONFIG.enemy.attackMs;
-        Body.setVelocity(e.body,{x:0,y:v.y});
+        setRollingVelocity(e,0,v.y);
         if(a.kind==='ranged')fireFan(e,{x:a.dx,y:a.dy},e.tier>=9?3:1,.12,480,8+e.tier,'needle');
       }else if(a.phase==='attack'){
-        Body.setVelocity(e.body,{x:0,y:v.y});
+        setRollingVelocity(e,0,v.y);
         if(now>=a.untilMs){a.phase='recover';a.untilMs=now+CONFIG.enemy.recoveryMs;}
       }
       else if(a.phase==='recover'){
-        Body.setVelocity(e.body,{x:v.x*.72,y:v.y});
+        setRollingVelocity(e,v.x*.72,v.y);
         if(now>=a.untilMs){e.attack=null;e.attackLeftMs=500;}
       }
       return true;
@@ -1071,6 +1068,32 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       if(best){const n=normalize(best.body.position.x-pos.x,best.body.position.y-pos.y);player.lastShotDir=n;return n;}
       return player.lastShotDir;
     }
+    const CHAIN_COLORS=[PALETTE.gold,[.55,.95,1,1],[1,.65,.42,1]];
+    function presentImpact(x,y,payload){
+      const step=clamp(payload.step||0,0,3),c=step?CHAIN_COLORS[step-1]:PALETTE.gold;
+      const radius=clamp((payload.radius||18)*.5+12,22,40);
+      state.impactMarks.push({x,y,dx:payload.dx,dy:payload.dy,radius,targetId:payload.targetId,step,ageMs:0});
+      if(state.impactMarks.length>36)state.impactMarks.shift();
+      ring(x,y,radius,150,c);spawnBurst(x,y,step?7:5,135,c);
+      floatText('-'+Math.round(payload.amount)+(step?' · '+step+'연쇄':''),x,y-24);
+      const listener=state.player?.body?.position||state.camera;
+      const gain=clamp(1-distance({x,y},listener)/1050,0,1);
+      state.camera.shake=Math.max(state.camera.shake,.8*gain);
+      if(!step&&gain>.03)sound('hit',.8*gain);
+    }
+    function drawImpactMarks(){
+      for(const m of state.impactMarks){
+        if(!worldVisible(m.x,m.y,70))continue;
+        const t=m.ageMs/CONFIG.feedback.impactMs,fade=1-t,c=m.step?CHAIN_COLORS[m.step-1]:PALETTE.gold;
+        const turn=Math.atan2(m.dy||0,m.dx||1),reach=m.radius*(.35+.65*t);
+        for(let j=0;j<4;j++){
+          const a=turn+j*Math.PI/2,dx=Math.cos(a),dy=Math.sin(a);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,5*fade,[.08,.20,.22,.9*fade]);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,2.4*fade,[c[0],c[1],c[2],fade]);
+        }
+        if(t<.4)renderer.ellipse(m.x,m.y,4*(1-t),4*(1-t),[1,.97,.8,fade],8);
+      }
+    }
     // Presentation only: authority and guests call this once per combat event.
     function presentControlEvent(kind,x,y,payload={}){
       if(!Number.isFinite(x)||!Number.isFinite(y))return;
@@ -1080,14 +1103,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const attenuation=clamp(1-distance({x,y},listener)/1050,0,1);
       if(kind==='ricochet'){
         const step=clamp(Math.round(payload.step||1),1,3);
-        ring(x,y,18+step*4,150,PALETTE.cream);
-        spawnBurst(x,y,7+step*2,125+step*25,color);
         if(Array.isArray(payload.path)&&payload.path.length<=4&&payload.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))){
-          state.ricochetTrails.push({path:payload.path.map(p=>[...p]),ttl:230});
+          state.ricochetTrails.push({path:payload.path.slice(-2).map(p=>[...p]),step,ttl:CONFIG.feedback.trailMs});
           if(state.ricochetTrails.length>24)state.ricochetTrails.shift();
         }
-        state.camera.shake=Math.max(state.camera.shake,(2+step*.7)*attenuation);
-        if(attenuation>.03)sound('ricochet'+step,.65*attenuation);
+        if(attenuation>.03)sound('ricochet'+step,.68*attenuation);
       }else if(kind==='wallPin'||kind==='reboundImpact'){
         const pin=kind==='wallPin';
         const impactX=pin&&Number.isFinite(payload.anchorX)?payload.anchorX:x;
@@ -1125,7 +1145,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         x:pos.x+aim.x*r,y:pos.y+aim.y*r,vx:aim.x*CONFIG.shot.speed,vy:aim.y*CONFIG.shot.speed,
         radius:CONFIG.shot.radius,remainingMs:1450,damage:player.stats.needlePower,
         impulse:player.stats.projectileImpulse,carry:player.stats.needleCarry,kind:'needle',hitIds:new Set(),
-        ricochet:player.stats.needleRicochet?{hits:0,targetId:null,rangeLeft:CONFIG.combat.ricochetRange,path:[[pos.x+aim.x*r,pos.y+aim.y*r]]}:null});
+        ricochet:player.stats.needleRicochet?{hits:0,targetId:null,rangeLeft:CONFIG.combat.ricochetRange,path:[[pos.x+aim.x*r,pos.y+aim.y*r]],resumeAtMs:0,legSpeed:CONFIG.shot.speed}:null});
       state.shotsFired++;
       spawnBurst(pos.x+aim.x*32,pos.y+aim.y*32,3,85,PALETTE.gold);
       ring(pos.x+aim.x*28,pos.y+aim.y*28,13,110,PALETTE.gold);
@@ -1223,7 +1243,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       if(!target)return false;
       chain.targetId=target.id;
       const dir=normalize(target.body.position.x-shot.x,target.body.position.y-shot.y);
-      shot.vx=dir.x*CONFIG.shot.speed;shot.vy=dir.y*CONFIG.shot.speed;
+      shot.vx=dir.x*chain.legSpeed;shot.vy=dir.y*chain.legSpeed;
       return true;
     }
     function updateShots(dtMs){
@@ -1231,6 +1251,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         const shot=state.shots[i];shot.remainingMs-=dtMs;
         if(shot.remainingMs<=0){state.shots.splice(i,1);continue;}
         if(!shot.hitIds)shot.hitIds=new Set();
+        if(shot.ricochet&&state.timeMs<shot.ricochet.resumeAtMs)continue;
         let leftMs=dtMs,exhausted=false;
         // At most three contacts; recompute the swept segment after each real bend.
         while(leftMs>1e-6&&!exhausted){
@@ -1269,9 +1290,15 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
             hitEnemy(match.target,shot);
             if(match.target.alive)shot.carry=false;
             if(chain){
-              const payload={tier:match.target.tier,step:chain.hits,path:chain.path.map(p=>[...p])};
+              const payload={tier:match.target.tier,ownerId:shot.ownerId,shotId:shot.id,step:chain.hits,path:chain.path.map(p=>[...p])};
               presentControlEvent('ricochet',shot.x,shot.y,payload);emitCombatEvent('ricochet',shot.x,shot.y,payload);
               chain.targetId=next?.id??null;
+              if(next){
+                chain.resumeAtMs=state.timeMs+CONFIG.feedback.chainPauseMs;
+                const gap=Math.max(0,distance(shot,next.body.position)-next.body.circleRadius-shot.radius*.6);
+                chain.legSpeed=Math.min(CONFIG.shot.speed,Math.max(300,gap*1000/CONFIG.feedback.chainLegMs));
+                leftMs=0;
+              }
             }
             exhausted=!next;
           }else{
@@ -1292,15 +1319,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       // A direct hit provokes a brief defensive response; losing half HP
       // still favors emergency fusion whenever a same-tier partner exists.
       e.recentHitUntilMs=state.timeMs+CONFIG.enemy.counterAttackMs;
-      emitCombatEvent('hit',shot.x,shot.y,{tier:e.tier,amount:Math.round(Math.min(shot.damage,hpBefore))});
-      e.thinkLeftMs=0;
-      const attenuation=clamp(1-distance(e.body.position,state.player?.body.position||state.camera)/1050,0,1);
-      state.camera.shake=Math.max(state.camera.shake,1.5*attenuation);
-      metrics.shotsHit++;metrics.damage+=shot.damage;
-      ring(shot.x,shot.y,33,300,PALETTE.gold);
-      spawnBurst(shot.x,shot.y,8,115,CONFIG.colors['t'+e.tier]);
-      floatText('-'+Math.round(Math.min(shot.damage,hpBefore)),e.body.position.x,e.body.position.y-20,'damage');
-      if(attenuation>.03)sound('hit',clamp(.6+shot.damage*.008,.2,1)*attenuation);
+      const impact={tier:e.tier,amount:Math.min(shot.damage,hpBefore),targetId:e.id,ownerId:shot.ownerId,
+        radius:e.body.circleRadius,step:shot.ricochet?.hits||0,dx:n.x,dy:n.y};
+      emitCombatEvent('hit',shot.x,shot.y,impact);presentImpact(shot.x,shot.y,impact);
+      e.thinkLeftMs=0;metrics.shotsHit++;metrics.damage+=shot.damage;
       if(e.hp<=0){
         const children=killEnemy(e);
         if(shot.kind==='slash'&&shot.step===3&&shot.echo&&children?.length){
@@ -1325,7 +1347,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const c=e.control;if(!c)return;
       if(e.controlConstraint){Composite.remove(state.engine.world,e.controlConstraint);e.controlConstraint=null;}
       e.control=null;e.controlCooldownUntilMs=state.timeMs+CONFIG.combat.controlCooldownMs;
-      e.thinkLeftMs=0;e.windupMs=0;e.body.plugin.dropThrough=false;
+      e.thinkLeftMs=0;e.body.plugin.dropThrough=false;
       if(present){
         const dx=c.mode==='pinned'?c.normalX:c.dx,dy=c.mode==='pinned'?c.normalY:c.dy;
         e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=dx;e.controlReleaseDy=dy;
@@ -1338,7 +1360,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const n=normalize(shot.vx,shot.vy),pos=e.body.position;
       e.control={mode:'flying',ownerId:shot.ownerId,dx:n.x,dy:n.y,startedMs:state.timeMs,
         untilMs:state.timeMs+CONFIG.combat.flightMs,originX:pos.x,originY:pos.y,anchorX:0,anchorY:0,normalX:0,normalY:0};
-      e.attack=null;e.dash.untilMs=0;e.windupMs=0;e.goalId=null;e.goalKind='none';e.body.plugin.dropThrough=false;
+      e.attack=null;e.dash.untilMs=0;e.goalId=null;e.goalKind='none';e.body.plugin.dropThrough=false;
       const v=velocity(e.body);
       setWorldVelocity(e.body,v.x*60+n.x*CONFIG.combat.needleImpulse,v.y*60+n.y*CONFIG.combat.needleImpulse);
       return true;
@@ -1526,7 +1548,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       p.hp=Math.max(1,Math.ceil(p.maxHp*CONFIG.player.respawnHpRate));
       p.spectating=false;p.deathApplied=false;p.deathUntilMs=0;
       p.dash.charges=p.stats.dashMax;p.dash.rechargeLeftMs=0;p.dash.untilMs=0;
-      p.jumpBufferLeftMs=0;p.coyoteLeftMs=0;p.attackHeldSinceMs=null;
+      p.jumpBufferLeftMs=0;p.coyoteLeftMs=0;
       p.hitInvulnerableUntil=state.timeMs+CONFIG.player.respawnProtectionMs;
       emitCombatEvent('playerRevive',spawnX,spawnY,{playerId:p.id});
       ring(spawnX,spawnY,42,380,PALETTE.player);
@@ -1750,7 +1772,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function netRosterInfo(){return {epoch:net.room?.epoch??0,players:net.room?.players??[],hostId:net.room?.coordinatorId??null};}
     function validRicochet(chain){
       return chain===null||(chain&&Number.isInteger(chain.hits)&&chain.hits>=0&&chain.hits<=3&&
-        (chain.targetId===null||Number.isSafeInteger(chain.targetId))&&Number.isFinite(chain.rangeLeft)&&chain.rangeLeft>=0&&chain.rangeLeft<=CONFIG.combat.ricochetRange&&
+        (chain.targetId===null||Number.isSafeInteger(chain.targetId))&&Number.isFinite(chain.resumeAtMs)&&chain.resumeAtMs>=0&&Number.isFinite(chain.legSpeed)&&chain.legSpeed>0&&chain.legSpeed<=CONFIG.shot.speed&&Number.isFinite(chain.rangeLeft)&&chain.rangeLeft>=0&&chain.rangeLeft<=CONFIG.combat.ricochetRange&&
         Array.isArray(chain.path)&&chain.path.length===chain.hits+1&&chain.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)));
     }
     function packWorld(){
@@ -1762,8 +1784,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         sealedPortals:state.sealedPortals,
         players:[...state.players.values()].map(a=>[a.id,p(a.body.position.x),p(a.body.position.y),p(a.body.velocity.x),p(a.body.velocity.y),
           p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.comboStep,p(a.swingUntilMs),a.progress.earnedPoints,a.progress.upgrades,
-          p(a.lastShotDir.x),p(a.lastShotDir.y),a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs)]),
-        enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),p(e.body.angle),p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
+          p(a.lastShotDir.x),p(a.lastShotDir.y),a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs),a.body.angle]),
+        enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),e.body.angle,p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
           e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
             p(e.control.originX),p(e.control.originY),p(e.control.anchorX),p(e.control.anchorY),e.control.normalX,e.control.normalY]:null,
           p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy),e.attack?[e.attack.phase,p(e.attack.untilMs),e.attack.targetId,p(e.attack.dx),p(e.attack.dy),e.attack.kind]:null]),
@@ -1782,7 +1804,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport||!state.players.has(peerId))return;
-      sendPacket(transport,{t:'welcome',version:'0.14.0',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.15.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1811,10 +1833,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       else if(phase==='DEAD')showFinish(false);
     }
     function decodePlayerFrame(values){
-      if(!Array.isArray(values)||values.length!==19)return null;
-      const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil]=values;
+      if(!Array.isArray(values)||values.length!==20)return null;
+      const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle]=values;
       if(typeof id!=='string'||!id.length||id.length>128||
-        ![x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,ax,ay,hurtUntil,dashUntil,deathUntil].every(Number.isFinite)||
+        ![x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle].every(Number.isFinite)||
         hp<0||hp>maxHp||deathUntil<0||!Number.isInteger(charges)||charges<0||!Number.isInteger(combo)||combo<0||combo>3)return null;
       const progress=validateProgress({earnedPoints,upgrades});if(!progress)return null;
       const stats=deriveTechStats(progress);if(maxHp!==stats.maxHp||charges>stats.dashMax)return null;
@@ -1842,12 +1864,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       state.sealedPortals=frame.sealedPortals;
       const alive=new Set();
       for(const {values,progress,stats} of players){
-        const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil]=values;
+        const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle]=values;
         const actor=addRemotePlayer(id,progress);alive.add(id);
         // No revision cache: recreated actors always restore canonical progression and derived stats.
         actor.progress=progress;actor.stats=stats;
         Body.setPosition(actor.body,{x:clamp(x,-100,CONFIG.world.width+100),y:clamp(y,-100,CONFIG.world.height+200)});
         Body.setVelocity(actor.body,{x:clamp(vx,-50,50),y:clamp(vy,-50,50)});
+        Body.setAngle(actor.body,rollAngle);
         actor.face=face<0?-1:1;actor.dash.charges=charges;actor.dash.rechargeLeftMs=recharge;
         actor.comboStep=combo;actor.swingUntilMs=swing;
         actor.lastShotDir=normalize(ax,ay);
@@ -1891,7 +1914,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
         if(['wallPin','controlRelease','reboundImpact','swordEcho','ricochet'].includes(event.kind))presentControlEvent(event.kind,event.x,event.y,event.payload||{});
         if(event.kind==='needle')ring(event.x,event.y,18,180,PALETTE.gold);
-        if(event.kind==='hit'){ring(event.x,event.y,22,165,[1,.85,.57,.9]);spawnBurst(event.x,event.y,5,90,PALETTE.gold);}
+        if(event.kind==='hit')presentImpact(event.x,event.y,event.payload);
         if(event.kind==='kill')spawnBurst(event.x,event.y,14,140,CONFIG.colors['t'+clamp(event.payload?.tier||1,1,10)]);
         if(event.kind==='split'){state.frays.push({x:event.x,y:event.y,r:event.payload?.ratio||50,tier:event.payload?.tier||1,ageMs:0,durationMs:410});}
         if(event.kind==='merge'){
@@ -1958,7 +1981,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.14.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.15.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -2040,7 +2063,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0140',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0150',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2127,6 +2150,20 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       actions.consume();
       return {x,active,jumpPressed,jumpHeld,downHeld,dashPressed,fireHeld,firePressed,bladePressed};
     }
+    function setRollingVelocity(actor,vx,vy){
+      const b=actor.body;
+      Body.setVelocity(b,{x:vx,y:vy});
+      // A grounded motor drives the actual finite-inertia circle at no-slip rim speed.
+      // Airborne spin and all contact impulses remain owned by Matter.
+      if(isGrounded(actor)&&actor.control?.mode!=='pinned')Body.setAngularVelocity(b,vx/b.circleRadius);
+    }
+    function enemyApproachRange(e){
+      return e.body.circleRadius+CONFIG.player.radius+e.stats.dashSpeed*CONFIG.player.dashHoldMs/1000*.85;
+    }
+    function enemyCanEngage(e,point){
+      const dx=point.x-e.body.position.x,dy=point.y-e.body.position.y;
+      return Math.abs(dx)<enemyApproachRange(e)&&Math.abs(dy)<e.body.circleRadius+CONFIG.player.radius+35;
+    }
     function processDashRecharge(dtMs,p=state.player) {
       const stats=p.stats;
       if(p.dash.charges>=stats.dashMax){p.dash.rechargeLeftMs=0;return;}
@@ -2147,7 +2184,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const forward=Math.max(0,v.x*n);
       const startSpeed=Math.min(22,stats.dashSpeed/60+forward*.19);
       // Dash has no Y boost, and never overrides gravity or jump velocity.
-      Body.setVelocity(p.body,{x:n*startSpeed,y:v.y});
+      setRollingVelocity(p,n*startSpeed,v.y);
       p.dash.charges--;
       if(p.dash.charges===stats.dashMax-1)p.dash.rechargeLeftMs=stats.dashRechargeMs;
       p.dash.untilMs=now+CONFIG.player.dashHoldMs;
@@ -2193,7 +2230,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         if((contacts?.wallLeft||b.position.x-halfWidth(b)<config.wallDeadzone)&&next<0)next=0;
         if((contacts?.wallRight||b.position.x+halfWidth(b)>CONFIG.world.width-config.wallDeadzone)&&next>0)next=0;
         if(Math.abs(next)<.3)next=0;
-        if(Math.abs(next-old.x)>.005)setWorldVelocity(b,next,old.y);
+        setRollingVelocity(p,next/60,old.y/60);
       }
       if(p.swordAdvance){
         const a=p.swordAdvance,contacts=state.contacts.get(b.id);
@@ -2220,12 +2257,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function spawnBurst(x,y,count,speed,color) {
       for(let i=0;i<count;i++){
-        const a=random()*Math.PI*2,v=(.2+random()*.8)*speed,ttl=250+random()*420;
+        const a=effectRandom()*Math.PI*2,v=(.2+effectRandom()*.8)*speed,ttl=250+effectRandom()*420;
         if(state.particles.length>220)state.particles.shift();
-        state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-20,ttl,maxTtl:ttl,size:1.3+random()*2.7,color});
+        state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-20,ttl,maxTtl:ttl,size:1.3+effectRandom()*2.7,color});
       }
     }
     function floatText(text,x,y,kind='damage') {
+      if(!worldVisible(x,y,80))return;
       const out={};renderer.worldToScreenInto(x,y,out);
       const el=document.createElement('div');el.className='float';el.textContent=text;
       el.style.left=out.x+'px';el.style.top=out.y+'px';
@@ -2235,6 +2273,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       setTimeout(()=>el.remove(),890);
     }
     function updateVfx(dtMs) {
+      for(let i=state.impactMarks.length-1;i>=0;i--){const m=state.impactMarks[i];m.ageMs+=dtMs;if(m.ageMs>=CONFIG.feedback.impactMs)state.impactMarks.splice(i,1);}
       for(let i=state.absorptions.length-1;i>=0;i--){
         const a=state.absorptions[i];a.ageMs+=dtMs;
         if(a.ageMs>=a.durationMs)state.absorptions.splice(i,1);
@@ -2385,7 +2424,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       if(state.phase!==beforePhase||state.tick%2===0)broadcastFrame();
     }
     class BodyPose extends RenderObject {
-      static renderSchema = {'position.x':this.POSITION_X,'position.y':this.POSITION_Y,angle:this.ANGLE};
+      static renderSchema = {'position.x':this.POSITION_X,'position.y':this.POSITION_Y,angle:this.LINEAR};
     }
     class ShotPose extends RenderObject {
       static renderSchema = {x:this.POSITION_X,y:this.POSITION_Y};
@@ -2404,7 +2443,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         timeMs:state.timeMs,mode:reset?'reset':'continuous',entities},performance.now());
     }
     // === Code-only yarn visual language, shared by tiers and the player. ===
-    function rgbScale(color,k,a=color[3]??1){return [color[0]*k,color[1]*k,color[2]*k,a];}
+    function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
     function drawYarnBall(x,y,radius,tier,angle,flash=false,asPlayer=false,seedAngle=0,mood='normal',scaleX=1,scaleY=1){
       if(radius<=0)return;
       // Local affine adapter deforms embroidery and face together, never the Matter body.
@@ -2416,18 +2455,18 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const outline=asPlayer?PALETTE.playerOutline:PALETTE.cream;
       const border=flash?[1,1,.90,1]:rgbScale(base,.68,1);
       yarnRenderer.ellipse(x,y,radius+2,radius+2,rgbScale(outline,.82,.96),18);
-      yarnRenderer.ellipse(x,y,radius,radius,flash?[1,.91,.86,1]:base,24);
+      yarnRenderer.ellipse(x,y,radius,radius,flash?rgbScale(base,1.14,1):base,24);
       yarnRenderer.ellipse(x-radius*.16,y-radius*.28,radius*.60,radius*.46,[1,1,1,.11],16);
       // short fiber tufts stay close to the circle collision envelope
       for(let k=0;k<9;k++){
-        const theta=k*2*Math.PI/9+angle*.7+seedAngle;
+        const theta=k*2*Math.PI/9+angle+seedAngle;
         const dx=Math.cos(theta),dy=Math.sin(theta);
         yarnRenderer.line(x+dx*radius*.82,y+dy*radius*.82,x+dx*(radius+1.8),y+dy*(radius+1.8),1.7,rgbScale(outline,.92,.86));
       }
       // Contour winding: procedural yarn threads, no textures or offscreen raster canvas.
       const threadCount=tier>=4?6:tier>=2?5:4;
       for(let k=0;k<threadCount;k++){
-        const centerAngle=angle*.6+seedAngle+k*2.399;
+        const centerAngle=angle+seedAngle+k*2.399;
         const dist=radius*(.36+(k%3)*.16);
         const cx=x+Math.cos(centerAngle)*dist*.67;
         const cy=y+Math.sin(centerAngle)*dist*.67;
@@ -2568,11 +2607,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       {body:[.40,.39,.33,1],hem:[.75,.68,.46,.78],detail:[.99,.87,.66,.25]},
       {body:[.32,.37,.51,1],hem:[.53,.61,.85,.82],detail:[.83,.89,1,.29]},
     ]);
-    function drawNeedleTrail(path,alpha){
+    function drawNeedleTrail(path,alpha,step=1){
+      const c=CHAIN_COLORS[clamp(step-1,0,2)];
       for(let i=1;i<path.length;i++){
         const a=path[i-1],b=path[i];
-        renderer.line(a[0],a[1],b[0],b[1],4,[.6,1,.88,alpha*.3]);
-        renderer.line(a[0],a[1],b[0],b[1],1.4,[1,.95,.75,alpha]);
+        if(Math.hypot(b[0]-a[0],b[1]-a[1])<.1)continue;
+        renderer.line(a[0],a[1],b[0],b[1],5,[.06,.19,.21,alpha*.85]);
+        renderer.line(a[0],a[1],b[0],b[1],2.2,[c[0],c[1],c[2],alpha]);
       }
     }
     function drawBackdrop() {
@@ -2827,7 +2868,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const squash=pinned?.09+.26*Math.exp(-age/235)*Math.cos(age*.026):0;
       const stretch=control?.mode==='flying'?.06*Math.exp(-age/300):0;
       const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
-      const sx=1-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch,sy=1-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
+      const hitMark=state.impactMarks.findLast(m=>m.targetId===e.id&&m.ageMs<120);
+      const hitSquash=hitMark?.06*Math.sin(hitMark.ageMs/120*Math.PI):0;
+      const dashStretch=(e.attack?.phase==='dash'?.08:0)+hitSquash;
+      const sx=1+dashStretch-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch,sy=1-dashStretch-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
       const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash;
       const bodyVisual={x:visualX,y:visualY,sx,sy};
       drawEnemyControl(e,pose,bodyVisual);
@@ -2879,10 +2923,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const scale=clamp(1-(shadowY-pos.y-r)/430,.25,1);
       renderer.ellipse(pos.x,shadowY+1,r*1.1*scale,r*.27*scale,[.06,.17,.21,.29*scale],15);
       const flash=now<p.hitInvulnerableUntil&&(Math.floor(now/75)%2===0);
-      if(!flash)drawYarnBall(pos.x,pos.y,r,2,0,false,true,.2);
+      const dashing=now<p.dash.untilMs,sx=dashing?1.08:1,sy=dashing?.92:1;
+      if(!flash)drawYarnBall(pos.x,pos.y,r,2,pose.angle,false,true,.2,'normal',sx,sy);
       else{
         renderer.ellipse(pos.x,pos.y,r+5,r+5,[1,.82,.76,.78],18);
-        drawYarnBall(pos.x,pos.y,r,2,0,true,true,.2);
+        drawYarnBall(pos.x,pos.y,r,2,pose.angle,true,true,.2,'normal',sx,sy);
       }
       if(state.players.size>1){
         const labelColor=p.id===localId()?[.65,1,.72,1]:[.91,.72,1,1];
@@ -2942,12 +2987,12 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
       drawAbsorptions();
       drawSplitFrays();
-      for(const trail of state.ricochetTrails)drawNeedleTrail(trail.path,trail.ttl/230*.6);
+      for(const trail of state.ricochetTrails)drawNeedleTrail(trail.path,trail.ttl/CONFIG.feedback.trailMs*.8,trail.step);
       for(const source of state.shots){
         const pose=presentation.frame.modelFor(source);if(!pose)continue;
         const shot={...source,...pose};
         if(!worldVisible(shot.x,shot.y,30))continue;
-        if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path,[shot.x,shot.y]],.7);
+        if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path.slice(-1),[shot.x,shot.y]],.95,shot.ricochet.hits+1);
         const enemy=shot.owner==='enemy';
         const c=enemy?[1,.62,.65,1]:PALETTE.shot;
         const dir=normalize(shot.vx,shot.vy);
@@ -2958,6 +3003,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         renderer.line(shot.x-dir.x*16,shot.y-dir.y*16,shot.x-dir.x*38,shot.y-dir.y*38,2,
           enemy?[1,.54,.6,.31]:[.7,1,.88,.32]);
       }
+      drawImpactMarks();
       for(const actor of state.players.values()){const pose=presentation.frame.modelFor(actor.body);if(pose)drawPlayer(state.timeMs,actor,pose);}
       for(const q of state.particles){
         if(!worldVisible(q.x,q.y,10))continue;
@@ -3252,6 +3298,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         ...metrics}),
       // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
       ...((globalThis.__YARN_MAYHEM_QA===true)?{
+        qaWorldPoint:(x,y)=>{const point={};renderer.worldToScreenInto(x,y,point);return point;},
+        qaQuietArena:()=>{state.nextSpawnAtMs=1e10;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
         qaSpawn:(tier,x,y)=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y),
         qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
         qaHit:(id,damage)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
