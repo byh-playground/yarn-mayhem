@@ -10,7 +10,11 @@ let browser;
 try{browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||(process.platform==='win32'?'msedge':'chromium'),headless:true});report.browser=browser.version();
 const pages=[];for(let i=0;i<2;i++){const context=await browser.newContext({viewport:{width:1280,height:800}});await context.addInitScript(()=>globalThis.__YARN_MAYHEM_QA=true);const p=await context.newPage();p.on('pageerror',e=>report.errors.push(e.message));p.on('requestfailed',r=>report.networkFailures.push({url:r.url(),reason:r.failure()?.errorText}));await p.goto(process.env.TEST_URL||'http://127.0.0.1:8768');await p.waitForFunction(()=>!!globalThis.__YARN_MAYHEM,{timeout:45000});pages.push(p)}
 const [host,guest]=pages;const snap=p=>p.evaluate(()=>__YARN_MAYHEM.snapshot());
-await host.locator('#mainButton').click();await host.waitForTimeout(500);
+await host.locator('#mainButton').click();
+check('start opens mode choice without starting', (await snap(host)).phase==='MENU'&&await host.locator('#soloStart').isVisible());
+await host.locator('#multiOpen').click();await host.locator('#menuBack').click();
+check('back returns to mode choice',await host.locator('#soloStart').isVisible());
+await host.locator('#soloStart').click();await host.waitForTimeout(500);
 let a=await snap(host);report.dependencies={matter:a.matterVersion,gamekit:a.gamekitDist};
 const gl=await host.evaluate(()=>{const gl=document.querySelector('#gl').getContext('webgl2')||document.querySelector('#gl').getContext('webgl');const ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)});report.renderer=gl;
 check('real boot and 30 TPS',a.phase==='PLAYING'&&a.tps===30&&a.physicalBodies>0,{phase:a.phase,tps:a.tps});
@@ -18,10 +22,10 @@ await host.keyboard.down('d');await host.waitForTimeout(450);await host.keyboard
 await host.mouse.move(800,400);await host.mouse.down();await host.waitForTimeout(650);await host.mouse.up();b=await snap(host);check('hold attack',b.shotsFired>0,b.shotsFired);
 await host.evaluate(()=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaSpawn(1,1100,1600);__YARN_MAYHEM.qaSpawn(1,1100,1600)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().mergeCount>0);check('Matter contact merge',(await snap(host)).mergeCount>0);
 await host.evaluate(()=>{const e=__YARN_MAYHEM.qaSpawn(3,1400,1600);__YARN_MAYHEM.qaHit(e.id,99999)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().level>1);check('kill rewards and split growth',(await snap(host)).splitCount>0);
-await host.locator('#techOpen').click();await host.locator('#tech_blade1').click();const upgraded=await host.evaluate(()=>__YARN_MAYHEM.qaPlayers()[0].upgrades.blade1);check('stat tree investment',upgraded===1);await host.locator('#techClose').click();
+await host.locator('#techOpen').click();await host.locator('#tech_bladeEcho').click();check('locked skill details stay inspectable',await host.locator('#tech_bladeEcho').isEnabled()&&!(await host.locator('#techBuy').isEnabled()));await host.locator('#tech_blade1').click();await host.locator('#techBuy').click();const upgraded=await host.evaluate(()=>__YARN_MAYHEM.qaPlayers()[0].upgrades.blade1);check('stat tree investment',upgraded===1);await host.locator('#techClose').click();
 await host.evaluate(()=>{__YARN_MAYHEM.qaDamagePlayer('solo');});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='DEAD');check('solo HP zero team wipe',(await snap(host)).hp===0);
 await host.locator('#mainButton').click();check('restart',(await snap(host)).hp>0);
-await host.reload();await host.waitForFunction(()=>!!globalThis.__YARN_MAYHEM);await host.locator('#hostRoom').click();await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().room.role==='host',{},{timeout:45000});const code=(await snap(host)).room.code;await guest.locator('#roomCode').fill(code);await guest.locator('#joinRoom').click();
+await host.reload();await host.waitForFunction(()=>!!globalThis.__YARN_MAYHEM);await host.locator('#mainButton').click();await host.locator('#multiOpen').click();await guest.locator('#mainButton').click();await guest.locator('#multiOpen').click();await host.locator('#hostRoom').click();await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().room.role==='host',{},{timeout:45000});const code=(await snap(host)).room.code;await guest.locator('#roomCode').fill(code);await guest.locator('#joinRoom').click();
 await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().room.remoteReady&&__YARN_MAYHEM.snapshot().room.players===2,{},{timeout:60000});await host.locator('#mainButton').click();await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='PLAYING');
 check('real Nostr/WebRTC admission',(await snap(host)).room.connected===1&& (await snap(guest)).room.connected===1,{host:(await snap(host)).room,guest:(await snap(guest)).room});
 a=await snap(guest);await guest.keyboard.down('d');await guest.waitForTimeout(500);await guest.keyboard.up('d');b=await snap(guest);check('guest command roundtrip',b.player.x>a.player.x+25,{before:a.player,after:b.player});
