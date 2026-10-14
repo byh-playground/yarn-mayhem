@@ -318,7 +318,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       return down>=-.2 && previous<=surface.top+5 && foot>=surface.top-4 &&
         foot<surface.top+Math.max(16,down+9) && actor.position.y<surface.top;
     }
-    Matter.Detector.collisions=function yarnfallOneWayCollisions(detector){
+    Matter.Detector.collisions=function yarnMayhemOneWayCollisions(detector){
       const candidates=nativeDetectorCollisions(detector),surfaces=detector.oneWaySurfaces;
       if(!surfaces?.size)return candidates;
       let count=0;
