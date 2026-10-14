@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.12.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.13.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -157,7 +157,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.12.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.13.0</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -300,7 +300,6 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       dashMax:CONFIG.player.dashCharges, dashRechargeMs:CONFIG.player.rechargeMs,
       dashSpeed:CONFIG.player.dashSpeed, moveSpeed:CONFIG.player.moveSpeed, maxHp:CONFIG.player.maxHp,
     });
-    const stats=newStats();
     let randState = 0x6b456fed;
     function seed(n) { randState = n >>> 0 || 1; }
     function random() { randState = (Math.imul(randState,1664525)+1013904223)>>>0; return randState/4294967296; }
@@ -327,7 +326,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     const localId=()=>net.room?.localPlayerId??'solo';
     // Session/transport owns roster information; all gameplay rules use only
     // the players in the world. In solo the roster is a single 'solo' actor.
-    const sessionRoster=()=>net.room?.players??[localId()];
+    const sessionRoster=()=>state.players.size?[...state.players.keys()]:[localId()];
     const idOfBody=body=>{for(const actor of state.players.values())if(actor.body===body)return actor;return null;};
 
     let hintTimeout=0;
@@ -619,7 +618,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         sound('pop',.64);
       }
     }
-    function createPlayer(x,y,id=localId(),actorStats=stats) {
+    function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
+      const actorStats=deriveTechStats(progress);
       const body=Bodies.rectangle(x,y,30,34,{
         label:'player',chamfer:{radius:8},friction:.015,frictionStatic:0,frictionAir:.002,restitution:0,density:.002,
         collisionFilter:{category:2,mask:1|2|4},
@@ -627,10 +627,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       Body.setInertia(body,Infinity);
       Composite.add(state.engine.world,body);
       body.plugin.dropThrough=false;body.plugin.footOffset=17;body.plugin.halfWidth=15;
-      return {id,body,stats:actorStats,techPoints:Math.max(0,state.level-1),upgrades:Object.create(null),hp:actorStats.maxHp,maxHp:actorStats.maxHp,dash:{charges:actorStats.dashMax,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},
+      return {id,body,stats:actorStats,progress,hp:actorStats.maxHp,maxHp:actorStats.maxHp,dash:{charges:actorStats.dashMax,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},
         hitInvulnerableUntil:0,face:1,contactUntilMs:0,
         coyoteLeftMs:0,jumpBufferLeftMs:0,jumpCutPending:false,
-        lastShotDir:{x:1,y:0},techRevision:0,deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,attackHeldSinceMs:null,needleNextMs:0,slashes:[],swordAdvance:null,
+        lastShotDir:{x:1,y:0},deathUntilMs:0,deathApplied:false,spectating:false,comboStep:0,comboUntilMs:0,swingUntilMs:0,swingCooldownUntilMs:0,attackHeldSinceMs:null,needleNextMs:0,slashes:[],swordAdvance:null,
       };
     }
     function createEnemy(tier,x,y,extra={}) {
@@ -662,7 +662,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       return obj;
     }
     function initStage(stage,preview=false,rosterIds=sessionRoster()) {
-      const prior=state.players?new Map([...state.players].map(([id,p])=>[id,{stats:p.stats,upgrades:p.upgrades,techPoints:p.techPoints,hp:p.hp}])):new Map();
+      const prior=state.players?new Map(state.players):new Map();
       clearWorld();state.stage=stage;state.theme=((stage-1)%3)+1;
       $('app').className='theme-'+state.theme;
       seed(0x875fcdd ^ (stage*25643));
@@ -675,8 +675,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const roster=[...new Set(rosterIds)];
       if(roster.length<1||roster.length>roomMaxPlayers)throw new Error('invalid stage roster');
       for(const [i,id] of roster.entries()){
-        const old=prior.get(id),p=createPlayer(315+(i%4)*57,CONFIG.world.groundY-64,id,old?.stats??(id===localId()?stats:newStats()));
-        if(old){p.upgrades=old.upgrades;p.techPoints=old.techPoints;
+        const old=prior.get(id),p=createPlayer(315+(i%4)*57,CONFIG.world.groundY-64,id,old?.progress??(id===localId()?localProgress:emptyProgress()));
+        if(old){
           // A fallen teammate always returns to play at the next stage.
           // Same between-stage restoration for every participant (1..4).
           p.hp=stage>1&&!preview?(old.hp<=0?Math.ceil(p.maxHp*CONFIG.player.respawnHpRate):Math.min(p.maxHp,old.hp+24)):old.hp;
@@ -1533,27 +1533,61 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       {id:'hp',branch:'생존',name:'튼튼한 실',symbol:'♥',cost:1,requires:[],max:6,desc:'최대 체력 +25, 현재 체력 +25'},
     ]);
     const TECH_INDEX=new Map(TECH_NODES.map(node=>[node.id,node]));
-    const techSpends=p=>Object.entries(p.upgrades).reduce((n,[id,level])=>n+(TECH_INDEX.get(id)?.cost??0)*level,0);
-    function applyTechStats(p,id){
-      const st=p.stats,levels=p.upgrades;
-      const n=k=>levels[k]||0;
-      const oldMax=st.maxHp,oldDashMax=st.dashMax;
-      Object.assign(st,newStats());
+    const emptyProgress=()=>({earnedPoints:0,upgrades:Object.create(null)});
+    const techSpends=progress=>Object.entries(progress.upgrades).reduce((n,[id,level])=>n+TECH_INDEX.get(id).cost*level,0);
+    const techPoints=p=>p?p.progress.earnedPoints-techSpends(p.progress):0;
+    function validateProgress(value){
+      if(!value||typeof value!=='object'||Array.isArray(value)||!Number.isSafeInteger(value.earnedPoints)||value.earnedPoints<0||
+        !value.upgrades||typeof value.upgrades!=='object'||Array.isArray(value.upgrades)||Object.keys(value).some(k=>!['earnedPoints','upgrades'].includes(k)))return null;
+      const progress=emptyProgress();progress.earnedPoints=value.earnedPoints;
+      for(const [id,level] of Object.entries(value.upgrades)){
+        const node=TECH_INDEX.get(id);
+        if(!node||!Number.isInteger(level)||level<0||level>node.max)return null;
+        if(level)progress.upgrades[id]=level;
+      }
+      for(const id of Object.keys(progress.upgrades))if(!TECH_INDEX.get(id).requires.every(key=>progress.upgrades[key]>0))return null;
+      return techSpends(progress)<=progress.earnedPoints?progress:null;
+    }
+    const PROGRESS_KEY='yarn-mayhem.progress';
+    let progressStorageNotice='',savedProgressText='';
+    function loadLocalProgress(){
+      try{
+        const text=globalThis.localStorage?.getItem(PROGRESS_KEY);
+        if(!text)return emptyProgress();
+        const progress=validateProgress(JSON.parse(text));
+        if(!progress)throw new Error('invalid progression');
+        savedProgressText=JSON.stringify(progress);return progress;
+      }catch{progressStorageNotice='저장된 성장을 불러오지 못했습니다';return emptyProgress();}
+    }
+    let localProgress=loadLocalProgress();
+    function saveLocalProgress(player){
+      if(player.id!==localId())return;
+      localProgress=player.progress;
+      const text=JSON.stringify(localProgress);if(text===savedProgressText)return;
+      try{
+        if(!globalThis.localStorage)throw new Error('storage unavailable');
+        globalThis.localStorage.setItem(PROGRESS_KEY,text);savedProgressText=text;progressStorageNotice='';
+      }catch{progressStorageNotice='이 기기에 저장하지 못했습니다 · 현재 플레이에는 유지';}
+    }
+    function deriveTechStats(progress){
+      const st=newStats(),n=k=>progress.upgrades[k]||0;
       st.swordAdvance=n('blade1')>0;st.swordLaunch=n('bladeLaunch')>0;st.swordEcho=n('bladeEcho')>0;
       st.needleCarry=n('needleCarry')>0;st.needleRicochet=n('needleThread')>0;st.needleRebound=n('needleRebound')>0;
       st.dashMax+=n('dashCapacity');
       st.dashRechargeMs=Math.max(320,st.dashRechargeMs*(1-n('dashRecharge')*.12));
       st.moveSpeed*=1+n('speed')*.1;
       st.maxHp+=n('hp')*25;
-      p.maxHp=st.maxHp;
-      if(oldMax!==st.maxHp)p.hp=clamp(p.hp+(st.maxHp-oldMax),0,p.maxHp);
-      if(oldDashMax!==st.dashMax)p.dash.charges=clamp(p.dash.charges+st.dashMax-oldDashMax,0,st.dashMax);
+      return st;
     }
     function buyTech(player,id){
-      const node=TECH_INDEX.get(id);if(!node||!player||!player.upgrades)return false;
-      const level=player.upgrades[id]||0;
-      if(level>=node.max||player.techPoints<node.cost||!node.requires.every(k=>player.upgrades[k]>0))return false;
-      player.techPoints-=node.cost;player.upgrades[id]=level+1;player.techRevision++;applyTechStats(player,id);
+      const node=TECH_INDEX.get(id);if(!node||!player||!player.progress)return false;
+      const level=player.progress.upgrades[id]||0;
+      if(level>=node.max||techPoints(player)<node.cost||!node.requires.every(k=>player.progress.upgrades[k]>0))return false;
+      const oldStats=player.stats;
+      player.progress.upgrades[id]=level+1;player.stats=deriveTechStats(player.progress);
+      player.maxHp=player.stats.maxHp;player.hp=clamp(player.hp+player.stats.maxHp-oldStats.maxHp,0,player.maxHp);
+      player.dash.charges=clamp(player.dash.charges+player.stats.dashMax-oldStats.dashMax,0,player.stats.dashMax);
+      saveLocalProgress(player);
       sound('select',.65);
       if(player.id===localId()){updateTechUI();updateHUD(true);}
       return true;
@@ -1561,15 +1595,17 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function addExperience(amount) {
       state.xp+=amount;
       while(state.xp>=state.xpGoal){state.xp-=state.xpGoal;state.level++;state.xpGoal=Math.round(8+state.level*5);
-        for(const player of state.players.values())player.techPoints++;
+        for(const player of state.players.values()){
+          player.progress.earnedPoints=Math.min(Number.MAX_SAFE_INTEGER,player.progress.earnedPoints+1);saveLocalProgress(player);
+        }
         sound('level',.65);state.camera.shake=Math.max(state.camera.shake,1.5);
       }
     }
     const techView={selected:'blade1',returnFocus:null,returnRoute:'',inert:[]};
     function techStatus(node){
-      const p=state.player,level=p?.upgrades[node.id]||0;
-      const ready=node.requires.every(id=>p?.upgrades[id]>0);
-      return {level,ready,owned:level>=node.max,available:!!p&&ready&&level<node.max&&p.techPoints>=node.cost};
+      const p=state.player,level=p?.progress.upgrades[node.id]||0;
+      const ready=node.requires.every(id=>p?.progress.upgrades[id]>0);
+      return {level,ready,owned:level>=node.max,available:!!p&&ready&&level<node.max&&techPoints(p)>=node.cost};
     }
     function selectTech(id,route=true){
       if(!TECH_INDEX.has(id))return;
@@ -1592,9 +1628,9 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function updateTechUI(){
       const p=state.player;
-      $('techPoints').textContent='사용 가능 '+(p?.techPoints||0)+'점 · 레벨 '+state.level;
-      $('techOpen').textContent='스탯 '+(p?.techPoints||0);
-      $('techOpen').classList.toggle('ready',(p?.techPoints||0)>0);
+      $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(progressStorageNotice?' · '+progressStorageNotice:'');
+      $('techOpen').textContent='스탯 '+techPoints(p);
+      $('techOpen').classList.toggle('ready',techPoints(p)>0);
       for(const node of TECH_NODES){
         const button=$('tech_'+node.id);if(!button)continue;
         const st=techStatus(node),label=st.owned?'✓ 완료':!st.ready?'잠김':st.available?'＋ 투자 가능':'포인트 부족';
@@ -1612,8 +1648,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       if(req.dataset.node!==node.id){req.replaceChildren();req.dataset.node=node.id;
         for(const id of node.requires){const button=document.createElement('button');button.type='button';button.dataset.id=id;button.onclick=()=>{selectTech(id);$('tech_'+id)?.focus({preventScroll:true});};req.append(button);}
       }
-      for(const button of req.children)button.textContent=(p?.upgrades[button.dataset.id]>0?'✓ 습득: ':'선행 필요: ')+TECH_INDEX.get(button.dataset.id).name;
-      $('techReason').textContent=st.owned?'최대 단계에 도달했습니다.':!st.ready?'위 선행 기술을 먼저 습득하세요.':!p?'모험을 준비하는 중입니다.':p.techPoints<node.cost?'레벨을 올리면 1점을 얻습니다.':node.requires.length?'선행 조건 충족 · 선택한 기술에 투자합니다.':'선행 조건 없음 · 선택한 기술에 투자합니다.';
+      for(const button of req.children)button.textContent=(p?.progress.upgrades[button.dataset.id]>0?'✓ 습득: ':'선행 필요: ')+TECH_INDEX.get(button.dataset.id).name;
+      $('techReason').textContent=st.owned?'최대 단계에 도달했습니다.':!st.ready?'위 선행 기술을 먼저 습득하세요.':!p?'모험을 준비하는 중입니다.':techPoints(p)<node.cost?'레벨을 올리면 1점을 얻습니다.':node.requires.length?'선행 조건 충족 · 선택한 기술에 투자합니다.':'선행 조건 없음 · 선택한 기술에 투자합니다.';
       $('techBuy').disabled=!st.available;
       $('techBuy').textContent=st.owned?'✓ 습득 완료':!st.ready?'선행 기술 필요':!st.available?node.cost+'점 필요':'투자하기 · '+node.cost+'점';
     }
@@ -1703,8 +1739,8 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         merges:state.merges,splits:state.splits,score:state.score,xp:state.xp,level:state.level,xpGoal:state.xpGoal,
         sealedPortals:state.sealedPortals,
         players:[...state.players.values()].map(a=>[a.id,p(a.body.position.x),p(a.body.position.y),p(a.body.velocity.x),p(a.body.velocity.y),
-          p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.comboStep,p(a.swingUntilMs),a.techPoints,a.upgrades,
-          p(a.lastShotDir.x),p(a.lastShotDir.y),a.techRevision,a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs)]),
+          p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.comboStep,p(a.swingUntilMs),a.progress.earnedPoints,a.progress.upgrades,
+          p(a.lastShotDir.x),p(a.lastShotDir.y),a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs)]),
         enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),p(e.body.angle),p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
           e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
             p(e.control.originX),p(e.control.originY),p(e.control.anchorX),p(e.control.anchorY),e.control.normalX,e.control.normalY]:null,
@@ -1723,18 +1759,17 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function broadcastFrame(){if(net.role!=='host')return;for(const id of net.room?.players||[]){if(id!==localId())sendFrame(id);}}
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
-      if(!transport)return;
-      sendPacket(transport,{t:'welcome',version:'0.12.0',roster:netRosterInfo(),frame:packWorld()});
+      if(!transport||!state.players.has(peerId))return;
+      sendPacket(transport,{t:'welcome',version:'0.13.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
       if(net.role==='host'&&net.room)roomMessage('방 '+net.room.room+' · '+net.room.players.length+'/4명 · 플레이 중 참가 가능');
       refreshRoomUI();
     }
-    function addRemotePlayer(id){
+    function addRemotePlayer(id,progress=emptyProgress()){
       if(state.players.has(id))return state.players.get(id);
-      const index=state.players.size,p=createPlayer(315+(index%4)*57,CONFIG.world.groundY-64,id,newStats());
-      p.techPoints=Math.max(0,state.level-1);
+      const index=state.players.size,p=createPlayer(315+(index%4)*57,CONFIG.world.groundY-64,id,progress);
       state.players.set(id,p);return p;
     }
     function removeRemotePlayer(id){
@@ -1753,13 +1788,25 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       }else if(phase==='CLEAR')renderStageClear();
       else if(phase==='DEAD')showFinish(false);
     }
+    function decodePlayerFrame(values){
+      if(!Array.isArray(values)||values.length!==19)return null;
+      const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil]=values;
+      if(typeof id!=='string'||!id.length||id.length>128||
+        ![x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,ax,ay,hurtUntil,dashUntil,deathUntil].every(Number.isFinite)||
+        hp<0||hp>maxHp||deathUntil<0||!Number.isInteger(charges)||charges<0||!Number.isInteger(combo)||combo<0||combo>3)return null;
+      const progress=validateProgress({earnedPoints,upgrades});if(!progress)return null;
+      const stats=deriveTechStats(progress);if(maxHp!==stats.maxHp||charges>stats.dashMax)return null;
+      return {values,progress,stats};
+    }
     function applyWorldFrame(frame){
       if(net.role!=='join'||!net.remoteReady)return;
       if(!frame||!Number.isSafeInteger(frame.tick)||!Number.isSafeInteger(frame.runId)||frame.runId<0||frame.runId<net.remoteRunId||(!Number.isSafeInteger(frame.stage))||frame.stage<1||frame.stage>100000)return;
+      if(!Array.isArray(frame.players)||!frame.players.length||frame.players.length>roomMaxPlayers||!Array.isArray(frame.enemies)||frame.enemies.length>160||!Array.isArray(frame.shots)||frame.shots.length>160)return;
+      const players=frame.players.map(decodePlayerFrame);
+      if(players.some(p=>!p)||new Set(players.map(p=>p.values[0])).size!==players.length||!players.some(p=>p.values[0]===localId()))return;
       const newRun=frame.runId!==net.remoteRunId;
       if(!newRun&&frame.tick<=net.lastStateTick)return;
       if(newRun){net.remoteRunId=frame.runId;net.lastStateTick=-1;net.lastFxSeen=0;}
-      if(!Array.isArray(frame.players)||frame.players.length>roomMaxPlayers||!Array.isArray(frame.enemies)||frame.enemies.length>160||!Array.isArray(frame.shots)||frame.shots.length>160)return;
       if(newRun||frame.stage!==state.stage||!state.engine){
         state.timeMs=frame.ms;
         initStage(frame.stage,true,frame.players.map(values=>values[0]));
@@ -1772,26 +1819,20 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       state.score=frame.score;state.level=frame.level;state.xp=frame.xp;state.xpGoal=frame.xpGoal;
       state.sealedPortals=frame.sealedPortals;
       const alive=new Set();
-      for(const values of frame.players){
-        if(!Array.isArray(values)||values.length<20)continue;
-        const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,points,upgrades,ax,ay,revision,hurtUntil,dashUntil,deathUntil]=values;
-        if(typeof id!=='string'||id.length>128||![x,y,vx,vy,hp,maxHp,ax,ay].every(Number.isFinite)||maxHp<1||maxHp>100000||hp<0||hp>maxHp||!Number.isSafeInteger(revision)||revision<0||!Number.isFinite(deathUntil)||deathUntil<0)continue;
-        const actor=addRemotePlayer(id);alive.add(id);
+      for(const {values,progress,stats} of players){
+        const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,combo,swing,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil]=values;
+        const actor=addRemotePlayer(id,progress);alive.add(id);
+        // No revision cache: recreated actors always restore canonical progression and derived stats.
+        actor.progress=progress;actor.stats=stats;
         Body.setPosition(actor.body,{x:clamp(x,-100,CONFIG.world.width+100),y:clamp(y,-100,CONFIG.world.height+200)});
         Body.setVelocity(actor.body,{x:clamp(vx,-50,50),y:clamp(vy,-50,50)});
         actor.face=face<0?-1:1;actor.dash.charges=charges;actor.dash.rechargeLeftMs=recharge;
-        actor.comboStep=combo;actor.swingUntilMs=swing;actor.techPoints=points;
+        actor.comboStep=combo;actor.swingUntilMs=swing;
         actor.lastShotDir=normalize(ax,ay);
         actor.hitInvulnerableUntil=hurtUntil;actor.dash.untilMs=dashUntil;
-        if(actor.techRevision!==revision){
-          actor.upgrades=upgrades&&typeof upgrades==='object'&&!Array.isArray(upgrades)?upgrades:Object.create(null);
-          actor.techRevision=revision;
-          if(id===localId())actor.stats=stats;
-          applyTechStats(actor,'sync');
-        }
         actor.hp=hp;actor.maxHp=maxHp;
         actor.spectating=hp<=0;actor.deathUntilMs=deathUntil;
-        if(id===localId())state.player=actor;
+        if(id===localId()){state.player=actor;saveLocalProgress(actor);}
       }
       for(const id of [...state.players.keys()])if(!alive.has(id))removeRemotePlayer(id);
       const mobIds=new Set(),oldEnemies=new Map(state.enemies.map(e=>[e.id,e]));
@@ -1852,7 +1893,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }
       capturePresentation();
-      updateHUD(true);updateDeathNotice();
+      updateHUD(true);updateDeathNotice();return true;
     }
     function handleRoomMessage(peerId,payload){
       if(!payload||typeof payload!=='object'||typeof payload.t!=='string')return;
@@ -1868,8 +1909,15 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }return;
       }
       if(net.role==='host'){
+        if(!net.room?.players.includes(peerId))return;
+        if(payload.t==='hello'){
+          if(!state.players.has(peerId)){
+            const progress=validateProgress(payload.progress);if(!progress)return;
+            addRemotePlayer(peerId,progress);announceRoster();
+          }else sendWelcome(peerId);
+          return;
+        }
         if(!state.players.has(peerId))return;
-        if(payload.t==='hello'){sendWelcome(peerId);return;}
         if(payload.t==='input'){
           if(!Number.isSafeInteger(payload.seq)||!Number.isFinite(payload.x))return;
           const previous=net.peerControls.get(peerId)??{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9};
@@ -1886,15 +1934,17 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.12.0'||!payload.roster?.players?.includes(localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.13.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
           const firstAdmission=!net.remoteReady;
-          net.remoteReady=true;net.connection='playing';
+          net.remoteReady=true;
           if(firstAdmission){net.lastStateTick=-1;net.remoteRunId=-1;net.lastFxSeen=payload.frame?.fx?.at(-1)?.id??0;}
-          roomMessage('접속 성공 · '+players.length+'/4명 · 함께 플레이 중');
-          applyWorldFrame(payload.frame);refreshRoomUI();
+          const applied=applyWorldFrame(payload.frame);
+          if(firstAdmission&&!applied){net.remoteReady=false;net.connection='connected';roomMessage('유효한 세계 상태를 기다리는 중…');return;}
+          net.connection='playing';roomMessage('접속 성공 · '+players.length+'/4명 · 함께 플레이 중');
+          refreshRoomUI();
         }else if(payload.t==='frame')applyWorldFrame(payload);
       }
     }
@@ -1912,14 +1962,14 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         const players=[...net.room.players,peerId].sort();
         net.room.setRoster({players,epoch:net.room.epoch+1,coordinatorId:localId()});
       }
-      addRemotePlayer(peerId);
+      // Admit only after a validated progression hello; never publish an empty guest actor.
       net.peerControls.set(peerId,{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9});
       announceRoster();
     }
     function roomEvent(event){
       if(event.type==='peer-connected'){
         if(net.role==='host')hostPeerConnected(event.peerId,event.transport);
-        else{attachRoomPeer(event.peerId,event.transport);sendHost({t:'hello'});}
+        else{attachRoomPeer(event.peerId,event.transport);sendHost({t:'hello',progress:localProgress});}
       }else if(event.type==='peer-disconnected'){
         net.peers.get(event.peerId)?.();net.peers.delete(event.peerId);
         if(net.role==='host'){
@@ -1966,7 +2016,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0120',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0130',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -1978,7 +2028,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }
         for(const [id,transport]of room.transports){
           if(role==='host')hostPeerConnected(id,transport);
-          else{attachRoomPeer(id,transport);sendHost({t:'hello'});}
+          else{attachRoomPeer(id,transport);sendHost({t:'hello',progress:localProgress});}
         }
         refreshRoomUI();
       }catch(error){
@@ -2025,7 +2075,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const collected=consumeControls();
       const input=state.player?.hp<=0?neutralControls():collected;
       if(!net.room)return;
-      if(!net.remoteReady){const now=performance.now();if(now-net.lastHelloMs>1200){sendHost({t:'hello'});net.lastHelloMs=now;}return;}
+      if(!net.remoteReady){const now=performance.now();if(now-net.lastHelloMs>1200){sendHost({t:'hello',progress:localProgress});net.lastHelloMs=now;}return;}
       const dir=getAimDirection(state.player);
       const data={t:'input',seq:++net.inputSequence,x:Math.round(input.x*100)/100,
         jp:input.jumpPressed?1:0,jh:input.jumpHeld?1:0,dn:input.downHeld?1:0,dp:input.dashPressed?1:0,
@@ -2900,19 +2950,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       updateDeathNotice();
     }
     // === UI and lifecycle ===
-    function resetPlayerStats() {
-      Object.assign(stats,newStats());
-      for(const player of state.players.values()){
-        Object.assign(player.stats,newStats());player.upgrades=Object.create(null);
-        player.techPoints=0;player.maxHp=player.stats.maxHp;player.hp=player.maxHp;player.dash.charges=player.stats.dashMax;
-      }
-    }
     function startNewRun() {
       state.runId++;state.kills=0;state.defeats=0;state.merges=0;state.splits=0;state.level=1;state.xp=0;state.xpGoal=10;state.score=0;
       state.shotsFired=0;state.timeMs=0;state.tick=0;state.preservedHp=CONFIG.player.maxHp;
 
       pointerAim.seen=false;pointerAim.source='virtual';
-      resetPlayerStats();startStage(1);broadcastFrame();
+      for(const player of state.players.values())player.hp=player.stats.maxHp;
+      startStage(1);broadcastFrame();
     }
     function startStage(stage) {
       $('modal').hidden=true;
@@ -3091,7 +3135,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       snapshot:()=>({phase:state.phase,tick:state.tick,stage:state.stage,level:state.level,kills:state.kills,shotsFired:state.shotsFired,
         runtime:{canonicalStep:'stepWorld',inputSource:net.role==='join'?'remote-snapshot':'local-and-peer-commands',roster:[...state.players.keys()]},
         tps:session.profile.tickRate,room:{role:net.role,code:net.code,players:state.players.size,connected:net.room?.transports.size??0,remoteReady:net.remoteReady,runId:state.runId},
-        attack:{combo:state.player?.comboStep,techPoints:state.player?.techPoints,swingUntil:state.player?.swingUntilMs},
+        attack:{combo:state.player?.comboStep,techPoints:techPoints(state.player),swingUntil:state.player?.swingUntilMs},
         mergeCount:state.merges,stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,
         remainingEnemies:state.enemies.length,spawnRate:spawnRate(),spawnCandidateCount:state.spawnSites.length,
         totalPortals:state.totalPortals,sealedPortals:state.sealedPortals,nextSealAt:nextSealThreshold(),stageComplete:stageComplete(),
@@ -3102,7 +3146,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         activeSplitFrays:state.frays.length,
         uncreditedFragments:state.enemies.filter(e=>!e.killCredit).length,
         hp:state.player?.hp,death:{spectating:!!state.player?.spectating,untilMs:state.player?.deathUntilMs??0,noticeVisible:!$('deathNotice').hidden},
-        dash:state.player?.dash.charges,dashMax:stats.dashMax,projectiles:state.shots.length,
+        dash:state.player?.dash.charges,dashMax:state.player?.stats.dashMax,projectiles:state.shots.length,
         grounded:state.player?isGrounded(state.player):false,standing:state.player?standingSurface(state.player)?.kind??null:null,
         oneWayPlatforms:state.oneWayByBody.size,playerDrop:!!state.player?.body.plugin.dropThrough,
         supportContactCount:[...state.contacts.values()].filter(c=>c.support).length,
@@ -3161,7 +3205,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         qaJoinActor:id=>{if(state.players.size>=roomMaxPlayers)return null;return addRemotePlayer(id);},
         qaAttackBy:(id,angle=0)=>performSlash(state.players.get(id),{x:Math.cos(angle),y:Math.sin(angle)}),
         qaNetworkFrame:()=>packWorld(),
-        qaPlayers:()=>[...state.players.values()].map(p=>({id:p.id,hp:p.hp,maxHp:p.maxHp,x:p.body.position.x,y:p.body.position.y,combo:p.comboStep,techPoints:p.techPoints,upgrades:{...p.upgrades},techRevision:p.techRevision})),
+        qaPlayers:()=>[...state.players.values()].map(p=>({id:p.id,hp:p.hp,maxHp:p.maxHp,x:p.body.position.x,y:p.body.position.y,combo:p.comboStep,techPoints:techPoints(p),earnedPoints:p.progress.earnedPoints,upgrades:{...p.progress.upgrades}})),
         qaSetActor:(id,x,y)=>{const a=state.players.get(id);if(!a)return false;Body.setPosition(a.body,{x,y});setWorldVelocity(a.body,0,0);return true;},
         qaStopSimulation:()=>loop?.stop(),
         qaStartSimulation:()=>loop?.start(),
