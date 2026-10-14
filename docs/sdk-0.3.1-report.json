@@ -1,0 +1,32 @@
+{
+  "checks": [],
+  "errors": [],
+  "networkFailures": [],
+  "notTested": [
+    "all gameplay checks",
+    "Matter initialization",
+    "Nostr signaling",
+    "WebRTC connection",
+    "input roundtrip",
+    "4 peers",
+    "different devices/NAT",
+    "long sessions",
+    "mobile touch hardware"
+  ],
+  "mock": false,
+  "failure": "browserType.launch: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> /usr/bin/chromium --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-RxNkpO --remote-debugging-pipe --no-startup-window\n<launched> pid=17\n[pid=17][err] /usr/bin/chromium: 9: [: 5225730048: unexpected operator\n[pid=17][err] [17:17:1014/123820.239604:FATAL:chrome/browser/process_singleton_posix.cc:297] Check failed: . socket() failed: Operation not permitted (1)\n[pid=17][err] [1014/123820.239912:ERROR:third_party/crashpad/crashpad/util/linux/scoped_ptrace_attach.cc:27] ptrace: Operation not permitted (1)\nCall log:\n\u001b[2m  - <launching> /usr/bin/chromium --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/playwright_chromiumdev_profile-RxNkpO --remote-debugging-pipe --no-startup-window\u001b[22m\n\u001b[2m  - <launched> pid=17\u001b[22m\n\u001b[2m  - [pid=17][err] /usr/bin/chromium: 9: [: 5225730048: unexpected operator\u001b[22m\n\u001b[2m  - [pid=17][err] [17:17:1014/123820.239604:FATAL:chrome/browser/process_singleton_posix.cc:297] Check failed: . socket() failed: Operation not permitted (1)\u001b[22m\n\u001b[2m  - [pid=17][err] [1014/123820.239912:ERROR:third_party/crashpad/crashpad/util/linux/scoped_ptrace_attach.cc:27] ptrace: Operation not permitted (1)\u001b[22m\n\u001b[2m  - [pid=17] <gracefully close start>\u001b[22m\n\u001b[2m  - [pid=17] <kill>\u001b[22m\n\u001b[2m  - [pid=17] <will force kill>\u001b[22m\n\u001b[2m  - [pid=17] <process did exit: exitCode=null, signal=SIGABRT>\u001b[22m\n\u001b[2m  - [pid=17] starting temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=17] finished temporary directories cleanup\u001b[22m\n\u001b[2m  - [pid=17] <gracefully close end>\u001b[22m\n\n    at chromium.launch (/tmp/yarn-chromium-runner.cjs:3:26)\n    at /workspace/scratch/fcfc32acd753/sdk031-newgames/yarn-mayhem/tests/scenario.cjs:10:28\n    at Object.<anonymous> (/workspace/scratch/fcfc32acd753/sdk031-newgames/yarn-mayhem/tests/scenario.cjs:36:3)\n    at Object.<anonymous> (/tmp/yarn-chromium-runner.cjs:4:1)",
+  "status": "ENVIRONMENT_BLOCKED",
+  "failedStage": "browser launch, before dependency loading",
+  "environment": {
+    "os": "Linux",
+    "browserExecutable": "/usr/bin/chromium",
+    "dateUTC": "2026-10-14",
+    "htmlSha256": "094028413c897ee48552b14b26c26d28ad5b58880ae092a7fe9f982ab9687b1d",
+    "baseCommit": "03e63ebc4502326c5e87d5c189fa3c2f677671c0",
+    "candidateVersion": "0.9.1",
+    "expectedGamekitDist": "72b09b260edf9650353017acb49c06873fe9f5a1",
+    "launchOverride": "Temporary runner only overrides channel/executablePath; repository scenario unchanged",
+    "attempts": 2,
+    "escalatedRetry": "same socket Operation not permitted failure"
+  }
+}

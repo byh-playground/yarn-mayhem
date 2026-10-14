@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.9.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.9.1</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -134,7 +134,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.9.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.9.1</div>
   <div id="hint" hidden>A/D · 걷기/달리기 &nbsp; | &nbsp; W/Space · 점프 &nbsp; | &nbsp; S/↓ 유지 · 발판 내려가기 &nbsp; | &nbsp; Shift · 대시 &nbsp; | &nbsp; 마우스 · 바늘검 / 홀드 바늘</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -159,7 +159,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@63c62dae8d339f6f0329c0940206806f69509630/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@72b09b260edf9650353017acb49c06873fe9f5a1/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ Renderer2D }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer }, { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
@@ -299,7 +299,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
 
     let hintTimeout=0;
     const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
-    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'63c62dae8d339f6f0329c0940206806f69509630',matterVersion:Matter.version||'0.20.0'};
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'72b09b260edf9650353017acb49c06873fe9f5a1',matterVersion:Matter.version||'0.20.0'};
     // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
     // The collision normal prevents catching the platform's corner as a side wall.
     const nativeDetectorCollisions = Matter.Detector.collisions;
