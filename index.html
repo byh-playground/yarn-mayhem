@@ -155,7 +155,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
 </div>
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 <script type="module" data-game-module>
-(async function YarnfallBoot() {
+(async function YarnMayhemBoot() {
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
@@ -318,7 +318,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       return down>=-.2 && previous<=surface.top+5 && foot>=surface.top-4 &&
         foot<surface.top+Math.max(16,down+9) && actor.position.y<surface.top;
     }
-    Matter.Detector.collisions=function yarnfallOneWayCollisions(detector){
+    Matter.Detector.collisions=function yarnMayhemOneWayCollisions(detector){
       const candidates=nativeDetectorCollisions(detector),surfaces=detector.oneWaySurfaces;
       if(!surfaces?.size)return candidates;
       let count=0;
@@ -2626,13 +2626,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     capturePresentation();
     resize();
     loop=createLoop({session,getInput:()=>({input:readWorldInputs()}),render:renderFrame,onError:error=>{
-      console.error('[YARNFALL] simloop',error);
+      console.error('[Yarn Mayhem] simloop',error);
       showFatal(error);
     }});
     loop.start();
     loading.hidden=true;
     // Read-only diagnostics available for checking real Matter/GameKit browser behavior.
-    globalThis.__YARNFALL={
+    globalThis.__YARN_MAYHEM={
       snapshot:()=>({phase:state.phase,tick:state.tick,stage:state.stage,level:state.level,kills:state.kills,shotsFired:state.shotsFired,
         runtime:{canonicalStep:'stepWorld',inputSource:net.role==='join'?'remote-snapshot':'local-and-peer-commands',roster:[...state.players.keys()]},
         tps:session.profile.tickRate,room:{role:net.role,code:net.code,players:state.players.size,connected:net.room?.transports.size??0,remoteReady:net.remoteReady,runId:state.runId},
@@ -2661,7 +2661,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         physicalBodies:state.engine?Composite.allBodies(state.engine.world).length:0,
         ...metrics}),
       // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
-      ...((globalThis.__YARNFALL_QA===true)?{
+      ...((globalThis.__YARN_MAYHEM_QA===true)?{
         qaSpawn:(tier,x,y)=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y),
         qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
         qaHit:(id,damage)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
@@ -2724,7 +2724,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       node.textContent='\n\n실행 오류: '+message+'\n'+hint+(frame?'\n'+frame:'');
     }
     const title=document.getElementById('loading');if(title)title.hidden=false;
-    console.error('[YARNFALL]',error);
+    console.error('[Yarn Mayhem]',error);
   }
 })();
 

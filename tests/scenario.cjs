@@ -8,30 +8,29 @@ const check=(name,ok,evidence)=>{report.checks.push({name,status:ok?'PASS':'FAIL
 const server=http.createServer((q,r)=>{r.setHeader('Content-Type','text/html');r.end(fs.readFileSync(target));}).listen(8768,'127.0.0.1');
 let browser;
 try{browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||(process.platform==='win32'?'msedge':'chromium'),headless:true});report.browser=browser.version();
-const pages=[];for(let i=0;i<2;i++){const context=await browser.newContext({viewport:{width:1280,height:800}});await context.addInitScript(()=>globalThis.__YARNFALL_QA=true);const p=await context.newPage();p.on('pageerror',e=>report.errors.push(e.message));p.on('requestfailed',r=>report.networkFailures.push({url:r.url(),reason:r.failure()?.errorText}));await p.goto(process.env.TEST_URL||'http://127.0.0.1:8768');await p.waitForFunction(()=>!!globalThis.__YARNFALL,{timeout:45000});pages.push(p)}
-const [host,guest]=pages;const snap=p=>p.evaluate(()=>__YARNFALL.snapshot());
+const pages=[];for(let i=0;i<2;i++){const context=await browser.newContext({viewport:{width:1280,height:800}});await context.addInitScript(()=>globalThis.__YARN_MAYHEM_QA=true);const p=await context.newPage();p.on('pageerror',e=>report.errors.push(e.message));p.on('requestfailed',r=>report.networkFailures.push({url:r.url(),reason:r.failure()?.errorText}));await p.goto(process.env.TEST_URL||'http://127.0.0.1:8768');await p.waitForFunction(()=>!!globalThis.__YARN_MAYHEM,{timeout:45000});pages.push(p)}
+const [host,guest]=pages;const snap=p=>p.evaluate(()=>__YARN_MAYHEM.snapshot());
 await host.locator('#mainButton').click();await host.waitForTimeout(500);
 let a=await snap(host);report.dependencies={matter:a.matterVersion,gamekit:a.gamekitDist};
 const gl=await host.evaluate(()=>{const gl=document.querySelector('#gl').getContext('webgl2')||document.querySelector('#gl').getContext('webgl');const ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)});report.renderer=gl;
 check('real boot and 30 TPS',a.phase==='PLAYING'&&a.tps===30&&a.physicalBodies>0,{phase:a.phase,tps:a.tps});
 await host.keyboard.down('d');await host.waitForTimeout(450);await host.keyboard.up('d');let b=await snap(host);check('keyboard movement',b.player.x>a.player.x+25,{before:a.player,after:b.player});
 await host.mouse.move(800,400);await host.mouse.down();await host.waitForTimeout(650);await host.mouse.up();b=await snap(host);check('hold attack',b.shotsFired>0,b.shotsFired);
-await host.evaluate(()=>{__YARNFALL.qaClearEnemies();__YARNFALL.qaSpawn(1,1100,1600);__YARNFALL.qaSpawn(1,1100,1600)});await host.waitForFunction(()=>__YARNFALL.snapshot().mergeCount>0);check('Matter contact merge',(await snap(host)).mergeCount>0);
-await host.evaluate(()=>{const e=__YARNFALL.qaSpawn(3,1400,1600);__YARNFALL.qaHit(e.id,99999)});await host.waitForFunction(()=>__YARNFALL.snapshot().level>1);check('kill rewards and split growth',(await snap(host)).splitCount>0);
-await host.locator('#techOpen').click();await host.locator('#tech_blade1').click();const upgraded=await host.evaluate(()=>__YARNFALL.qaPlayers()[0].upgrades.blade1);check('stat tree investment',upgraded===1);await host.locator('#techClose').click();
-await host.evaluate(()=>{__YARNFALL.qaDamagePlayer('solo');});await host.waitForFunction(()=>__YARNFALL.snapshot().phase==='DEAD');check('solo HP zero team wipe',(await snap(host)).hp===0);
+await host.evaluate(()=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaSpawn(1,1100,1600);__YARN_MAYHEM.qaSpawn(1,1100,1600)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().mergeCount>0);check('Matter contact merge',(await snap(host)).mergeCount>0);
+await host.evaluate(()=>{const e=__YARN_MAYHEM.qaSpawn(3,1400,1600);__YARN_MAYHEM.qaHit(e.id,99999)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().level>1);check('kill rewards and split growth',(await snap(host)).splitCount>0);
+await host.locator('#techOpen').click();await host.locator('#tech_blade1').click();const upgraded=await host.evaluate(()=>__YARN_MAYHEM.qaPlayers()[0].upgrades.blade1);check('stat tree investment',upgraded===1);await host.locator('#techClose').click();
+await host.evaluate(()=>{__YARN_MAYHEM.qaDamagePlayer('solo');});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='DEAD');check('solo HP zero team wipe',(await snap(host)).hp===0);
 await host.locator('#mainButton').click();check('restart',(await snap(host)).hp>0);
-await host.reload();await host.waitForFunction(()=>!!globalThis.__YARNFALL);await host.locator('#hostRoom').click();await host.waitForFunction(()=>__YARNFALL.snapshot().room.role==='host',{},{timeout:45000});const code=(await snap(host)).room.code;await guest.locator('#roomCode').fill(code);await guest.locator('#joinRoom').click();
-await guest.waitForFunction(()=>__YARNFALL.snapshot().room.remoteReady&&__YARNFALL.snapshot().room.players===2,{},{timeout:60000});await host.locator('#mainButton').click();await guest.waitForFunction(()=>__YARNFALL.snapshot().phase==='PLAYING');
+await host.reload();await host.waitForFunction(()=>!!globalThis.__YARN_MAYHEM);await host.locator('#hostRoom').click();await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().room.role==='host',{},{timeout:45000});const code=(await snap(host)).room.code;await guest.locator('#roomCode').fill(code);await guest.locator('#joinRoom').click();
+await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().room.remoteReady&&__YARN_MAYHEM.snapshot().room.players===2,{},{timeout:60000});await host.locator('#mainButton').click();await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='PLAYING');
 check('real Nostr/WebRTC admission',(await snap(host)).room.connected===1&& (await snap(guest)).room.connected===1,{host:(await snap(host)).room,guest:(await snap(guest)).room});
 a=await snap(guest);await guest.keyboard.down('d');await guest.waitForTimeout(500);await guest.keyboard.up('d');b=await snap(guest);check('guest command roundtrip',b.player.x>a.player.x+25,{before:a.player,after:b.player});
-const guestId=await guest.evaluate(()=>__YARNFALL.snapshot().runtime.roster.find(id=>{const p=__YARNFALL.qaPlayers().find(x=>x.id===id);return p&&Math.abs(p.x-__YARNFALL.snapshot().player.x)<.2}));
-await host.evaluate(id=>{__YARNFALL.qaClearEnemies();__YARNFALL.qaDamagePlayer(id)},guestId);await guest.waitForFunction(()=>__YARNFALL.snapshot().hp===0);let dead=await snap(guest);check('guest HP0 spectator',dead.phase==='PLAYING'&&dead.death.noticeVisible,dead.death);
-await guest.waitForFunction(()=>__YARNFALL.snapshot().hp>0,{},{timeout:12000});check('authoritative timed revive',(await snap(guest)).hp>0,{hp:(await snap(guest)).hp});
+const guestId=await guest.evaluate(()=>__YARN_MAYHEM.snapshot().runtime.roster.find(id=>{const p=__YARN_MAYHEM.qaPlayers().find(x=>x.id===id);return p&&Math.abs(p.x-__YARN_MAYHEM.snapshot().player.x)<.2}));
+await host.evaluate(id=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaDamagePlayer(id)},guestId);await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().hp===0);let dead=await snap(guest);check('guest HP0 spectator',dead.phase==='PLAYING'&&dead.death.noticeVisible,dead.death);
+await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().hp>0,{},{timeout:12000});check('authoritative timed revive',(await snap(guest)).hp>0,{hp:(await snap(guest)).hp});
 await host.waitForTimeout(1700);
 await host.screenshot({path:process.env.SHOT||'test-results/gameplay.png'});
-await host.evaluate(()=>{for(const p of __YARNFALL.qaPlayers())__YARNFALL.qaDamagePlayer(p.id)});await guest.waitForFunction(()=>__YARNFALL.snapshot().phase==='DEAD');check('multiplayer team wipe',(await snap(host)).phase==='DEAD');
+await host.evaluate(()=>{for(const p of __YARN_MAYHEM.qaPlayers())__YARN_MAYHEM.qaDamagePlayer(p.id)});await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='DEAD');check('multiplayer team wipe',(await snap(host)).phase==='DEAD');
 check('no runtime exceptions',report.errors.length===0,report.errors);
 }catch(e){report.failure=e.stack}finally{if(browser)await browser.close();server.close();clearTimeout(timer);fs.writeFileSync(process.env.REPORT||'test-results/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));if(report.failure)process.exitCode=1}
 })();
-
