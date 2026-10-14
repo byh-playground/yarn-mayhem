@@ -23,6 +23,8 @@ await host.mouse.move(800,400);await host.mouse.down();await host.waitForTimeout
 await host.evaluate(()=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaSpawn(1,1100,1600);__YARN_MAYHEM.qaSpawn(1,1100,1600)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().mergeCount>0);check('Matter contact merge',(await snap(host)).mergeCount>0);
 await host.evaluate(()=>{const e=__YARN_MAYHEM.qaSpawn(3,1400,1600);__YARN_MAYHEM.qaHit(e.id,99999)});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().level>1);check('kill rewards and split growth',(await snap(host)).splitCount>0);
 await host.locator('#techOpen').click();await host.locator('#tech_bladeEcho').click();check('locked skill details stay inspectable',await host.locator('#tech_bladeEcho').isEnabled()&&!(await host.locator('#techBuy').isEnabled()));await host.locator('#tech_blade1').click();await host.locator('#techBuy').click();const upgraded=await host.evaluate(()=>__YARN_MAYHEM.qaPlayers()[0].upgrades.blade1);check('stat tree investment',upgraded===1);await host.locator('#techClose').click();
+await host.locator('#gl').focus();await host.keyboard.down('e');await host.waitForTimeout(80);await host.keyboard.up('e');await host.waitForFunction(()=>__YARN_MAYHEM.qaNetworkFrame().players.some(p=>p[10]>0));check('owned sword retained as explicit secondary',true);
+
 await host.evaluate(()=>{__YARN_MAYHEM.qaDamagePlayer('solo');});await host.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='DEAD');check('solo HP zero team wipe',(await snap(host)).hp===0);
 await host.locator('#mainButton').click();check('restart',(await snap(host)).hp>0);
 check('investment survives restart',await host.evaluate(()=>__YARN_MAYHEM.qaPlayers()[0].upgrades.blade1===1));
@@ -38,6 +40,13 @@ check('guest investment survives join/start',await guest.evaluate(()=>__YARN_MAY
 check('real Nostr/WebRTC admission',(await snap(host)).room.connected===1&& (await snap(guest)).room.connected===1,{host:(await snap(host)).room,guest:(await snap(guest)).room});
 a=await snap(guest);await guest.keyboard.down('d');await guest.waitForTimeout(500);await guest.keyboard.up('d');b=await snap(guest);check('guest command roundtrip',b.player.x>a.player.x+25,{before:a.player,after:b.player});
 const guestId=await guest.evaluate(()=>__YARN_MAYHEM.snapshot().runtime.roster.find(id=>{const p=__YARN_MAYHEM.qaPlayers().find(x=>x.id===id);return p&&Math.abs(p.x-__YARN_MAYHEM.snapshot().player.x)<.2}));
+await host.evaluate(()=>__YARN_MAYHEM.qaClearEnemies());
+await guest.mouse.click(850,400);
+await host.waitForFunction(id=>__YARN_MAYHEM.qaNetworkFrame().shots.some(s=>s[1]===1&&s[2]===id&&s[9]==='needle'),guestId);
+check('guest primary uses authoritative needle path',true);
+const controlled=await host.evaluate(()=>{const q=__YARN_MAYHEM,p=q.snapshot().mapLayout.find(p=>p.kind==='platform'),e=q.qaSpawn(2,(p.x1+p.x2)/2,p.top+16+26+30);q.qaSetEnemyGoal(e.id,'none');q.qaNeedleHit(e.id,0,-1);return e.id});
+await guest.waitForFunction(id=>__YARN_MAYHEM.qaEnemies().find(e=>e.id===id)?.control?.mode==='pinned',controlled);
+check('host underside pin reaches guest',await guest.evaluate(id=>__YARN_MAYHEM.qaEnemies().find(e=>e.id===id).control.normalY<-.48,controlled));
 await host.evaluate(id=>{__YARN_MAYHEM.qaClearEnemies();__YARN_MAYHEM.qaDamagePlayer(id)},guestId);await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().hp===0);let dead=await snap(guest);check('guest HP0 spectator',dead.phase==='PLAYING'&&dead.death.noticeVisible,dead.death);
 await guest.waitForFunction(()=>__YARN_MAYHEM.snapshot().hp>0,{},{timeout:12000});check('authoritative timed revive',(await snap(guest)).hp>0,{hp:(await snap(guest)).hp});
 await host.waitForTimeout(1700);
