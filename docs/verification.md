@@ -41,3 +41,12 @@ Source: YARNFALL 0.8.3, SHA-256 `2f1ae7673df01d9e43803147f6d0e4f2cf6f8c3a4eba385
 CI validates module syntax and prepares the single HTML artifact with commit/content hash. Live engine/RTC checks are the documented local scenario, not an inferred CI result. Public deployment is verified after merge against `build.json` and the HTML bytes.
 
 Mobile viewport check: 390x844, start, tree open/close, pause/resume and reload passed; no horizontal page overflow. This is browser emulation, not a physical mobile device.
+
+## 0.9.2 stat-tree visibility patch
+
+Base: `efe9e240c44546f12330e4e982e028feca423cd7` (0.9.1). The tree was below the full-screen menu/clear overlay (z-index 6 vs 7), and T was excluded during pause. The panel now sits above that overlay but below loading/error, with a shared menu/HUD/T open-close path and focus restoration. Gameplay, stat costs/effects and GameKit/network pins are unchanged.
+
+- PASS: `npm run build` (module syntax, fixed dependency provenance, single-HTML artifact) and `git diff --check`.
+- PASS: temporary Node DOM-stub checks executed the actual UI functions for menu/play/pause/clear/dead, repeated button/T open-close, focus/ARIA, input/modifier guards and existing stat-action routing. Static layer ordering was checked. Temporary checks were not retained; these are not browser/game E2E.
+- Environment blocked: the dot cloud browser loading deployed 0.9.1 stopped before game boot with `WebGL 1 is required; no Canvas2D fallback`. Its computed DOM styles confirmed the old 6/7/9 tree/modal/loader ordering and missing menu entry. No renderer fallback was added. Local browser execution remained unavailable under the existing socket restriction and was not retried.
+- Not verified in this patch: actual GPU/gameplay/RTC, visual layout and physical touch input. Earlier 0.9.0 results above do not count as 0.9.2 runtime validation.

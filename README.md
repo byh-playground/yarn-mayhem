@@ -2,7 +2,7 @@
 
 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘검과 바늘 탄환으로 실구멍을 봉쇄하고, 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.9.1**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.9.2**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
@@ -11,7 +11,7 @@ Merge-and-split yarn enemies, needle-sword combat and a stat tree in a physics a
 ## 조작
 
 - A/D·방향키 이동, W/Space 점프, S/↓ 유지로 발판 내려가기, Shift 대시.
-- 마우스 클릭은 검 3연격, 길게 누르면 바늘 발사. T는 스탯 트리입니다.
+- 마우스 클릭은 검 3연격, 길게 누르면 바늘 발사. T 또는 스탯 버튼은 스탯 트리입니다. 시작·일시정지·결과 화면에서도 열 수 있습니다.
 - 모바일은 이동 패드와 점프·대시·공격 버튼을 사용합니다.
 - 시작 화면에서 방을 만들고 4자리 코드를 공유합니다. 방장이 물리와 판정을 실행하고 참가자는 입력을 보내며 확정 상태를 받습니다. 30TPS입니다.
 
@@ -27,6 +27,8 @@ npm test
 ```
 
 Windows 테스트는 설치된 Edge를 사용합니다. Linux에서는 `npx playwright install --with-deps chromium` 후 실행합니다. `TEST_URL`로 공개 URL을 검증할 수 있습니다. 실행 상한은 180초이며 외부 Nostr/RTC 장애는 실패로 기록합니다. 산출물은 `test-results/`에 보관합니다.
+
+0.9.2 스탯 트리 표시 수정은 정적 빌드와 임시 DOM 검사로 확인했습니다. 실제 브라우저는 WebGL 초기화가 차단되어 화면·게임 실행은 미검증입니다. 상세 범위는 [검증 기록](docs/verification.md)을 참고하세요.
 
 0.9.1 Linux 검증은 브라우저 소켓 권한 제한으로 시작 전에 차단되었습니다. 정적 빌드는 통과했으며, 사용자 요청으로 이번 호환 PATCH는 정적 검증으로 배포하고 실제 게임/RTC 확인은 추후로 남깁니다. 아래는 0.9.0의 기존 검증 기록입니다.
 
