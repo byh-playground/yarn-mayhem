@@ -8,7 +8,7 @@ import { VECTOR_ASSET_COMPILER_VERSION, VECTOR_ASSET_SCHEMA_VERSION } from './ve
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = join(root, 'assets', 'active-theme');
 const outputDir = join(root, '_site', 'assets', 'active-theme');
-const expectedFiles = ['needle.svg', 'rift-pulse.svg', 'yarn-face.svg'];
+const expectedFiles = ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.svg', 'yarn-effects.svg', 'yarn-face.svg', 'yarn-progress.svg'];
 const files = (await readdir(sourceDir)).filter(name => name.endsWith('.svg')).sort();
 if (files.join('\n') !== expectedFiles.join('\n')) throw new Error('Active theme SVG inventory differs from the verified set');
 
@@ -31,7 +31,7 @@ for (const name of files) {
     id, key, exportName, file: name, sourceSha256,
     partCount: asset.geometry.partCount,
     vertexCount: asset.geometry.vertices.length / asset.geometry.strideFloats,
-    geometryBytes: asset.geometry.vertices.byteLength,
+    geometryBytes: asset.geometry.vertices.byteLength + (asset.geometry.indices?.byteLength ?? 0),
   });
 }
 exports.push('export const ACTIVE_THEME_ASSETS = Object.freeze({ ' + records.map(record => record.key + ': ' + record.exportName).join(', ') + ' });');
@@ -40,8 +40,9 @@ await writeFile(join(outputDir, 'compiled-assets.mjs'), exports.join('\n'), 'utf
 const report = {
   schemaVersion: VECTOR_ASSET_SCHEMA_VERSION,
   compilerVersion: VECTOR_ASSET_COMPILER_VERSION,
-  sourceCommit: '2cb587b70d32bdb40379e15ba7f2f4744e2c8594',
+  sourceCommit: '4150109c7732a734e155b6d1e2cd83c13c1f1d0c',
   assets: records.map(({ key, exportName, ...record }) => record),
 };
 await writeFile(join(outputDir, 'manifest.json'), JSON.stringify(report, null, 2) + '\n', 'utf8');
 console.log('Compiled ' + records.length + ' active-theme SVGs with GameKit compiler ' + VECTOR_ASSET_COMPILER_VERSION);
+

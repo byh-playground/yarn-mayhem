@@ -4,11 +4,32 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { createGameServer } = require('./game-server.cjs');
 
-const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0200');
+const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0201');
 fs.mkdirSync(outputDir, { recursive: true });
 const baselineHtml = process.env.YARN_TEST_BASELINE_HTML ? path.resolve(process.env.YARN_TEST_BASELINE_HTML) : null;
 const servers = [createGameServer()];
-if (baselineHtml && fs.existsSync(baselineHtml)) servers.push(createGameServer({ htmlPath: baselineHtml }));
+let baselineTestHtml = null;
+if (baselineHtml && fs.existsSync(baselineHtml)) {
+  let html = fs.readFileSync(baselineHtml, 'utf8');
+  const stopHook = 'qaStopSimulation:()=>loop?.stop(),';
+  if (!html.includes('qaSetTime:') || !html.includes('qaTimeMs:') || !html.includes('qaRender:')) {
+    if (!html.includes(stopHook)) throw new Error('Baseline QA stop hook is missing; cannot synchronize its display clock');
+    if (!html.includes('qaSetTime:'))
+    html = html.replace(stopHook, 'qaSetTime:ms=>{if(!Number.isFinite(ms)||ms<0)return false;state.timeMs=ms;capturePresentation();return true;},'+stopHook);
+    if (!html.includes('qaTimeMs:'))
+      html = html.replace(stopHook, 'qaTimeMs:()=>state.timeMs,'+stopHook);
+    if (!html.includes('qaRender:'))
+      html = html.replace(stopHook, 'qaRender:()=>renderFrame(),'+stopHook);
+  }
+  baselineTestHtml = path.join(outputDir, 'baseline-0.20.0.qa.html');
+  fs.writeFileSync(baselineTestHtml, html);
+  const baselinePublicRoot = process.env.YARN_TEST_BASELINE_ASSET_ROOT
+    ? path.resolve(process.env.YARN_TEST_BASELINE_ASSET_ROOT)
+    : null;
+  if (!baselinePublicRoot || !fs.existsSync(path.join(baselinePublicRoot, 'assets', 'active-theme', 'compiled-assets.mjs')))
+    throw new Error('The legacy baseline needs its matching compiled-assets.mjs via YARN_TEST_BASELINE_ASSET_ROOT');
+  servers.push(createGameServer({ htmlPath: baselineTestHtml, publicRoot: baselinePublicRoot }));
+}
 const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], requestFailures: [] };
 const check = (name, ok, evidence) => {
   report.comparisons.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
@@ -26,13 +47,20 @@ async function runScene(browser, server, tag, mobile) {
   page.on('pageerror', error => report.errors.push(`${tag}: ${error.message}`));
   page.on('requestfailed', request => report.requestFailures.push({ tag, url: request.url(), error: request.failure()?.errorText }));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
-  await page.waitForFunction(() => !!window.__YARN_MAYHEM, null, { timeout: 15000 });
+  try {
+    await page.waitForFunction(() => !!window.__YARN_MAYHEM, null, { timeout: 15000 });
+  } catch (error) {
+    const state = await page.evaluate(() => ({ loading: document.querySelector('#loading')?.hidden,
+      error: document.querySelector('#error')?.textContent, body: document.body.innerText.slice(0, 500) }));
+    await page.screenshot({ path: path.join(outputDir, `${tag}-load-failure.png`) }).catch(() => {});
+    throw new Error(`${error.message}; browser state: ${JSON.stringify(state)}`);
+  }
   await page.locator('#mainButton').click();
   await page.locator('#soloStart').click();
   await page.waitForFunction(() => __YARN_MAYHEM.snapshot().phase === 'PLAYING');
-  await page.waitForTimeout(450);
   const setup = await page.evaluate(() => {
     const q = __YARN_MAYHEM;
+    q.qaStopSimulation();
     q.qaQuietArena();
     q.qaClearEnemies();
     q.qaClearRifts();
@@ -40,40 +68,54 @@ async function runScene(browser, server, tag, mobile) {
     const targetX = Math.max(130, Math.min(q.snapshot().world.width - 300, p.x - 100));
     q.qaPlayer(targetX, q.snapshot().world.groundY - 38);
     const y = q.snapshot().world.groundY - 130;
-    const small = q.qaSpawn(1, targetX + 82, y);
     const large = q.qaSpawn(10, targetX + 315, y);
-    q.qaSetEnemyGoal(small.id, 'none');
-    q.qaSetEnemyGoal(large.id, 'none');
+    const small = q.qaSpawn(1, targetX + 82, y);
+    const emerging = q.qaSpawn(1, targetX + 170, y, { fromHole: true });
+    for (const enemy of [small, large, emerging]) q.qaSetEnemyGoal(enemy.id, 'none');
     q.qaNeedle(0);
-    const rift = q.qaAutomaticSpawnRift();
-    return { player: q.qaPlayers()[0], enemies: q.qaEnemies(), rift, world: q.snapshot().world };
+    const rift = q.qaSpawnRift('background');
+    if (!rift) throw new Error('No deterministic background rift site was available');
+    q.qaSetTime(120);
+    const snap = q.snapshot();
+    return { player: q.qaPlayers()[0], enemies: q.qaEnemies(), rift, world: snap.world, mapSeed: snap.mapSeed, timeMs: q.qaTimeMs() };
   });
   await page.waitForTimeout(180);
+  await page.evaluate(() => __YARN_MAYHEM.qaRender());
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: path.join(outputDir, `${tag}.png`) });
   const measurements = await page.evaluate(() => {
     const q = __YARN_MAYHEM;
-    return {
-      fps: q.snapshot().fps,
-      viewport: { width: innerWidth, height: innerHeight },
-      stats: q.qaVectorStats?.() ?? null,
-    };
+    return { fps: q.snapshot().fps, viewport: { width: innerWidth, height: innerHeight }, stats: q.qaVectorStats?.() ?? null };
   });
-  if (measurements.stats) {
+  if (measurements.stats?.assets?.some(asset => asset.name === 'yarnProgress')) {
     const previousPulseDraws = measurements.stats.totalDrawsByAsset.riftPulse;
-    const pulseHole = await page.evaluate(() => {
+    const pulse = await page.evaluate(() => {
       const q = __YARN_MAYHEM;
-      q.qaClearEnemies();
-      q.qaClearRifts();
-      return q.qaAutomaticSpawnRift();
+      q.qaClearEnemies(); q.qaClearRifts();
+      const hole = q.qaSpawnRift('background');
+      if (!hole) return null;
+      q.qaSetTime(880); q.qaForceSpawns(); q.qaSetTime(940);
+      return hole;
     });
-    if (!pulseHole) throw new Error(`${tag}: no automatic rift selected for the pulse fixture`);
-    await page.waitForFunction(id => __YARN_MAYHEM.snapshot().spawnHoles.find(hole => hole.id === id)?.spawns > 0,
-      pulseHole.id, { timeout: 5000 });
+    if (!pulse) throw new Error(`${tag}: no background rift selected for the pulse fixture`);
+    await page.waitForTimeout(180);
+    await page.evaluate(() => __YARN_MAYHEM.qaRender());
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().totalDrawsByAsset.riftPulse > previous,
       previousPulseDraws, { timeout: 5000 });
-    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse-0200.png`) });
+    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse-0201.png`) });
     measurements.riftPulse = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
+    await page.evaluate(() => {
+      const q = __YARN_MAYHEM;
+      q.qaJoinActor('svg-progress-fixture');
+      q.qaDamagePlayer('svg-progress-fixture', 9999);
+      q.qaSetTime(1800);
+    });
+    await page.waitForTimeout(180);
+    await page.evaluate(() => __YARN_MAYHEM.qaRender());
+    await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().drawsByAsset.yarnProgress > previous,
+      measurements.riftPulse.drawsByAsset.yarnProgress, { timeout: 5000 });
+    measurements.progress = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
+    await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress-0201.png`) });
   }
   await context.close();
   return { setup, measurements };
@@ -89,38 +131,58 @@ async function runScene(browser, server, tag, mobile) {
     report.browser = browser.version();
     for (const mobile of [false, true]) {
       const tag = mobile ? 'landscape-touch' : 'edge-desktop';
-      const current = await runScene(browser, servers[0], `${tag}-svg-0200`, mobile);
-      const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0197`, mobile) : null;
+      const current = await runScene(browser, servers[0], `${tag}-svg-0201`, mobile);
+      const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0200`, mobile) : null;
       const stats = current.measurements.stats;
       const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
-      check(`${tag}: visible high-tier enemy is present`,
-        current.setup.enemies.some(enemy => enemy.tier === 10),
-        { current: current.setup });
-      if (baseline) check(`${tag}: baseline and SVG scenes both contain a high-tier enemy`,
-        baseline.setup.enemies.some(enemy => enemy.tier === 10), { baseline: baseline.setup });
-      check(`${tag}: three retained SVG assets load and are drawn`,
-        ['needle', 'riftPulse', 'yarnFace'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
+      check(`${tag}: visible high-tier enemy is present`, current.setup.enemies.some(enemy => enemy.tier === 10), current.setup);
+      if (baseline) {
+        check(`${tag}: baseline and migrated screenshots use the same map seed and display time`,
+          current.setup.mapSeed === baseline.setup.mapSeed && current.setup.timeMs === baseline.setup.timeMs && current.setup.timeMs === 120,
+          { baseline: { mapSeed: baseline.setup.mapSeed, timeMs: baseline.setup.timeMs }, current: { mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs } });
+      }
+      check(`${tag}: all seven retained SVG meshes load`,
+        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnEffects','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
           Number(renderer.instances) > 0 && Number(renderer.draws) > 0,
         { assets, renderer });
-      check(`${tag}: yarn face and needle meshes are submitted in the visible play scene`,
-        stats.drawsByAsset.yarnFace > 0 && stats.drawsByAsset.needle > 0,
+      check(`${tag}: yarn body, face and needle meshes draw in the play scene`,
+        stats.drawsByAsset.yarnBody >= 4 && stats.drawsByAsset.yarnFace >= 4 && stats.drawsByAsset.needle > 0,
         { drawsByAsset: stats.drawsByAsset });
-      check(`${tag}: rift pulse mesh is submitted during the first existing rift pop`,
+      const expectedActors = [
+        { id: `player:${current.setup.player.id}`, required: { yarnBody: 1, yarnFace: 1, needle: 1 } },
+        ...current.setup.enemies.map(enemy => ({ id: `enemy:${enemy.id}`, required: { yarnBody: 1, yarnFace: 1 } })),
+      ];
+      const actorDraws = stats.actorDraws ?? {};
+      const actorDrawsMatch = expectedActors.every(({ id, required }) =>
+        Object.entries(required).every(([asset, count]) => actorDraws[id]?.[asset] === count)) &&
+        Object.entries(actorDraws).filter(([id]) => id.startsWith('enemy:')).every(([, draws]) => draws.yarnBody === 1 && draws.yarnFace === 1);
+      check(`${tag}: actor telemetry records exactly one body and face draw per visible actor`, actorDrawsMatch,
+        { expectedActors, actorDraws });
+      const batchingSupported = !renderer.instanced || renderer.draws < renderer.instances;
+      check(`${tag}: adjacent identical face poses share an instanced draw`, batchingSupported,
+        { renderer, faceDrawCalls: stats.drawsByAsset.yarnFace, actorDraws });
+      check(`${tag}: rift pulse clip draws after a controlled spawn`,
         current.measurements.riftPulse?.totalDrawsByAsset.riftPulse > stats.totalDrawsByAsset.riftPulse,
         { previous: stats.totalDrawsByAsset.riftPulse, duringPop: current.measurements.riftPulse });
-      check(`${tag}: SVG geometry stays below 1 MiB retained`,
-        assets.reduce((sum, asset) => sum + asset.bytes, 0) < 1024 * 1024,
+      check(`${tag}: revive progress is drawn from its SVG asset`,
+        current.measurements.progress?.drawsByAsset.yarnProgress > 0,
+        { drawsByAsset: current.measurements.progress?.drawsByAsset });
+      check(`${tag}: retained SVG geometry stays below 4 MiB`,
+        assets.reduce((sum, asset) => sum + asset.bytes, 0) < 4 * 1024 * 1024,
         { bytes: assets.reduce((sum, asset) => sum + asset.bytes, 0), assets });
       report.comparisons.push({
         name: baseline ? `${tag}: baseline versus SVG visual/performance capture` : `${tag}: SVG visual/performance capture`,
         status: 'CAPTURED',
         evidence: {
-          baselineScreenshot: baseline ? `${tag}-baseline-0197.png` : null,
-          svgScreenshot: `${tag}-svg-0200.png`,
-          riftPulseScreenshot: `${tag}-svg-0200-rift-pulse-0200.png`,
+          baselineScreenshot: baseline ? `${tag}-baseline-0200.png` : null,
+          svgScreenshot: `${tag}-svg-0201.png`,
+          pulseScreenshot: `${tag}-svg-0201-rift-pulse-0201.png`,
+          progressScreenshot: `${tag}-svg-0201-revive-progress-0201.png`,
+          mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
           baselineFps: baseline?.measurements.fps ?? null, svgFps: current.measurements.fps,
-          renderer, assets, drawsByAsset: current.measurements.riftPulse?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
+          renderer, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
+          actorDraws: current.measurements.progress?.actorDraws ?? stats.actorDraws,
         },
       });
     }

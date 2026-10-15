@@ -2,19 +2,20 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.0**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.1**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
 
-## 0.20.0 - SVG vector assets
+## 0.20.1 - SVG source migration
 
-- Migrates yarn faces, needle variants, and the rift pulse to locally compiled first-party SVG geometry. The build uses the official vector compiler from Bloom GameKit v0.5.0 and pins the runtime distribution by commit.
+- Moves yarn bodies, needle variants and effects, rift bodies and pulses, faces, and revive progress into first-party SVG assets. GameKit v0.6.1 drives their expressions and authored clips from gameplay timestamps; physics, network state, and rift scheduling stay unchanged.
+- Adjacent face instances batch only when GameKit sees the same mesh, projection, and part pose within the existing face painter layer. Actor telemetry still counts each actor's logical asset draw; unique poses and color/flash state remain separate instances.
 
-- npm run build verifies compiler provenance, recompiles all three SVG sources, and emits the deployable site into _site.
-- npm run test:vector-assets captures current Microsoft Edge 0.20.0 desktop/landscape-touch scenes; set YARN_TEST_BASELINE_HTML to also capture 0.19.7 scenes with tier-10 yarn, then checks retained geometry and renderer stats.
+- npm run build verifies compiler provenance, recompiles all seven SVG sources, and emits the deployable site into _site.
+- npm run test:vector-assets captures current Microsoft Edge 0.20.1 desktop/landscape-touch scenes against fixed-time 0.20.0 scenes with tier-10 yarn, then checks retained geometry and renderer stats.
 
 ## 0.19.7 — Sync high-stage rifts in co-op
 
