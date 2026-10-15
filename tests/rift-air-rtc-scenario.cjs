@@ -4,7 +4,7 @@ const http = require('http');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-const out = path.resolve('test-results/rift-air-rtc-0191');
+const out = path.resolve('test-results/rift-air-rtc-0192');
 fs.mkdirSync(out, { recursive: true });
 const report = { status: 'RUNNING', browser: null, checks: [], errors: [] };
 const server = http.createServer((req, res) => {
@@ -65,6 +65,29 @@ const check = (name, ok, evidence) => {
       host.waitForFunction(() => __YARN_MAYHEM.snapshot().activeRifts === 0 && __YARN_MAYHEM.snapshot().remainingEnemies === 0),
       guest.waitForFunction(() => __YARN_MAYHEM.snapshot().activeRifts === 0 && __YARN_MAYHEM.snapshot().remainingEnemies === 0),
     ]);
+
+    await host.waitForFunction(() => __YARN_MAYHEM.qaSpawnObserverViews().length === 2, null, { timeout: 5000 });
+    const autoRift = await host.evaluate(() => {
+      const q = __YARN_MAYHEM, views = q.qaSpawnObserverViews();
+      q.qaClearRifts();
+      const hole = q.qaAutomaticSpawnRift();
+      return { hole, views, rules: q.qaSpawnRules(), diagnostics: hole ? q.qaSpawnDiagnostics(hole) : null };
+    });
+    check('guest camera dimensions arrive in the existing input packet and are stored by the host',
+      autoRift.views.some(item => item.view.hw < 450 && item.view.hh < 220),
+      autoRift.views.map(item => ({ id: item.id, hw: item.view.hw, hh: item.view.hh })));
+    check('authoritative automatic rift is visible to at least one current camera and stays clear of every player',
+      !!autoRift.hole && autoRift.diagnostics.observers.some(view => view.periphery !== null) &&
+      autoRift.diagnostics.playerGaps.every(player => player.gap >= autoRift.rules.playerGap), autoRift);
+    if (autoRift.hole) {
+      await guest.waitForFunction(id => __YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), autoRift.hole.id, { timeout: 10000 });
+      const mirrored = await guest.evaluate(id => __YARN_MAYHEM.snapshot().spawnHoles.find(h => h.id === id), autoRift.hole.id);
+      check('the one host-selected visible location is replicated unchanged to the landscape-touch guest',
+        !!mirrored && mirrored.surfaceKind === autoRift.hole.kind && Math.abs(mirrored.x-autoRift.hole.x)<.11 &&
+        Math.abs(mirrored.y-autoRift.hole.y)<.11, { host: autoRift.hole, guest: mirrored });
+    }
+    await host.evaluate(() => __YARN_MAYHEM.qaClearRifts());
+    await guest.waitForFunction(() => __YARN_MAYHEM.snapshot().activeRifts === 0, null, { timeout: 10000 });
 
     const sites = await Promise.all([
       host.evaluate(() => ({ seed: __YARN_MAYHEM.snapshot().mapSeed, sites: __YARN_MAYHEM.qaSpawnSites().filter(s => s.kind === 'background') })),

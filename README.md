@@ -2,13 +2,19 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.1**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.2**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
 
+
+## 0.19.2 카메라 시야 안쪽에 열리는 균열
+
+- 기존 균열 지형·생성 간격·수명·티어/출현 판정은 유지하고, 균열 위치만 현재 화면 주변의 유효 후보로 제한합니다. 균열 중심은 화면 가장자리와 터치/HUD 조작부에서 여유를 두고, 생존 플레이어마다 최소 236월드픽셀 떨어져야 합니다. 조건에 맞는 위치가 없으면 그 회차는 건너뜁니다.
+- 호스트는 기존 입력 패킷으로 받은 참가자 카메라 시야를 포함해 후보를 한 번 선정하고, 하나의 호스트 프레임으로 모두에게 복제합니다. 후보는 가능한 한 많은 플레이어 화면에 보이도록 점수화하며 물리·스폰 권한은 계속 싱글/호스트 `stepWorld`에 있습니다.
+- 방 계약은 `0.19.2/v0192`입니다. `npm run test:rift`는 실제 Edge PC와 가로 터치에서 자동 선택·화면 가시성·플레이어 거리와 균열 수명을 확인하고, `npm run test:rift:rtc`는 참가자 시야 입력·호스트 단일 선정·복제를 확인합니다.
 
 ## 0.19.1 배경 공중에도 열리는 균열
 

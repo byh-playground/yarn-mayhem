@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.19.1</title>
+<title>털실 대소동 / Yarn Mayhem 0.19.2</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.19.1</div>
+ <div id="toastLayer"></div><div class="version-label">v0.19.2</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -613,25 +613,74 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       state.nextRiftAtMs=state.timeMs+Math.max(0,cfg.firstMs-cfg.openMs);
       state.nextSpawnAtMs=state.timeMs+cfg.firstMs;
     }
+    const RIFT_VIEW_INSET=64,RIFT_VIEW_PERIPHERY=.48,RIFT_UI_CLEARANCE=64;
+    const RIFT_PLAYER_CLEARANCE=200,RIFT_VIEW_MAX_AGE_MS=450;
+    const RIFT_OBSERVER_UI=['#stick','#jumpButton','#dashButton','#fireButton','#techOpen','#pause','#hint'];
+    function sanitizeSpawnObserverView(value){
+      if(landscape.blocked||!value||![value.x,value.y,value.hw,value.hh].every(Number.isFinite)||value.hw<120||value.hh<80||
+        value.hw>CONFIG.world.width*2||value.hh>CONFIG.world.height*2||value.hw<=RIFT_VIEW_INSET||value.hh<=RIFT_VIEW_INSET)return null;
+      if(value.b!==undefined&&(!Array.isArray(value.b)||value.b.length>RIFT_OBSERVER_UI.length))return null;
+      const blocked=[];
+      for(const rect of value.b||[]){
+        if(!Array.isArray(rect)||rect.length!==4||!rect.every(Number.isFinite)||rect[0]>rect[2]||rect[1]>rect[3]||
+          rect.some(n=>Math.abs(n)>10000))return null;
+        blocked.push(rect.map(n=>Math.round(n*2)/2));
+      }
+      const round=n=>Math.round(n*2)/2;
+      return {x:round(clamp(value.x,-200,CONFIG.world.width+200)),y:round(clamp(value.y,-200,CONFIG.world.height+200)),
+        hw:round(value.hw),hh:round(value.hh),b:blocked};
+    }
+    function captureSpawnObserverView(){
+      const {w,h}=cameraSize,z=state.camera.zoom,c=state.camera;
+      if(!(w>0&&h>0&&z>0&&Number.isFinite(c.x)&&Number.isFinite(c.y)))return null;
+      const pad=RIFT_UI_CLEARANCE*z,blocked=[];
+      for(const selector of RIFT_OBSERVER_UI){
+        const element=document.querySelector(selector);if(!element)continue;
+        const style=getComputedStyle(element),r=element.getBoundingClientRect();
+        if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.01||r.width<=0||r.height<=0)continue;
+        blocked.push([c.x+(r.left-pad-w/2)/z,c.y+(r.top-pad-h/2)/z,
+          c.x+(r.right+pad-w/2)/z,c.y+(r.bottom+pad-h/2)/z]);
+      }
+      return sanitizeSpawnObserverView({x:c.x,y:c.y,hw:w/(2*z),hh:h/(2*z),b:blocked});
+    }
+    function spawnSiteObserverScore(site,view){
+      if(!view)return null;
+      const reachX=view.hw-RIFT_VIEW_INSET,reachY=view.hh-RIFT_VIEW_INSET,dx=site.x-view.x,dy=site.y-view.y;
+      if(reachX<=0||reachY<=0||Math.abs(dx)>reachX||Math.abs(dy)>reachY)return null;
+      if(view.b.some(([left,top,right,bottom])=>site.x>=left&&site.x<=right&&site.y>=top&&site.y<=bottom))return null;
+      const periphery=Math.max(Math.abs(dx)/reachX,Math.abs(dy)/reachY);
+      return periphery>=RIFT_VIEW_PERIPHERY?periphery:null;
+    }
+    function spawnObserverViews(now=performance.now()){
+      const views=[],local=captureSpawnObserverView();
+      if(local)views.push({id:localId(),view:local});
+      if(net.role==='host')for(const [id,peer]of net.peerControls){
+        if(!state.players.has(id)||!peer.view||now-peer.updatedAt>RIFT_VIEW_MAX_AGE_MS)continue;
+        views.push({id,view:peer.view});
+      }
+      return views;
+    }
     function createSpawnHole(dueAtMs,forcedSite=null){
       if(!state.spawnSites.length)throw new Error('No valid spawn rift site');
       const validSites=state.spawnSites.filter(site=>spawnSiteIsClear(site));
       if(!validSites.length)return null;
-      const candidates=validSites.filter(site=>state.spawnHoles.every(h=>
-        Math.hypot(site.x-h.x,site.y-h.y)>=150));
       const noOverlapSites=validSites.filter(site=>spawnSiteSafeFromPlayers(site,0));
-      const playerSafeSites=noOverlapSites.filter(site=>spawnSiteSafeFromPlayers(site,80));
-      const safeSpaced=playerSafeSites.filter(site=>candidates.includes(site));
-      const spacedNoOverlap=candidates.filter(site=>noOverlapSites.includes(site));
       let options;
-      if(forcedSite)options=noOverlapSites.includes(forcedSite)?[forcedSite]:[];
-      else options=safeSpaced.length?safeSpaced:(playerSafeSites.length?playerSafeSites:(spacedNoOverlap.length?spacedNoOverlap:noOverlapSites));
+      if(forcedSite)options=noOverlapSites.includes(forcedSite)?[{site:forcedSite,viewers:0,periphery:0}]:[];
+      else{
+        const views=spawnObserverViews(),visibleSafe=validSites.map(site=>{
+          const visibility=views.map(({view})=>spawnSiteObserverScore(site,view)).filter(score=>score!==null);
+          return {site,viewers:visibility.length,periphery:visibility.length?Math.max(...visibility):0};
+        }).filter(item=>item.viewers&&spawnSiteSafeFromPlayers(item.site,RIFT_PLAYER_CLEARANCE));
+        const spaced=visibleSafe.filter(({site})=>state.spawnHoles.every(h=>Math.hypot(site.x-h.x,site.y-h.y)>=150));
+        options=spaced.length?spaced:visibleSafe;
+      }
       if(!options.length)return null;
       let best=null,bestScore=-Infinity;
       for(let trial=0;trial<(forcedSite?1:20);trial++){
-        const site=options[Math.floor(random()*options.length)];
+        const option=options[Math.floor(random()*options.length)],site=option.site;
         const spacing=state.spawnHoles.reduce((d,h)=>Math.min(d,Math.hypot(site.x-h.x,site.y-h.y)),100000);
-        const score=spacing+random()*150;
+        const score=option.viewers*1000000+option.periphery*100+spacing+random()*150;
         if(score>bestScore){best=site;bestScore=score;}
       }
       const cfg=CONFIG.enemy.spawn;
@@ -1878,7 +1927,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport||!state.players.has(peerId))return;
-        sendPacket(transport,{t:'welcome',version:'0.19.1',roster:netRosterInfo(),frame:packWorld()});
+        sendPacket(transport,{t:'welcome',version:'0.19.2',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -2053,22 +2102,23 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         if(!state.players.has(peerId))return;
         if(payload.t==='input'){
           if(!Number.isSafeInteger(payload.seq)||!Number.isFinite(payload.x))return;
-          const previous=net.peerControls.get(peerId)??{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9};
+          const previous=net.peerControls.get(peerId)??{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9,view:null};
           if(payload.seq<=previous.seq)return;
-          if(payload.cancel===true){net.peerControls.set(peerId,{seq:payload.seq,controls:NEUTRAL_INPUT,updatedAt:performance.now()});return;}
+          const view=payload.view===undefined?previous.view:sanitizeSpawnObserverView(payload.view);
+          if(payload.cancel===true){net.peerControls.set(peerId,{seq:payload.seq,controls:NEUTRAL_INPUT,updatedAt:performance.now(),view});return;}
           const old=previous.controls||NEUTRAL_INPUT;
           const aim=normalize(Number(payload.ax)||0,Number(payload.ay)||0);
           const controls={x:clamp(payload.x,-1,1),active:Math.abs(payload.x)>.18,
             jumpPressed:!!payload.jp||old.jumpPressed,jumpHeld:!!payload.jh,downHeld:!!payload.dn,
             dashPressed:!!payload.dp||old.dashPressed,firePressed:!!payload.fp||old.firePressed,
             fireHeld:!!payload.fh,aim};
-          net.peerControls.set(peerId,{seq:payload.seq,controls,updatedAt:performance.now()});
+          net.peerControls.set(peerId,{seq:payload.seq,controls,updatedAt:performance.now(),view});
         }else if(payload.t==='action'){
           applyWorldAction(peerId,payload.action);
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.19.1'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.19.2'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -2097,7 +2147,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         net.room.setRoster({players,epoch:net.room.epoch+1,coordinatorId:localId()});
       }
       // Admit only after a validated progression hello; never publish an empty guest actor.
-      net.peerControls.set(peerId,{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9});
+      net.peerControls.set(peerId,{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9,view:null});
       announceRoster();
     }
     function roomEvent(event){
@@ -2150,7 +2200,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0191',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0192',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2213,8 +2263,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const dir=getAimDirection(state.player);
       const data={t:'input',seq:++net.inputSequence,x:Math.round(input.x*100)/100,
         jp:input.jumpPressed?1:0,jh:input.jumpHeld?1:0,dn:input.downHeld?1:0,dp:input.dashPressed?1:0,
-        fp:input.firePressed?1:0,fh:input.fireHeld?1:0,ax:Math.round(dir.x*1000)/1000,ay:Math.round(dir.y*1000)/1000};
-      const signature=JSON.stringify({...data,seq:0});
+        fp:input.firePressed?1:0,fh:input.fireHeld?1:0,ax:Math.round(dir.x*1000)/1000,ay:Math.round(dir.y*1000)/1000,
+        view:captureSpawnObserverView()};
+      const {view,...stableInput}=data;
+      const signature=JSON.stringify({...stableInput,seq:0});
       const now=performance.now();
       if(signature!==net.lastInputSignature||now-net.lastInputSendAt>=175){
         sendHost(data);net.lastInputSendAt=now;net.lastInputSignature=signature;
@@ -2227,7 +2279,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       mobilePad={pointerId:null,x:0,y:0};mobileJump={pointerId:null,held:false,pressed:false};mobileDash={pointerId:null,pressed:false};
       mobileAttack={pointerId:null,down:false,pendingTap:false,axis:null,originX:0,originY:0};pointerAim.seen=false;
       $('stickKnob').style.transform='translate(0px, 0px)';for(const [el,id]of captures){el.classList.remove('active');if(id!==null&&el.hasPointerCapture(id))try{el.releasePointerCapture(id)}catch{}}
-      if(net.role==='join'&&net.remoteReady){net.lastInputSignature='';sendHost({t:'input',seq:++net.inputSequence,cancel:true,x:0});}
+      if(net.role==='join'&&net.remoteReady){net.lastInputSignature='';sendHost({t:'input',seq:++net.inputSequence,cancel:true,x:0,view:captureSpawnObserverView()});}
     }
     const landscape={blocked:false,returnFocus:null,
       sync(){
@@ -3445,6 +3497,13 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           for(const e of [...state.enemies])removeEnemy(e);
         },
         qaSpawnSites:()=>state.spawnSites.map(site=>({...site})),
+        qaSpawnRules:()=>({viewInset:RIFT_VIEW_INSET,periphery:RIFT_VIEW_PERIPHERY,playerGap:CONFIG.player.radius+RADII[0]+RIFT_PLAYER_CLEARANCE,viewMaxAgeMs:RIFT_VIEW_MAX_AGE_MS}),
+        qaSpawnObserverViews:()=>spawnObserverViews().map(({id,view})=>({id,view:{...view,b:view.b.map(rect=>[...rect])}})),
+        qaSpawnDiagnostics:site=>{const pos=riftSpawnPosition({x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY});
+          return {playerGaps:[...state.players.values()].filter(p=>p.hp>0).map(p=>({id:p.id,gap:Math.hypot(pos.x-p.body.position.x,pos.y-p.body.position.y)})),
+            observers:spawnObserverViews().map(({id,view})=>({id,periphery:spawnSiteObserverScore(site,view)}))};},
+        qaAutomaticSpawnRift:()=>{const hole=createSpawnHole(state.timeMs);if(!hole)return null;state.nextRiftAtMs=Infinity;
+          return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
         qaPhysicsBodies:()=>state.engine?Composite.allBodies(state.engine.world).length:0,
         qaSpawnRift:(kind,surfaceId=null,siteIndex=null)=>{const eligible=state.spawnSites.filter(s=>s.kind===kind&&(surfaceId===null||s.surfaceId===surfaceId));
           const site=Number.isInteger(siteIndex)?eligible[siteIndex]:eligible.sort((a,b)=>Math.hypot(a.x-(state.player?.body.position.x??CONFIG.world.width/2),a.y-(state.player?.body.position.y??CONFIG.world.groundY))-Math.hypot(b.x-(state.player?.body.position.x??CONFIG.world.width/2),b.y-(state.player?.body.position.y??CONFIG.world.groundY)))[0];if(!site)return null;
