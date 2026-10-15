@@ -1,13 +1,14 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.16.2",
+  "version": "0.17.0",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
     "dev": "node scripts/serve.cjs",
     "test": "node tests/scenario.cjs",
     "test:combat": "node tests/combat-scenario.cjs",
-    "test:mobile": "node tests/mobile-scenario.cjs"
+    "test:mobile": "node tests/mobile-scenario.cjs",
+    "test:hopping": "node tests/hopping-scenario.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
