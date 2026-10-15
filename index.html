@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.16.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.16.1</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -145,6 +145,49 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
  #app[data-touch=true] #techPanel header{min-height:38px}#app[data-touch=true] #techPanel h2{font-size:18px}#app[data-touch=true] #techPoints{font-size:11px}#app[data-touch=true] #techTabs{gap:6px}#app[data-touch=true] .tech-tab{min-height:44px;font-size:12px}
  #app[data-touch=true] .tech-layout{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:1fr;gap:8px}#app[data-touch=true] .tech-map{padding:9px;gap:8px}#app[data-touch=true] .tech-path{gap:12px}#app[data-touch=true] .tech-node{min-height:84px;padding:6px 3px}#app[data-touch=true] .tech-node strong{font-size:12px}#app[data-touch=true] .tech-node small{font-size:10px}#app[data-touch=true] .tech-detail-copy{padding:10px}#app[data-touch=true] .tech-detail h3{font-size:17px}#app[data-touch=true] .tech-detail p{font-size:12px}#app[data-touch=true] .tech-action{padding:7px;gap:4px}#app[data-touch=true] #techBuy{min-height:44px;padding:8px}
 }
+
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px)}
+html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,100dvh));overscroll-behavior:none}
+#helpTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:6px 0 10px}#helpTabs button,#techDetailBack{min-height:44px;border:1px solid #789e91;border-radius:10px;background:#20464a;color:#e4f3e7;font-size:13px;padding:7px 10px}#helpTabs button[aria-pressed=true]{background:#345f50;border-color:#eadbb0}#helpContent [data-help-page]{min-height:140px}#techDetailBack{display:none}
+#rotationGuide{padding:max(24px,var(--safe-top)) max(24px,var(--safe-right)) max(24px,var(--safe-bottom)) max(24px,var(--safe-left))}
+@media(orientation:landscape){
+ #app[data-touch=true] #modal{padding:max(8px,var(--safe-top)) max(10px,var(--safe-right)) max(8px,var(--safe-bottom)) max(10px,var(--safe-left));overflow:visible}
+ #app[data-touch=true] .modal-card{width:min(760px,100%);max-height:100%;padding:12px 18px;overflow:visible;border-radius:18px}
+ #app[data-touch=true] .brand{font-size:10px;letter-spacing:.2em}#app[data-touch=true] .hangul{margin:4px 0 7px}
+ #app[data-touch=true] .hero-yarns{height:38px;margin:3px auto}#app[data-touch=true] .hero-yarn.y3{width:38px;height:38px}
+ #app[data-touch=true] .modal-sub{font-size:13px;line-height:1.5;margin:6px auto 8px;max-width:600px}
+ #app[data-touch=true] #mainButton{min-height:44px;padding:10px 20px;margin-top:3px}
+ #app[data-touch=true] .menu-actions{margin-top:8px;gap:8px}#app[data-touch=true] .menu-actions button{padding:8px 14px;min-height:44px}
+ #app[data-touch=true] .modal-card[data-view]:not([data-view=home])>.brand,#app[data-touch=true] .modal-card[data-view]:not([data-view=home])>h1{display:none}
+ #app[data-touch=true] .menu-back{position:absolute;left:14px;top:10px;margin:0;min-height:44px;padding:7px 11px}
+ #app[data-touch=true] #menuTitle{font-size:20px;line-height:44px;min-height:44px;margin:0 70px 6px}
+ #app[data-touch=true] #menuHint{font-size:12px;margin:0 0 8px;line-height:1.4}
+ #app[data-touch=true] .menu-choices{margin:8px auto}#app[data-touch=true] .menu-choice{padding:10px 14px;min-height:66px;font-size:16px}
+ #app[data-touch=true] #roomControls{margin:8px auto;gap:7px;max-width:560px;grid-template-columns:1.1fr 1fr 1fr}
+ #app[data-touch=true] #roomControls label{font-size:12px!important}#app[data-touch=true] #roomCode{grid-column:auto;min-width:0;min-height:44px;width:100%;padding:8px}
+ #app[data-touch=true] #roomControls button{min-height:44px;padding:8px}#app[data-touch=true] #roomStatus{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+ #app[data-touch=true] #roomControls:has(#leaveRoom:not([hidden])) :is(#hostRoom,#joinRoom){display:none}#app[data-touch=true] #leaveRoom{grid-row:2;grid-column:3}#app[data-touch=true] #copyRoom{grid-row:2;grid-column:2}
+ #app[data-touch=true] .modal-card:is([data-view=help],[data-view=multiplayer])>.menu-actions{display:none}#app[data-touch=true] #helpContent{font-size:13px;line-height:1.5}#app[data-touch=true] #helpContent h3{font-size:15px;margin:6px 0}#app[data-touch=true] #helpContent [data-help-page]{min-height:120px}#app[data-touch=true] #helpContent p{margin:6px 0}#app[data-touch=true] #helpContent ul{margin:6px 0;display:grid;grid-template-columns:1fr 1fr;column-gap:24px;row-gap:8px}
+ #app[data-touch=true] .modal-card[data-phase=CLEAR]>.hero-yarns,#app[data-touch=true] .modal-card[data-phase=DEAD]>.hero-yarns{display:none}
+ #app[data-touch=true] .kpi{flex-wrap:wrap;gap:5px;margin:8px auto}#app[data-touch=true] .kpi span{padding:6px 9px;font-size:11px}
+ #app[data-touch=true] #saveNotice{font-size:12px;line-height:1.4;padding:7px;margin:6px 0}#app[data-touch=true] .modal-card:has(#saveNotice:not([hidden]))>.hero-yarns{display:none}
+ #app[data-touch=true] #mobile{bottom:calc(8px + var(--safe-bottom));padding-left:max(12px,var(--safe-left));padding-right:max(12px,var(--safe-right));padding-bottom:18px;touch-action:none}#app[data-touch=true] #stick::after{display:none}#app[data-touch=true] #mobile::after{content:'이동 · 아래로 통과';position:absolute;left:max(12px,var(--safe-left));bottom:0;width:90px;font-size:10px;text-align:center;color:#daece1;white-space:nowrap}
+ #app[data-touch=true] #hud{padding-top:calc(7px + var(--safe-top));padding-left:max(10px,var(--safe-left));padding-right:max(10px,var(--safe-right))}
+ #app[data-touch=true] #dashHud{top:calc(9px + var(--safe-top))}#app[data-touch=true] .version-label{bottom:calc(8px + var(--safe-bottom))}
+ #app[data-touch=true] #techPanel{left:calc(8px + var(--safe-left));right:calc(8px + var(--safe-right));top:calc(8px + var(--safe-top));bottom:calc(8px + var(--safe-bottom));transform:none;width:auto;height:auto;max-height:none;padding:10px;gap:8px}
+ #app[data-touch=true] .tech-layout{display:block;flex:1;min-height:0}#app[data-touch=true] .tech-map{height:100%;justify-content:center;padding:12px;overflow:visible}
+ #app[data-touch=true] .tech-detail{height:100%;display:none}#app[data-touch=true] #techPanel[data-pane=detail] .tech-map,#app[data-touch=true] #techPanel[data-pane=detail] #techTabs{display:none}
+ #app[data-touch=true] #techPanel[data-pane=detail] .tech-detail{display:flex}#app[data-touch=true] #techDetailBack{display:block;flex:none;align-self:flex-start;min-height:44px;margin:6px 10px 0;padding:6px 12px}
+ #app[data-touch=true] .tech-detail-copy{flex:1;overflow:visible;padding:6px 12px;min-height:0}#app[data-touch=true] .tech-detail h3{font-size:17px;margin:0 0 4px}#app[data-touch=true] .tech-detail p{font-size:13px;line-height:1.5;margin:4px 0}
+ #app[data-touch=true] #techRequirements{margin-top:5px}#app[data-touch=true] #techRequirements button{padding:6px 10px;min-height:44px}#app[data-touch=true] .tech-action{padding:7px 10px;grid-template-columns:minmax(0,1fr) minmax(150px,.6fr);align-items:center;gap:10px}
+ #app[data-touch=true] .tech-map-note{font-size:12px}#app[data-touch=true] .tech-node{min-height:84px}
+}
+@media(orientation:landscape) and (max-height:340px){
+ #app[data-touch=true] .modal-card:is([data-phase=CLEAR],[data-phase=DEAD])>.brand{display:none}
+ #app[data-touch=true] .modal-card{padding:8px 14px}#app[data-touch=true] .modal-card[data-view=home]>.hero-yarns{display:none}#app[data-touch=true] #menuHint{margin-bottom:5px}#app[data-touch=true] #helpContent [data-help-page]{min-height:108px}#app[data-touch=true] #helpContent h3{margin:3px 0}#app[data-touch=true] .hangul{margin:3px 0}
+ #app[data-touch=true] #techPanel{padding:7px;gap:5px}#app[data-touch=true] #techPanel header{min-height:44px}#app[data-touch=true] #techPanel h2{font-size:16px;margin:0}#app[data-touch=true] #techDetailBack{position:absolute;left:7px;top:7px;margin:0}#app[data-touch=true] #techPanel[data-pane=detail] header>div{margin-left:118px}
+ #app[data-touch=true] .tech-detail-copy{padding:7px 10px}#app[data-touch=true] .tech-detail p{font-size:12px;margin:3px 0}#app[data-touch=true] .tech-detail h3{font-size:16px}#app[data-touch=true] .tech-map-note{font-size:11px;line-height:1.4}#app[data-touch=true] .tech-map{gap:8px}
+}
 </style>
 </head>
 <body>
@@ -167,13 +210,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
   <section id="techPanel" hidden data-gamekit-ui role="dialog" aria-modal="true" aria-labelledby="techTitle"><header><div><h2 id="techTitle">스탯 트리</h2><span id="techPoints" aria-live="polite">사용 가능 0점</span></div><button id="techClose" class="icon-button" aria-label="트리 닫기">✕</button></header>
     <nav id="techTabs" aria-label="스탯 계열"></nav>
     <div class="tech-layout"><div class="tech-map"><div id="techCards" aria-label="기술 연결"></div><p class="tech-map-note">노드를 눌러 효과 확인 · 화살표는 선행 조건<br>전투 중에도 시간은 계속 흐릅니다.</p></div>
-    <section class="tech-detail" aria-labelledby="techDetailTitle"><div class="tech-detail-copy"><h3 id="techDetailTitle"></h3><small id="techLevel"></small><p id="techDescription"></p><div id="techRequirements"></div></div><div class="tech-action"><p id="techReason" aria-live="polite"></p><button id="techBuy" class="primary" type="button"></button></div></section></div>
+    <section class="tech-detail" aria-labelledby="techDetailTitle"><button id="techDetailBack" type="button">← 기술 목록</button><div class="tech-detail-copy"><h3 id="techDetailTitle"></h3><small id="techLevel"></small><p id="techDescription"></p><div id="techRequirements"></div></div><div class="tech-action"><p id="techReason" aria-live="polite"></p><button id="techBuy" class="primary" type="button"></button></div></section></div>
   </section>
    <button id="networkPill" type="button" hidden title="온라인 방 나가기">1/4 · 연결됨</button>
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.16.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.16.1</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -188,7 +231,11 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     <p class="modal-sub" id="modalText">바늘로 합치고 갈라지는 털실 적을 맞히고,<br>실구멍을 모두 봉쇄하세요.</p>
     <div id="modeChoices" class="menu-choices" hidden><button id="soloStart" class="menu-choice">싱글 플레이<small>혼자 새로운 모험 시작</small></button><button id="multiOpen" class="menu-choice">멀티 플레이<small>방 코드로 최대 4명이 함께</small></button></div>
     <div id="roomControls" hidden data-gamekit-ui><label for="roomCode" style="grid-column:1/-1;text-align:left;font-size:13px">방 코드 · 만들 때는 비워도 됩니다</label><input id="roomCode" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4자리 방 코드" autocomplete="off"><button id="hostRoom">방 만들기</button><button id="joinRoom">방 참가</button><div id="roomStatus" role="status" aria-live="polite">방을 만들거나 코드를 입력해 참가하세요.</div></div>
-    <div id="helpContent" hidden><h3>목표</h3><p>적을 처치하면 실구멍이 하나씩 막힙니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다. 충전 예고 뒤 굴러오는 적의 대시 접촉은 피해를 줍니다.</p><h3>조작</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li><li>기본 공격: 클릭/터치 즉시 바늘 발사 · 유지 연사</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul><h3>성장</h3><p>바늘은 피해 → 빠른 연사 → 분열 메아리, 제어는 벽·플랫폼 아래 고정 → 바늘의 실제 순차 비행과 3체 튕겨꿰기 → 바늘 재명중 회수절단으로 이어집니다. 기동과 생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></div>
+    <div id="helpContent" hidden><nav id="helpTabs" aria-label="도움말 주제"><button type="button" data-help="goal" aria-pressed="true">목표</button><button type="button" data-help="move" aria-pressed="false">이동</button><button type="button" data-help="battle" aria-pressed="false">전투</button><button type="button" data-help="growth" aria-pressed="false">성장</button></nav>
+    <section data-help-page="goal"><h3>실구멍을 봉쇄하세요</h3><p>적 처치로 실구멍을 막습니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p></section>
+    <section data-help-page="move" hidden><h3>이동과 회피</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li></ul></section>
+    <section data-help-page="battle" hidden><h3>바늘과 적의 돌진</h3><ul><li>클릭·터치로 바늘 발사, 유지하면 연사</li><li>적의 주황색 충전 예고 뒤 대시 접촉은 피해</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul></section>
+    <section data-help-page="growth" hidden><h3>투자는 다음 모험에도 유지</h3><p>바늘: 피해 → 빠른 연사 → 분열 메아리<br>제어: 벽·발판 아래 고정 → 3체 튕겨꿰기 → 바늘 재명중 회수절단</p><p>기동·생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></section></div>
     <p id="saveNotice" role="status" hidden></p>
     <div id="kpi" class="kpi" hidden></div>
     <button class="primary" id="mainButton">시작 →</button>
@@ -1621,6 +1668,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function selectTech(id,route=true){
       if(!TECH_INDEX.has(id))return;
       techView.selected=id;renderTechTree();updateTechUI();
+      if(route)$('techPanel').dataset.pane='detail';
       if(route)history.replaceState(null,'','#/tech/'+id);
     }
     function renderTechTree(){
@@ -1633,13 +1681,13 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
           const symbol=document.createElement('span');symbol.className='symbol';symbol.textContent=node.symbol;symbol.setAttribute('aria-hidden','true');
           const title=document.createElement('strong');title.textContent=node.name;
           const status=document.createElement('small');status.className='node-state';b.append(symbol,title,status);
-          b.onclick=()=>{selectTech(id);$('tech_'+id).focus({preventScroll:true});};path.append(b);
+          b.onclick=()=>{selectTech(id);($('techDetailBack').getClientRects().length?$('techDetailBack'):$('tech_'+id)).focus({preventScroll:true});};path.append(b);
       }
       root.append(path);
     }
     function updateTechUI(){
       const p=state.player;
-      $('saveNotice').hidden=!progressMigrationNotice;$('saveNotice').textContent=progressMigrationNotice;
+      $('saveNotice').hidden=!progressMigrationNotice||state.phase!=='MENU'||menuScreen!=='home';$('saveNotice').textContent=progressMigrationNotice;
       $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(progressStorageNotice?' · '+progressStorageNotice:'');
       $('techOpen').textContent='스탯 '+techPoints(p);
       $('techOpen').classList.toggle('ready',techPoints(p)>0);
@@ -1658,7 +1706,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       const req=$('techRequirements');
       // Keep condition controls stable while frequent HUD refreshes update the point count.
       if(req.dataset.node!==node.id){req.replaceChildren();req.dataset.node=node.id;
-        for(const id of node.requires){const button=document.createElement('button');button.type='button';button.dataset.id=id;button.onclick=()=>{selectTech(id);$('tech_'+id)?.focus({preventScroll:true});};req.append(button);}
+        for(const id of node.requires){const button=document.createElement('button');button.type='button';button.dataset.id=id;button.onclick=()=>{selectTech(id);($('techDetailBack').getClientRects().length?$('techDetailBack'):$('tech_'+id))?.focus({preventScroll:true});};req.append(button);}
       }
       for(const button of req.children)button.textContent=(p?.progress.upgrades[button.dataset.id]>0?'✓ 습득: ':'선행 필요: ')+TECH_INDEX.get(button.dataset.id).name;
       $('techReason').textContent=st.owned?'최대 단계에 도달했습니다.':!st.ready?'위 선행 기술을 먼저 습득하세요.':!p?'모험을 준비하는 중입니다.':techPoints(p)<node.cost?'레벨을 올리면 1점을 얻습니다.':node.requires.length?'선행 조건 충족 · 선택한 기술에 투자합니다.':'선행 조건 없음 · 선택한 기술에 투자합니다.';
@@ -1679,17 +1727,18 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         if(restoreFocus)(techView.returnFocus?.isConnected?techView.returnFocus:canvas).focus({preventScroll:true});
       }
     }
-    function openTech(){navigateMenu('tech/'+techView.selected);}
+    function openTech(){navigateMenu('tech');}
     function closeTech(){navigateMenu(techView.returnRoute.replace(/^#\//,''),true);}
     function initTechUI(){
       for(const branch of [...new Set(TECH_NODES.map(node=>node.branch))]){
         const button=document.createElement('button');button.type='button';button.className='tech-tab';button.dataset.branch=branch;
         button.textContent=TECH_NODES.find(node=>node.branch===branch).symbol+' '+branch;
-        button.onclick=()=>selectTech(TECH_NODES.find(node=>node.branch===branch).id);$('techTabs').append(button);
+        button.onclick=()=>{selectTech(TECH_NODES.find(node=>node.branch===branch).id);$('techPanel').dataset.pane='list';};$('techTabs').append(button);
       }
       renderTechTree();
       $('techOpen').onclick=$('techMenuOpen').onclick=openTech;
       $('techClose').onclick=closeTech;$('techBackdrop').onclick=closeTech;
+      $('techDetailBack').onclick=()=>{$('techPanel').dataset.pane='list';$('tech_'+techView.selected)?.focus({preventScroll:true});};
       $('techBuy').onclick=()=>submitWorldAction({kind:'tech',id:techView.selected});
       document.addEventListener('keydown',event=>{
         if(event.code!=='KeyT'||event.repeat||event.ctrlKey||event.altKey||event.metaKey)return;
@@ -1726,6 +1775,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     function roomMessage(text){$('roomStatus').textContent=text;}
     function refreshRoomUI(){
       const count=net.role==='solo'?1:net.room?.players.length??1;
+      $('roomControls').querySelector('label').textContent=net.role==='solo'?'방 코드 · 만들 때는 비워도 됩니다':'방 코드 · 친구에게 공유하세요';
       $('networkPill').hidden=net.role==='solo';
       $('networkPill').textContent=net.role==='solo'?'':(net.role==='host'?'방장 ':'참가자 ')+count+'/4 · '+(net.code??'----')+' · 나가기';
       if(net.room)$('roomCode').value=net.room.room;
@@ -2108,7 +2158,10 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     const landscape={blocked:false,returnFocus:null,
       sync(){
         const touch=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&innerWidth<1100),blocked=touch&&innerHeight>innerWidth;
-        $('app').dataset.touch=String(touch);$('app').dataset.portrait=String(blocked);$('rotationGuide').hidden=!blocked;
+        $('app').style.setProperty('--visible-height',(window.visualViewport?.height||innerHeight)+'px');
+        $('app').dataset.touch=String(touch);$('app').dataset.portrait=String(blocked);
+        $('rotationGuide').inert=false;$('techPanel').inert=blocked;
+        if(blocked)cancelGameplayInput();$('rotationGuide').hidden=!blocked;
         if(blocked!==this.blocked){cancelGameplayInput();this.blocked=blocked;if(blocked){if(state.phase==='PLAYING'&&net.role==='solo')showPause();this.returnFocus=document.activeElement;$('landscapeBtn').focus({preventScroll:true})}else if(this.returnFocus?.isConnected)this.returnFocus.focus({preventScroll:true});}
       },
       async request(){
@@ -2118,7 +2171,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
         }catch{$('rotationStatus').textContent='자동 전환을 지원하지 않아요. 회전 잠금을 해제하고 기기를 가로로 돌려 주세요.'}
         finally{button.disabled=false;this.sync();}
       },
-      bind(){this.sync();$('landscapeBtn').onclick=()=>this.request();for(const name of ['resize','orientationchange'])window.addEventListener(name,()=>{cancelGameplayInput();this.sync()});screen.orientation?.addEventListener('change',()=>{cancelGameplayInput();this.sync()});document.addEventListener('fullscreenchange',()=>{cancelGameplayInput();this.sync()});window.addEventListener('blur',cancelGameplayInput);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelGameplayInput()});}
+      bind(){this.sync();window.visualViewport?.addEventListener('resize',()=>{cancelGameplayInput();this.sync()});$('landscapeBtn').onclick=()=>this.request();for(const name of ['resize','orientationchange'])window.addEventListener(name,()=>{cancelGameplayInput();this.sync()});screen.orientation?.addEventListener('change',()=>{cancelGameplayInput();this.sync()});document.addEventListener('fullscreenchange',()=>{cancelGameplayInput();this.sync()});window.addEventListener('blur',cancelGameplayInput);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelGameplayInput()});}
     };
     // === fixed simulation and 2D side-view controls ===
     function consumeControls() {
@@ -2302,7 +2355,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       $('modalCard').querySelector('h1').textContent=victory?'WIN!':'GAME OVER';
       $('modalCard').querySelector('.hero-yarns').hidden=false;
       $('modalCard').querySelector('.hangul').textContent='진화한 실타래의 반격';
-      $('modalText').innerHTML='클릭/터치로 바늘 발사, 유지하면 연사합니다. 바늘 트리에서 피해·발사 간격·분열 메아리를 강화합니다.<br>적의 주황색 충전 예고 뒤 대시 접근→공격→회복이 이어집니다. T6부터 원거리 공격도 추가됩니다.<br>벽·플랫폼 아래에 꽂힌 적은 1.2초 멈춥니다. 회수절단은 고정 적에 바늘 재명중으로 이어집니다.<br>구멍을 모두 봉쇄하고 남은 몬스터까지 제거해야 클리어됩니다.';
+      $('modalText').textContent='투자한 기술과 누적 포인트는 유지됩니다. 바늘 성장과 점프·대시로 다음 모험에 도전하세요.';
       $('modalControls').hidden=true;
       const kpi=$('kpi');kpi.hidden=false;kpi.replaceChildren();
       for(const t of ['스테이지 '+state.stage,'유효 처치 '+state.kills+' · 실제 격파 '+state.defeats,'합체 '+state.merges+' · 분열 '+state.splits]){
@@ -3166,6 +3219,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
       applyMenuRoute();
     }
     function syncMenuChrome(){
+      $('modalCard').dataset.phase=state.phase;
       const menu=state.phase==='MENU';
       $('roomControls').hidden=!menu||menuScreen!=='multiplayer';
       for(const id of ['menuBack','menuTitle','menuHint','modeChoices','helpContent','helpOpen'])if(!menu)$(id).hidden=true;
@@ -3188,7 +3242,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function applyMenuRoute(){
       const path=location.hash.replace(/^#\/?/,'');
-      if(path==='tech'||path.startsWith('tech/')){const id=path.slice(5);selectTech(TECH_INDEX.has(id)?id:techView.selected,false);setTechOpen(true);return;}
+      if(path==='tech'||path.startsWith('tech/')){const id=path.slice(5);selectTech(TECH_INDEX.has(id)?id:techView.selected,false);setTechOpen(true);$('techPanel').dataset.pane=id?'detail':'list';return;}
       const wasTech=!$('techPanel').hidden;setTechOpen(false);
       menuScreen=['start','multiplayer','help'].includes(path)?path:'home';
       if(state.phase!=='MENU'&&path){history.replaceState(null,'',location.pathname+location.search);menuScreen='home';}
@@ -3196,6 +3250,7 @@ h1{font-family:Georgia,serif;font-size:clamp(38px,9vw,72px);letter-spacing:-.035
     }
     function beginRun(){audio.unlock().catch(()=>{});submitWorldAction({kind:'start-run'});}
     function bindMain() {
+      for(const button of $('helpTabs').children)button.onclick=()=>{for(const b of $('helpTabs').children)b.setAttribute('aria-pressed',String(b===button));for(const page of $('helpContent').querySelectorAll('[data-help-page]'))page.hidden=page.dataset.helpPage!==button.dataset.help;};
       $('soloStart').onclick=()=>{if(net.role==='solo')beginRun();};
       $('multiOpen').onclick=()=>navigateMenu('multiplayer');$('helpOpen').onclick=()=>navigateMenu('help');
       $('menuBack').onclick=()=>navigateMenu(menuScreen==='multiplayer'?'start':'');
