@@ -13,6 +13,43 @@ const check = (name, ok, evidence) => {
   report.checks.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
   assert.ok(ok, name);
 };
+async function safeBackgroundSiteIndex(page, minimumGap) {
+  return page.evaluate(minimumGap => {
+    const q = __YARN_MAYHEM, players = q.qaPlayers().filter(player => player.hp > 0);
+    const sites = q.qaSpawnSites().filter(site => site.kind === 'background');
+    return sites.map((site, index) => ({ index, gap: Math.min(...players.map(player =>
+      Math.hypot(site.x - player.x, site.y - player.y))) }))
+      .filter(item => item.gap >= minimumGap).sort((a, b) => b.gap - a.gap)[0]?.index ?? -1;
+  }, minimumGap);
+}
+async function openSafeBackgroundRift(host, minimumGap = 200) {
+  const index = await safeBackgroundSiteIndex(host, minimumGap);
+  assert.ok(index >= 0, `safe background site with ${minimumGap}px player gap`);
+  const hole = await host.evaluate(index => __YARN_MAYHEM.qaSpawnRift('background', null, index), index);
+  assert.ok(hole, 'host creates a safe background rift');
+  return hole;
+}
+async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest = true, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  let latest;
+  do {
+    latest = await Promise.all([
+      host.evaluate(id => {
+        const frame = __YARN_MAYHEM.qaNetworkFrame();
+        return { tick: frame.tick, hole: frame.holes.find(item => item[0] === id) ?? null };
+      }, id),
+      guest.evaluate(id => {
+        const s = __YARN_MAYHEM.snapshot();
+        return { tick: s.tick, hole: s.spawnHoles.find(item => item.id === id) ?? null };
+      }, id),
+    ]);
+    const [authoritative, mirrored] = latest;
+    if (authoritative.tick === mirrored.tick && authoritative.hole?.[11] === expectedSpawns &&
+        (expectGuest ? mirrored.hole?.spawns === expectedSpawns : mirrored.hole === null)) return latest;
+    await host.waitForTimeout(20);
+  } while (Date.now() < deadline);
+  throw new Error(`Rift ${id} did not reach expected same-tick state ${expectedSpawns}/${expectGuest}: ${JSON.stringify(latest)}`);
+}
 
 (async () => {
   let browser;
@@ -149,6 +186,53 @@ const check = (name, ok, evidence) => {
 
     await host.evaluate(() => {
       const q = __YARN_MAYHEM;
+      if (!q.qaStartStage(14)) throw new Error('Could not enter stage 14 for the rift sync regression');
+      q.qaClearRifts(); q.qaClearEnemies();
+    });
+    await guest.waitForFunction(() => __YARN_MAYHEM.snapshot().stage === 14 &&
+      __YARN_MAYHEM.snapshot().activeRifts === 0 && __YARN_MAYHEM.snapshot().remainingEnemies === 0,
+    null, { timeout: 15000 });
+    const stage14Hole = await openSafeBackgroundRift(host);
+    await host.waitForFunction(id => __YARN_MAYHEM.snapshot().spawnHoles.find(h => h.id === id)?.spawns >= 9,
+      stage14Hole.id, { timeout: 9000 });
+    const stage14Pair = await waitForSameTickRift(host, guest, stage14Hole.id, 9, true, 1000);
+    check('stage 14 rift remains mirrored after the ninth ordinary emission at the same authority tick',
+      stage14Pair[0].tick === stage14Pair[1].tick && stage14Pair[0].hole[11] === 9 && stage14Pair[1].hole.spawns === 9,
+      { host: stage14Pair[0], guest: stage14Pair[1] });
+    await Promise.all([
+      host.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage14Hole.id, { timeout: 4000 }),
+      guest.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage14Hole.id, { timeout: 4000 }),
+    ]);
+    check('the stage 14 rift expires on host and guest from its authoritative lifetime', true,
+      { id: stage14Hole.id, hostActive: await host.evaluate(id => __YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage14Hole.id),
+        guestActive: await guest.evaluate(id => __YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage14Hole.id) });
+
+    const boundaryHole = await openSafeBackgroundRift(host);
+    await guest.waitForFunction(id => __YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), boundaryHole.id, { timeout: 10000 });
+    const receiverLimit = await host.evaluate(() => {
+      const s = __YARN_MAYHEM.snapshot();
+      return Math.ceil(s.spawnConfig.riftLifetimeMs / (1000 / s.tps));
+    });
+    const boundaryResults = [];
+    for (const spawns of [8, 9, receiverLimit, receiverLimit + 1, 8]) {
+      assert.ok(await host.evaluate(({ id, spawns }) => __YARN_MAYHEM.qaSetRiftSpawns(id, spawns),
+        { id: boundaryHole.id, spawns }), `set QA wire value ${spawns}`);
+      const accepted = spawns <= receiverLimit;
+      const pair = await waitForSameTickRift(host, guest, boundaryHole.id, spawns, accepted, 2500);
+      boundaryResults.push({ spawns, accepted, host: pair[0], guest: pair[1] });
+    }
+    check('RTC accepts emission counts 8, 9 and the lifetime/tick maximum, rejects maximum+1, then resyncs',
+      boundaryResults.length === 5 && boundaryResults.filter(result => result.accepted)
+        .every(result => result.guest.hole?.spawns === result.spawns) &&
+        boundaryResults[3].guest.hole === null && boundaryResults[4].guest.hole?.spawns === 8,
+      { receiverLimit, boundaryResults });
+    await Promise.all([
+      host.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), boundaryHole.id, { timeout: 4000 }),
+      guest.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), boundaryHole.id, { timeout: 4000 }),
+    ]);
+
+    await host.evaluate(() => {
+      const q = __YARN_MAYHEM;
       if (!q.qaStartStage(40)) throw new Error('Could not enter stage 40 for RTC rift-cap coverage');
       q.qaClearRifts();
       q.qaClearEnemies();
@@ -157,6 +241,23 @@ const check = (name, ok, evidence) => {
       const s = __YARN_MAYHEM.snapshot();
       return s.stage === 40 && s.activeRifts === 0 && s.remainingEnemies === 0;
     }, null, { timeout: 15000 });
+    const maxLifecycleEmissions = await host.evaluate(() => {
+      const s = __YARN_MAYHEM.snapshot(), tickMs = 1000 / s.tps;
+      return Math.ceil((s.spawnConfig.riftLifetimeMs - s.spawnConfig.closeMs) / tickMs) -
+        Math.ceil(s.spawnConfig.openMs / tickMs);
+    });
+    const stage40Hole = await openSafeBackgroundRift(host, 180);
+    await host.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
+      .find(h => h.id === id)?.spawns >= count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 5000 });
+    const stage40Pair = await waitForSameTickRift(host, guest, stage40Hole.id, maxLifecycleEmissions, true, 1000);
+    check('stage 40 single rift reaches its full ordinary lifetime emission count on the same host/guest tick',
+      stage40Pair[0].hole[11] === maxLifecycleEmissions && stage40Pair[1].hole.spawns === maxLifecycleEmissions,
+      { expected: maxLifecycleEmissions, host: stage40Pair[0], guest: stage40Pair[1] });
+    await Promise.all([
+      host.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
+      guest.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
+    ]);
+
     const siteIndexes = await host.evaluate(() => {
       const q = __YARN_MAYHEM, sites = q.qaSpawnSites().filter(site => site.kind === 'background');
       const players = q.qaPlayers().filter(player => player.hp > 0);
@@ -192,6 +293,42 @@ const check = (name, ok, evidence) => {
         hostRifts: manyRifts[0].holes.map(hole => hole[0]),
         guestRifts: manyRifts[1].holes.map(hole => hole.id), expected: fixtureIds,
       });
+
+    await host.evaluate(() => { __YARN_MAYHEM.qaClearRifts(); __YARN_MAYHEM.qaClearEnemies(); });
+    await guest.waitForFunction(() => __YARN_MAYHEM.snapshot().activeRifts === 0 &&
+      __YARN_MAYHEM.snapshot().remainingEnemies === 0, null, { timeout: 5000 });
+    const guestRosterBeforeReconnect = await guest.evaluate(() => __YARN_MAYHEM.qaPlayers()
+      .map(player => player.id).sort());
+    await guest.reload();
+    await guest.waitForFunction(() => !!window.__YARN_MAYHEM, null, { timeout: 10000 });
+    await guest.locator('#mainButton').click();
+    await guest.locator('#multiOpen').click();
+    await guest.locator('#roomCode').fill(code);
+    const reconnectHole = await openSafeBackgroundRift(host, 180);
+    assert.ok(await host.evaluate(id => __YARN_MAYHEM.qaSetRiftSpawns(id, 9), reconnectHole.id),
+      'prepare a live, valid high-count rift for the reconnect snapshot');
+    await guest.locator('#joinRoom').click();
+    let reconnected = false;
+    const reconnectDeadline = Date.now() + 45000;
+    while (!reconnected && Date.now() < reconnectDeadline) {
+      reconnected = await guest.evaluate(() => __YARN_MAYHEM.snapshot().room.remoteReady);
+      if (!reconnected) {
+        assert.ok(await host.evaluate(id => __YARN_MAYHEM.qaRenewRiftLifetime(id), reconnectHole.id),
+          'keep the same QA rift active while the RTC reconnection handshake completes');
+        await host.waitForTimeout(250);
+      }
+    }
+    assert.ok(reconnected, 'guest reconnects to the existing RTC room');
+    const reconnectedPair = await waitForSameTickRift(host, guest, reconnectHole.id, 9, true, 5000);
+    const guestRosterAfterReconnect = await guest.evaluate(() => __YARN_MAYHEM.qaPlayers()
+      .map(player => player.id).sort());
+    const retainedHostIds = guestRosterBeforeReconnect.filter(id => guestRosterAfterReconnect.includes(id));
+    check('reconnecting guest restores the active rift at the same tick and rejoins the host roster',
+      reconnectedPair[0].tick === reconnectedPair[1].tick && reconnectedPair[1].hole.spawns === 9 &&
+        guestRosterAfterReconnect.length === 2 && retainedHostIds.length === 1,
+      { host: reconnectedPair[0], guest: reconnectedPair[1],
+        guestRosterBeforeReconnect, guestRosterAfterReconnect, retainedHostIds,
+        room: await guest.evaluate(() => __YARN_MAYHEM.snapshot().room) });
     check('both RTC clients remain free of browser runtime errors', report.errors.length === 0, report.errors);
     report.status = 'PASS';
   } catch (error) {
