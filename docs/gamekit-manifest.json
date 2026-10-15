@@ -1,15 +1,15 @@
 {
-  "version": "0.3.1",
-  "distCommit": "72b09b260edf9650353017acb49c06873fe9f5a1",
-  "sourceCommit": "baa96876876a08013ad28b5a71c83bfadd285fab",
+  "version": "0.5.0",
+  "distCommit": "0d8f5390c1452a643c3a8c8682ece6ad932023b5",
+  "sourceCommit": "2cb587b70d32bdb40379e15ba7f2f4744e2c8594",
   "modules": [
     {
-      "file": "interpolation.js",
-      "sha256": "64d1297162f07e78904954628a5c9595e1eddf576b8612a58f41ed594638c37c"
+      "file": "rendering.js",
+      "sha256": "4c6e8d5d6baf4d25dcd930fbcc04c1961a6609fdd40503c4d72dbd9d758fa542"
     },
     {
-      "file": "rendering.js",
-      "sha256": "5fed746a9797fab4e7c8b99239d00026b913b66f1956c8d6955b7eb4cdf426ef"
+      "file": "vector-assets.js",
+      "sha256": "758291e8edf5a26111845fc97b8958c4691e1240cfef147d25fa153e06b0ad95"
     },
     {
       "file": "input.js",
@@ -20,12 +20,16 @@
       "sha256": "1be543dc7e15ef7c87043af98a1fb49a0a45a779098bfa085dc7509709f1ea9c"
     },
     {
+      "file": "audio.js",
+      "sha256": "7e3e16d34ce88124e6ba7699f16d23107a3e42ee93ea5a16691e856e5865c14a"
+    },
+    {
       "file": "transport.js",
       "sha256": "3bded746222c0aa1769697442b579922d406e67d79e3dbf65df5580dd387c007"
     },
     {
-      "file": "audio.js",
-      "sha256": "7e3e16d34ce88124e6ba7699f16d23107a3e42ee93ea5a16691e856e5865c14a"
+      "file": "interpolation.js",
+      "sha256": "64d1297162f07e78904954628a5c9595e1eddf576b8612a58f41ed594638c37c"
     }
   ]
 }

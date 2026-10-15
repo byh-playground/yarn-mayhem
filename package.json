@@ -1,19 +1,31 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.19.7",
+  "version": "0.20.0",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
+    "predev": "npm run build",
     "dev": "node scripts/serve.cjs",
+    "pretest": "npm run build",
     "test": "node tests/scenario.cjs",
+    "pretest:combat": "npm run build",
     "test:combat": "node tests/combat-scenario.cjs",
+    "pretest:rift": "npm run build",
     "test:rift": "node tests/rift-air-scenario.cjs",
+    "pretest:rift:rtc": "npm run build",
     "test:rift:rtc": "node tests/rift-air-rtc-scenario.cjs",
+    "pretest:mobile": "npm run build",
     "test:mobile": "node tests/mobile-scenario.cjs",
+    "pretest:hopping": "npm run build",
     "test:hopping": "node tests/hopping-scenario.cjs",
-    "test:spawn:interval": "node tests/spawn-interval-scenario.cjs"
+    "pretest:spawn:interval": "npm run build",
+    "test:spawn:interval": "node tests/spawn-interval-scenario.cjs",
+    "pretest:vector-assets": "npm run build",
+    "test:vector-assets": "node tests/vector-assets-scenario.cjs"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "@xmldom/xmldom": "0.9.12",
+    "playwright": "1.63.0",
+    "three": "0.186.1"
   }
 }

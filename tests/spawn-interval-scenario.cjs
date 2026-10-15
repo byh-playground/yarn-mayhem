@@ -11,10 +11,8 @@ const check = (name, ok, evidence) => {
   report.checks.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
   assert.ok(ok, name);
 };
-const server = http.createServer((req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.end(fs.readFileSync(path.join(__dirname, '../index.html')));
-});
+const { createGameServer } = require('./game-server.cjs');
+const server = createGameServer();
 
 (async () => {
   let browser;

@@ -7,10 +7,8 @@ const { chromium } = require('playwright');
 const out = path.resolve('test-results/rift-air-rtc-0192');
 fs.mkdirSync(out, { recursive: true });
 const report = { status: 'RUNNING', browser: null, checks: [], errors: [] };
-const server = http.createServer((req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.end(fs.readFileSync(path.join(__dirname, '../index.html')));
-});
+const { createGameServer } = require('./game-server.cjs');
+const server = createGameServer();
 const check = (name, ok, evidence) => {
   report.checks.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
   assert.ok(ok, name);

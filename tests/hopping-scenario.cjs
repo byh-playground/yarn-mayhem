@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),http=require('http'),assert=require('assert/strict'),{chromium}=require('playwright');
 const out=path.resolve('test-results/hopping');fs.mkdirSync(out,{recursive:true});const report={checks:[],errors:[],console:[],tiers:[],maps:[],performance:[]},check=(name,ok,evidence)=>{report.checks.push({name,status:ok?'PASS':'FAIL',evidence});assert.ok(ok,name)};
-const server=http.createServer((q,r)=>{r.setHeader('Content-Type','text/html;charset=utf-8');r.end(fs.readFileSync(path.join(__dirname,'../index.html')))});
+const {createGameServer}=require('./game-server.cjs');const server=createGameServer();
 function validSpawnSites(map){
  const width=map.world.width,groundY=map.world.groundY,surfaces=new Map(map.surfaces.map(surface=>[surface.id,surface]));
  return map.sites.every(site=>{
