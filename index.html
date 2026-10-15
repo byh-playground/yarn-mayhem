@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.19.7</title>
+<title>털실 대소동 / Yarn Mayhem 0.20.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
- <div id="toastLayer"></div><div class="version-label">v0.19.7</div>
+ <div id="toastLayer"></div><div class="version-label">v0.20.0</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -251,11 +251,15 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@72b09b260edf9650353017acb49c06873fe9f5a1/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@0d8f5390c1452a643c3a8c8682ece6ad932023b5/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const [{ Renderer2D }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer }, { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
+    const [{ Renderer2D, WebGLDevice, MeshRenderer }, { createVectorAsset },
+      { ACTIVE_THEME_ASSETS }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
+      { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
+      import(GAMEKIT_DIST + 'vector-assets.js'),
+      import(new URL('assets/active-theme/compiled-assets.mjs', document.baseURI).href),
       import(GAMEKIT_DIST + 'input.js'),
       import(GAMEKIT_DIST + 'simloop.js'),
       import(GAMEKIT_DIST + 'audio.js'),
@@ -266,6 +270,37 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
     const canvas = $('gl');
     const renderer = new Renderer2D(canvas, { batchVertices: 12288, antialias: true });
+    const device = new WebGLDevice(canvas, { alpha: true, antialias: true, depth: false, stencil: false });
+    const meshRenderer = new MeshRenderer(device, { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 });
+    const vectorAssets = {
+      yarnFace: createVectorAsset(meshRenderer, ACTIVE_THEME_ASSETS.yarnFace),
+      needle: createVectorAsset(meshRenderer, ACTIVE_THEME_ASSETS.needle),
+      riftPulse: createVectorAsset(meshRenderer, ACTIVE_THEME_ASSETS.riftPulse),
+    };
+    const vectorPartPoseCache = new Map();
+    function vectorPartsFor(asset, expression) {
+      const key = asset.metadata.id + ':' + expression;
+      if (vectorPartPoseCache.has(key)) return vectorPartPoseCache.get(key);
+      const variant = asset.metadata.expressions[expression];
+      if (!variant) throw new Error('Unknown active-theme vector expression: ' + key);
+      const shown = new Set(variant.show), hidden = new Set(variant.hide);
+      const identity = [1, 0, 0, 1, 0, 0];
+      const poses = asset.metadata.parts.map(part => ({
+        transform: identity,
+        visible: shown.has(part.id) || !hidden.has(part.id),
+      }));
+      vectorPartPoseCache.set(key, poses);
+      return poses;
+    }
+    const vectorMatrix = new Float32Array(6);
+    function setVectorMatrix(out, x, y, scaleX, scaleY, rotation = 0, originX = 100, originY = 100) {
+      const c = Math.cos(rotation), s = Math.sin(rotation);
+      out[0] = c * scaleX; out[1] = s * scaleX;
+      out[2] = -s * scaleY; out[3] = c * scaleY;
+      out[4] = x - out[0] * originX - out[2] * originY;
+      out[5] = y - out[1] * originX - out[3] * originY;
+      return out;
+    }
     const actions = new ActionState();
     const CONFIG = Object.freeze({
       tickMs: 1000 / 30,
@@ -396,7 +431,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
 
     let hintTimeout=0;
     const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
-    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'72b09b260edf9650353017acb49c06873fe9f5a1',matterVersion:Matter.version||'0.20.0'};
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'0d8f5390c1452a643c3a8c8682ece6ad932023b5',gamekitVersion:'0.5.0',matterVersion:Matter.version||'0.20.0'};
     // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
     // The collision normal prevents catching the platform's corner as a side wall.
     const nativeDetectorCollisions = Matter.Detector.collisions;
@@ -2619,6 +2654,59 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     }
     // === Code-only yarn visual language, shared by tiers and the player. ===
     function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
+    const vectorFaceCommands = [], vectorNeedleCommands = [], vectorRiftPulseCommands = [], enemyOverlayCommands = [];
+    const vectorDrawCounts = {yarnFace:0,needle:0,riftPulse:0};
+    const vectorDrawTotals = {yarnFace:0,needle:0,riftPulse:0};
+    function queueVectorFace(x,y,radius,expression,scaleX=1,scaleY=1,whiteFlash=false){
+      vectorFaceCommands.push({x,y,radius,expression,scaleX,scaleY,whiteFlash});
+    }
+    function drawVectorCommands(commands,asset,expressionFor,scaleFor){
+      if(!commands.length)return;
+      const assetKey=asset===vectorAssets.yarnFace?'yarnFace':asset===vectorAssets.needle?'needle':'riftPulse';
+      vectorDrawCounts[assetKey]+=commands.length;
+      vectorDrawTotals[assetKey]+=commands.length;
+      renderer.flush();
+      for(const command of commands){
+        const expression=expressionFor(command),scale=scaleFor(command);
+        const matrix=setVectorMatrix(vectorMatrix,command.x,command.y,scale.x,scale.y,command.rotation||0,
+          command.originX??100,command.originY??100);
+        meshRenderer.drawMesh(asset.mesh,{projection:renderer.projection,matrix,
+          parts:vectorPartsFor(asset,expression),alpha:command.alpha??1,
+          color:command.color||[1,1,1,1],whiteFlash:command.whiteFlash===true});
+      }
+      meshRenderer.flush();
+      commands.length=0;
+    }
+    function drawQueuedVectorFaces(){
+      drawVectorCommands(vectorFaceCommands,vectorAssets.yarnFace,
+        command=>command.expression,
+        command=>({x:command.radius/120*command.scaleX,y:command.radius/120*command.scaleY}));
+    }
+    function drawQueuedVectorNeedles(){
+      drawVectorCommands(vectorNeedleCommands,vectorAssets.needle,
+        command=>command.expression,command=>({x:command.scale,y:command.scale}));
+    }
+    function compiledPartBounds(compiled,partId){
+      const partIndex=compiled.metadata.parts.findIndex(part=>part.id===partId);
+      if(partIndex<0)throw new Error('Missing vector part: '+compiled.metadata.id+'/'+partId);
+      const vertices=compiled.geometry.vertices,stride=compiled.geometry.strideFloats;
+      const min=[Infinity,Infinity],max=[-Infinity,-Infinity];
+      for(let i=0;i<vertices.length;i+=stride)if(Math.round(vertices[i+10])===partIndex){
+        min[0]=Math.min(min[0],vertices[i]);min[1]=Math.min(min[1],vertices[i+1]);
+        max[0]=Math.max(max[0],vertices[i]);max[1]=Math.max(max[1],vertices[i+1]);
+      }
+      if(!Number.isFinite(min[0])||!Number.isFinite(max[0]))throw new Error('Empty vector part: '+compiled.metadata.id+'/'+partId);
+      return {x:(min[0]+max[0])*.5,y:(min[1]+max[1])*.5,width:max[0]-min[0],height:max[1]-min[1]};
+    }
+    const riftPulseBounds=compiledPartBounds(ACTIVE_THEME_ASSETS.riftPulse,'pulse');
+    function queueRiftPulse(x,y,width,height,alpha,rotation=0){
+      vectorRiftPulseCommands.push({x,y,rotation,alpha,originX:riftPulseBounds.x,originY:riftPulseBounds.y,
+        scale:{x:width/riftPulseBounds.width,y:height/riftPulseBounds.height}});
+    }
+    function drawQueuedRiftPulses(){
+      drawVectorCommands(vectorRiftPulseCommands,vectorAssets.riftPulse,
+        ()=> 'pulse',command=>command.scale);
+    }
     function drawYarnBall(x,y,radius,tier,angle,flash=false,asPlayer=false,seedAngle=0,mood='normal',scaleX=1,scaleY=1){
       if(radius<=0)return;
       // Local affine adapter deforms embroidery and face together, never the Matter body.
@@ -2664,109 +2752,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           yarnRenderer.ellipse(bx,by,radius*.1,radius*.1,rgbScale(outline,.8,.95),10);
         }
       }
-      // Ten hand-drawn faces remain upright regardless of Matter body rotation.
-      // T1 grin, T2 wink, T3 cheeky, T4 grumpy, T5 proud, T6 sleepy,
-      // T7 fierce, T8 astonished, T9 scheming, T10 crowned commander.
-      const eyeR=Math.max(2.4,radius*.104);
-      const left=x-radius*.245,right=x+radius*.245,ey=y-radius*.035;
-      const ink=PALETTE.eyes,white=PALETTE.cream;
-      const lineW=clamp(radius*.039,1.7,15);
-      const eye=(px,py,rx=eyeR,ry=eyeR,pupilShift=0)=>{
-        yarnRenderer.ellipse(px,py,rx,ry,ink,14);
-        yarnRenderer.ellipse(px-rx*.24+pupilShift,py-ry*.29,Math.max(.9,rx*.26),Math.max(.9,ry*.26),white,10);
-      };
-      const slit=(px,py,tilt=0,length=eyeR*1.75)=>{
-        yarnRenderer.line(px-length*.5,py-tilt,px+length*.5,py+tilt,lineW,ink);
-      };
-      const eyebrow=(px,tilt=0,offset=-.18)=>{
-        const py=ey+radius*offset;
-        yarnRenderer.line(px-eyeR*1.20,py-tilt,px+eyeR*1.20,py+tilt,lineW,ink);
-      };
-      const arcMouth=(w=radius*.17,depth=radius*.085,shiftX=0,shiftY=0)=>{
-        const my=y+radius*.32+shiftY,cx=x+shiftX;
-        for(let i=0;i<7;i++){
-          const a=-1+2*i/7,b=-1+2*(i+1)/7;
-          yarnRenderer.line(cx+a*w,my+depth*(1-a*a),cx+b*w,my+depth*(1-b*b),lineW,ink);
-        }
-      };
-      const blush=(px)=>yarnRenderer.ellipse(px,y+radius*.27,radius*.105,radius*.047,[.97,.49,.51,.31],12);
-      if(asPlayer){
-        eye(left,ey);eye(right,ey);arcMouth();blush(x-radius*.47);blush(x+radius*.47);
-      }else{
-        const face=TIER_DEFS[tier-1].face;
-        switch(face){
-          case 'happy': // round dot eyes, broad embroidered smile
-            eye(left,ey);eye(right,ey);arcMouth(radius*.22,radius*.13);blush(x-radius*.47);blush(x+radius*.47);break;
-          case 'curious': // one wink and one question-like open eye
-            slit(left,ey,eyeR*.3);eye(right,ey,eyeR*1.1,eyeR*1.23);
-            yarnRenderer.ellipse(x,y+radius*.33,radius*.063,radius*.10,ink,12);break;
-          case 'cheeky': // playful, asymmetrical eyes and one-sided grin
-            eye(left,ey,eyeR*.81,eyeR*1.03);slit(right,ey,-eyeR*.22);
-            eyebrow(left,-eyeR*.40);arcMouth(radius*.20,radius*.105,radius*.09);
-            yarnRenderer.ellipse(x+radius*.22,y+radius*.39,radius*.046,radius*.053,[.95,.56,.64,.95],10);break;
-          case 'grumpy': // knit eyebrows pointing down and upside-down smile
-            eye(left,ey,eyeR*.92,eyeR*.88);eye(right,ey,eyeR*.92,eyeR*.88);
-            eyebrow(left,eyeR*.53);eyebrow(right,-eyeR*.53);
-            arcMouth(radius*.20,-radius*.10);break;
-          case 'proud': // narrowed eyes, sly upward smirk and three yarn beads
-            slit(left,ey,eyeR*.07);slit(right,ey,-eyeR*.07);
-            eyebrow(left,-eyeR*.13);eyebrow(right,eyeR*.13);
-            arcMouth(radius*.20,radius*.07,radius*.11);
-            for(let i=-1;i<=1;i++){
-              const px=x+i*radius*.28;
-              yarnRenderer.ellipse(px,y-radius*.86-(i===0?radius*.12:0),radius*.13,radius*.16,PALETTE.gold,12);
-            }break;
-          case 'sleepy': // closed eyelids, yarn-style Z and a tiny yawn
-            slit(left,ey,eyeR*.38);slit(right,ey,-eyeR*.34);
-            yarnRenderer.ellipse(x,y+radius*.33,radius*.10,radius*.14,ink,14);
-            {const zx=x+radius*.54,zy=y-radius*.47,sz=radius*.18;
-              yarnRenderer.line(zx,zy,zx+sz,zy,lineW,white);
-              yarnRenderer.line(zx+sz,zy,zx,zy+sz,lineW,white);
-              yarnRenderer.line(zx,zy+sz,zx+sz,zy+sz,lineW,white);}break;
-          case 'ferocious': // angry eyebrows and two little embroidered fangs
-            eye(left,ey,eyeR*.9);eye(right,ey,eyeR*.9);
-            eyebrow(left,eyeR*.77);eyebrow(right,-eyeR*.77);
-            yarnRenderer.line(x-radius*.2,y+radius*.29,x+radius*.2,y+radius*.29,lineW,ink);
-            for(const d of [-1,1]){
-              const bx=x+d*radius*.14;
-              yarnRenderer.line(bx,y+radius*.29,bx-d*radius*.036,y+radius*.40,lineW,ink);
-            }
-            for(const d of [-1,1]){
-              const hx=x+d*radius*.45,hy=y-radius*.84;
-              yarnRenderer.line(hx,hy,hx+d*radius*.15,hy-radius*.25,lineW,white);
-            }break;
-          case 'shocked': // giant eyes and open round mouth
-            eye(left,ey,eyeR*1.27,eyeR*1.42);eye(right,ey,eyeR*1.27,eyeR*1.42);
-            yarnRenderer.ellipse(x,y+radius*.34,radius*.12,radius*.17,ink,16);
-            eyebrow(left,-eyeR*.18,-.28);eyebrow(right,eyeR*.18,-.28);break;
-          case 'sly': // uneven half-lids and a diagonal grin
-            eye(left,ey,eyeR*.85,eyeR*.71,eyeR*.18);
-            eye(right,ey,eyeR*.85,eyeR*.71,eyeR*.24);
-            eyebrow(left,-eyeR*.24);eyebrow(right,eyeR*.48);
-            arcMouth(radius*.24,radius*.10,radius*.07,radius*.005);
-            yarnRenderer.line(x+radius*.11,y+radius*.33,x+radius*.29,y+radius*.25,lineW,ink);break;
-          case 'royal': // royal stern eyes, golden embroidery and a five-knot crown
-            eye(left,ey,eyeR*1.08,eyeR*.90);eye(right,ey,eyeR*1.08,eyeR*.90);
-            eyebrow(left,eyeR*.48);eyebrow(right,-eyeR*.48);
-            yarnRenderer.line(x-radius*.20,y+radius*.32,x+radius*.20,y+radius*.32,lineW*1.10,ink);
-            for(let i=-2;i<=2;i++){
-              const px=x+i*radius*.23,py=y-radius*.92-(2-Math.abs(i))*radius*.10;
-              yarnRenderer.ellipse(px,py,radius*.089,radius*.12,PALETTE.gold,12);
-            }
-            yarnRenderer.ellipse(x,y-radius*.76,radius*.085,radius*.12,[.96,.47,.56,1],12);
-            break;
-        }
-        if(tier>=3){ // stitch cheek details grow with the yarn tier
-          const side=radius*.56,dotSize=clamp(radius*.031,1.3,12);
-          for(const dir of [-1,1]){
-            yarnRenderer.line(x+dir*side,y+radius*.19,x+dir*(side+radius*.10),y+radius*.23,dotSize,white);
-          }
-        }
-      }
-      // HP mood makes the SAME tier expression react without losing its identity.
-      if(!asPlayer && mood==='panic'){
-        yarnRenderer.ellipse(x+radius*.61,y-radius*.32,radius*.055,radius*.095,[.58,.90,1,.9],12);
-      }
+      // Authored SVG faces are queued in the retained-vector pass.
     }
     function shadowUnder(body,radius) {
       let ground=CONFIG.world.groundY;
@@ -2889,8 +2875,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           const sincePop=state.timeMs-hole.lastPopAtMs;
           if(hole.spawns>0&&sincePop>=0&&sincePop<240){
             const t=sincePop/240;
-            renderer.ellipse(x,y,rx*(.40+t*.12),ry*(.38+t*.15),
-              [paint.hem[0],paint.hem[1],paint.hem[2],(1-t)*.20*alpha],18);
+            queueRiftPulse(x,y,2*rx*(.40+t*.12),2*ry*(.38+t*.15),(1-t)*.50*alpha);
           }
           continue;
         }
@@ -2908,9 +2893,9 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
         const sincePop=state.timeMs-hole.lastPopAtMs;
         if(hole.spawns>0&&sincePop>=0&&sincePop<240){
-          const t=sincePop/240,flash=[1,.90,.62,(1-t)*.45*alpha];
-          renderer.ellipse(x+hole.normalX*5,y+hole.normalY*5,horizontal?17+t*19:5+t*4,
-            horizontal?5+t*4:17+t*19,flash,16);
+          const t=sincePop/240;
+          queueRiftPulse(x+hole.normalX*5,y+hole.normalY*5,
+            2*(horizontal?17+t*19:5+t*4),2*(horizontal?5+t*4:17+t*19),(1-t)*.70*alpha);
         }
       }
     }
@@ -3103,24 +3088,30 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       drawEnemyControl(e,pose,bodyVisual);
       drawYarnBall(visualX,visualY,r,tier,pose.angle,hit,false,e.visualSeed,
         e.hp<=e.maxHp*.5?'panic':e.goalKind==='attack'?'angry':'normal',sx,sy);
-      drawEnemyControl(e,pose,bodyVisual,true);
-      if(tier>=2 || e.hp<e.maxHp){
-        const width=r*1.6,y=pos.y-r-12;
-        renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
-        // A dying actor / replicated snapshot may have exactly zero HP.
-        // GameKit Renderer2D deliberately rejects zero-width geometry.
-        // Keep the empty background, but do not submit a non-positive fill.
-        const fillWidth=width*clamp(e.hp/Math.max(1,e.maxHp),0,1);
-        if(fillWidth>0)renderer.rect(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
+      queueVectorFace(visualX,visualY,r,'tier-'+tier+(e.hp<=e.maxHp*.5?'-panic':''),sx,sy,hit);
+      enemyOverlayCommands.push({e,pose,bodyVisual,pos,tier,r});
+    }
+    function drawEnemyOverlays(){
+      for(const item of enemyOverlayCommands){
+        const {e,pose,bodyVisual,pos,tier,r}=item;
+        drawEnemyControl(e,pose,bodyVisual,true);
+        if(tier>=2 || e.hp<e.maxHp){
+          const width=r*1.6,y=pos.y-r-12;
+          renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
+          // A dying actor / replicated snapshot may have exactly zero HP.
+          // GameKit Renderer2D deliberately rejects zero-width geometry.
+          // Keep the empty background, but do not submit a non-positive fill.
+          const fillWidth=width*clamp(e.hp/Math.max(1,e.maxHp),0,1);
+          if(fillWidth>0)renderer.rect(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
+        }
+        if(e.tier>=2&&e.goalKind==='merge')renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
+        if(e.fromSplit){
+          const curl=r*.29;
+          renderer.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
+          renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
+        }
       }
-      if(e.tier>=2&&e.goalKind==='merge'){
-        renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
-      }
-      if(e.fromSplit){ // frayed knot: indicates a split descendant with no extra kill credit
-        const curl=r*.29;
-        renderer.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
-        renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
-      }
+      enemyOverlayCommands.length=0;
     }
     function drawPlayer(now,p,pose) {
       if(!p)return;
@@ -3129,11 +3120,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         // Distinct "fallen" silhouette, not a normal-looking actor frozen at 0 HP.
         renderer.ellipse(pos.x,pos.y,r+3,r+3,[.59,.66,.69,.26],18);
         renderer.ellipse(pos.x,pos.y,r-1,r-1,[.44,.51,.59,.55],18);
-        for(const dx of [-7,7]){
-          renderer.line(pos.x+dx-3,pos.y-4,pos.x+dx+2,pos.y+2,2.2,[1,.79,.78,.90]);
-          renderer.line(pos.x+dx+2,pos.y-4,pos.x+dx-3,pos.y+2,2.2,[1,.79,.78,.90]);
-        }
-        renderer.line(pos.x-5,pos.y+10,pos.x+5,pos.y+10,2.0,[1,.79,.78,.75]);
+        queueVectorFace(pos.x,pos.y,r,'fallen',2,4);
         const rest=Math.max(0,p.deathUntilMs-state.timeMs);
         if(rest>0 && state.players.size>1){
           const progress=clamp(1-rest/CONFIG.player.respawnMs,0,1),count=24;
@@ -3155,6 +3142,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         renderer.ellipse(pos.x,pos.y,r+5,r+5,[1,.82,.76,.78],18);
         drawYarnBall(pos.x,pos.y,r,2,pose.angle,true,true,.2,'normal',sx,sy);
       }
+      queueVectorFace(pos.x,pos.y,r,'player',sx,sy,flash);
       if(state.players.size>1){
         const labelColor=p.id===localId()?[.65,1,.72,1]:[.91,.72,1,1];
         renderer.rect(pos.x,pos.y-r-14,40,4,[.12,.21,.21,.66]);
@@ -3169,13 +3157,12 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }
       const aim=p.lastShotDir;
-      // Needle launcher and tip, always aligned to attack direction.
-      const near={x:pos.x+aim.x*15,y:pos.y+aim.y*15};
-      renderer.line(near.x,near.y,near.x+aim.x*27,near.y+aim.y*27,3.2,PALETTE.gold);
-      renderer.line(near.x+aim.x*14,near.y+aim.y*14,near.x+aim.x*28,near.y+aim.y*28,1.7,PALETTE.cream);
+      vectorNeedleCommands.push({x:pos.x+aim.x*24.5,y:pos.y+aim.y*24.5,
+        rotation:Math.atan2(aim.y,aim.x),expression:'launcher',scale:27/47.5});
 
     }
     function renderWorld() {
+      vectorFaceCommands.length=0;vectorNeedleCommands.length=0;vectorRiftPulseCommands.length=0;enemyOverlayCommands.length=0;
       // Spectate a living teammate while waiting for the host's revive.
       const observed=state.player?.hp>0?state.player:
         [...state.players.values()].find(actor=>actor.hp>0)??state.player;
@@ -3190,10 +3177,16 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       cam.x+=(targetX-cam.x)*.115;cam.y+=(targetY-cam.y)*.115;
       const shake=cam.shake;
       renderer.setCamera({x:cam.x+Math.sin(metrics.frames*2.43)*shake*.5,y:cam.y+Math.cos(metrics.frames*1.71)*shake*.5,zoom,rotation:0});
-      if(!renderer.beginFrame([0,0,0,0]))return;
+      if(!device.beginFrame({clearColor:[0,0,0,0]}))return;
+      meshRenderer.beginFrame();
+      vectorDrawCounts.yarnFace=0;vectorDrawCounts.needle=0;vectorDrawCounts.riftPulse=0;
+      if(!renderer.beginFrame([0,0,0,0])){device.endFrame();return;}
       drawBackdrop();
       drawSpawnHoles();
+      drawQueuedRiftPulses();
       for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
+      drawQueuedVectorFaces();
+      drawEnemyOverlays();
       drawSpawnHoleFronts();
       drawAbsorptions();
       drawSplitFrays();
@@ -3204,17 +3197,16 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         if(!worldVisible(shot.x,shot.y,30))continue;
         if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path.slice(-1),[shot.x,shot.y]],.95,shot.ricochet.hits+1);
         const enemy=shot.owner==='enemy';
-        const c=enemy?[1,.62,.65,1]:PALETTE.shot;
         const dir=normalize(shot.vx,shot.vy);
         if(shot.ricochet)renderer.ellipse(shot.x+dir.x*13,shot.y+dir.y*13,3.2,3.2,PALETTE.cream,8);
-        renderer.line(shot.x-dir.x*15,shot.y-dir.y*15,shot.x+dir.x*13,shot.y+dir.y*13,3,c);
-        renderer.line(shot.x+dir.x*13-dir.y*4,shot.y+dir.y*13+dir.x*4,
-          shot.x+dir.x*13+dir.y*4,shot.y+dir.y*13-dir.x*4,1.8,PALETTE.cream);
-        renderer.line(shot.x-dir.x*16,shot.y-dir.y*16,shot.x-dir.x*38,shot.y-dir.y*38,2,
-          enemy?[1,.54,.6,.31]:[.7,1,.88,.32]);
+        vectorNeedleCommands.push({x:shot.x,y:shot.y,rotation:Math.atan2(dir.y,dir.x),
+          expression:'flight',scale:30/171,color:enemy?[1,.62,.65,1]:[1,1,1,1]});
       }
+      drawQueuedVectorNeedles();
       drawImpactMarks();
       for(const actor of state.players.values()){const pose=presentation.frame.modelFor(actor.body);if(pose)drawPlayer(state.timeMs,actor,pose);}
+      drawQueuedVectorFaces();
+      drawQueuedVectorNeedles();
       for(const q of state.particles){
         if(!worldVisible(q.x,q.y,10))continue;
         renderer.ellipse(q.x,q.y,q.size,q.size,[q.color[0],q.color[1],q.color[2],q.color[3]*(q.ttl/q.maxTtl)],9);
@@ -3229,7 +3221,14 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }
       const renderingStats=renderer.endFrame();
-      if(renderingStats){metrics.drawCalls=renderingStats.drawCalls??0;metrics.vertices=renderingStats.vertices??0;}
+      meshRenderer.flush();
+      const meshStats=meshRenderer.stats();
+      device.endFrame();
+      if(renderingStats){
+        metrics.drawCalls=(renderingStats.drawCalls??0)+(meshStats.draws??0);
+        metrics.vertices=(renderingStats.vertices??0)+(meshStats.vertices??0);
+        metrics.vectorInstances=meshStats.instances??0;
+      }
     }
     function resize() {
       const box=canvas.getBoundingClientRect();
@@ -3589,9 +3588,13 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         qaSetActor:(id,x,y)=>{const a=state.players.get(id);if(!a)return false;Body.setPosition(a.body,{x,y});setWorldVelocity(a.body,0,0);return true;},
         qaStopSimulation:()=>loop?.stop(),
         qaStartSimulation:()=>loop?.start(),
+        qaVectorStats:()=>({renderer:meshRenderer.stats(),drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},assets:Object.entries(vectorAssets).map(([name,asset])=>({
+          name,bytes:asset.mesh.byteLength,vertices:asset.mesh.count,parts:asset.mesh.partCount,
+        }))}),
       }:{}),
     };
-    window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();renderer.dispose();
+    window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
+      for(const asset of Object.values(vectorAssets))asset.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
       Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
   } catch(error) {showFatal(error);}
   function showFatal(error) {

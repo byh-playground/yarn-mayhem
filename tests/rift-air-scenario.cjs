@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),http=require('http'),assert=require(
 const out=path.resolve(process.env.YARN_TEST_OUTPUT||'test-results/rift-air-0193');fs.mkdirSync(out,{recursive:true});
 const report={status:'RUNNING',browser:null,checks:[],errors:[],networkFailures:[]};
 const check=(name,ok,evidence)=>{report.checks.push({name,status:ok?'PASS':'FAIL',evidence});assert.ok(ok,name)};
-const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(fs.readFileSync(process.env.YARN_TEST_HTML?path.resolve(process.env.YARN_TEST_HTML):path.join(__dirname,'../index.html')))});
+const {createGameServer}=require('./game-server.cjs');const server=createGameServer({htmlPath:process.env.YARN_TEST_HTML?path.resolve(process.env.YARN_TEST_HTML):path.join(__dirname,'../index.html')});
 
 (async()=>{
   let browser;const ceiling=setTimeout(()=>process.exit(2),60000);
