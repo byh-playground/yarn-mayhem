@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.19.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.19.1</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.19.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.19.1</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -367,6 +367,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     let randState = 0x6b456fed;
     function seed(n) { randState = n >>> 0 || 1; }
     function random() { randState = (Math.imul(randState,1664525)+1013904223)>>>0; return randState/4294967296; }
+    function seededSiteRandom(n){let value=n>>>0||1;return ()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296;};}
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
     function normalize(x,y) { const d=Math.hypot(x,y);return d>1e-5?{x:x/d,y:y/d}:{x:1,y:0}; }
@@ -567,7 +568,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       createSpawnSites();
     }
     function createSpawnSites(){
-      // Rifts attach to actual tops and solid outer walls; never pick arbitrary air positions.
+      // Top and edge sites use collision surfaces. Background sites are deterministic visual anchors in clear air.
       state.spawnSites=[];
       const gap=220;
       for(const surface of state.surfaces){
@@ -595,15 +596,37 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }
       state.spawnSites.push(...wallSites);
+      const backgroundSites=[],airRandom=seededSiteRandom(state.mapSeed^0x1f4a7c15);
+      const W=CONFIG.world.width,groundY=CONFIG.world.groundY,airMargin=90,airCount=32;
+      for(let attempt=0;attempt<airCount*30&&backgroundSites.length<airCount;attempt++){
+        const x=airMargin+airRandom()*(W-airMargin*2),y=100+airRandom()*(groundY-190);
+        if(y>=groundY-RADII[0]-16)continue;
+        const blocked=state.platforms.some(surface=>{
+          const closestX=clamp(x,surface.x1,surface.x2),closestY=clamp(y,surface.top,surface.top+surface.thick);
+          return Math.hypot(x-closestX,y-closestY)<RADII[0]+12;
+        });
+        if(blocked||backgroundSites.some(site=>Math.hypot(x-site.x,y-site.y)<155))continue;
+        backgroundSites.push({kind:'background',x,y,surfaceId:state.surfaces.length+2+backgroundSites.length,normalX:0,normalY:0});
+      }
+      state.spawnSites.push(...backgroundSites);
       const cfg=CONFIG.enemy.spawn;
       state.nextRiftAtMs=state.timeMs+Math.max(0,cfg.firstMs-cfg.openMs);
       state.nextSpawnAtMs=state.timeMs+cfg.firstMs;
     }
     function createSpawnHole(dueAtMs,forcedSite=null){
       if(!state.spawnSites.length)throw new Error('No valid spawn rift site');
-      const candidates=state.spawnSites.filter(site=>state.spawnHoles.every(h=>
+      const validSites=state.spawnSites.filter(site=>spawnSiteIsClear(site));
+      if(!validSites.length)return null;
+      const candidates=validSites.filter(site=>state.spawnHoles.every(h=>
         Math.hypot(site.x-h.x,site.y-h.y)>=150));
-      const options=forcedSite?[forcedSite]:(candidates.length?candidates:state.spawnSites);
+      const noOverlapSites=validSites.filter(site=>spawnSiteSafeFromPlayers(site,0));
+      const playerSafeSites=noOverlapSites.filter(site=>spawnSiteSafeFromPlayers(site,80));
+      const safeSpaced=playerSafeSites.filter(site=>candidates.includes(site));
+      const spacedNoOverlap=candidates.filter(site=>noOverlapSites.includes(site));
+      let options;
+      if(forcedSite)options=noOverlapSites.includes(forcedSite)?[forcedSite]:[];
+      else options=safeSpaced.length?safeSpaced:(playerSafeSites.length?playerSafeSites:(spacedNoOverlap.length?spacedNoOverlap:noOverlapSites));
+      if(!options.length)return null;
       let best=null,bestScore=-Infinity;
       for(let trial=0;trial<(forcedSite?1:20);trial++){
         const site=options[Math.floor(random()*options.length)];
@@ -621,6 +644,27 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,hole.nextAtMs);
       return hole;
     }
+    function riftSpawnPosition(hole,radius=RADII[0]){
+      if(hole.surfaceKind==='background')return {x:hole.x,y:hole.y};
+      const clearance=radius+3;
+      return {x:hole.x+hole.normalX*clearance,y:hole.y+hole.normalY*clearance};
+    }
+    function spawnSiteIsClear(site,radius=RADII[0]){
+      const hole={x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY};
+      const pos=riftSpawnPosition(hole,radius),W=CONFIG.world.width,groundY=CONFIG.world.groundY;
+      if(pos.x<radius+1||pos.x>W-radius-1||pos.y<radius+1||pos.y>groundY-radius-1)return false;
+      if(state.platforms.some(surface=>{
+        const closestX=clamp(pos.x,surface.x1,surface.x2),closestY=clamp(pos.y,surface.top,surface.top+surface.thick);
+        return Math.hypot(pos.x-closestX,pos.y-closestY)<radius+3;
+      }))return false;
+      return true;
+    }
+    function spawnSiteSafeFromPlayers(site,buffer=80){
+      const pos=riftSpawnPosition({x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY});
+      const minGap=CONFIG.player.radius+RADII[0]+buffer;
+      return [...state.players.values()].filter(player=>player.hp>0).every(player=>
+        Math.hypot(pos.x-player.body.position.x,pos.y-player.body.position.y)>=minGap);
+    }
     function stageKillTarget(stage){return 8+Math.max(0,stage-1)*4;}
     function stageComplete(){
       return state.stageKills>=state.stageKillGoal && state.spawnHoles.length===0 && state.enemies.length===0;
@@ -635,10 +679,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(age<cfg.openMs)return 'opening';
       if(now>=hole.expiresAtMs-cfg.closeMs)return 'closing';
       return 'open';
-    }
-    function riftSpawnPosition(hole,radius=RADII[0]){
-      const clearance=radius+3;
-      return {x:hole.x+hole.normalX*clearance,y:hole.y+hole.normalY*clearance};
     }
     function riftImpulseDirection(hole){
       const quarter=Math.PI/4;
@@ -1838,7 +1878,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport||!state.players.has(peerId))return;
-      sendPacket(transport,{t:'welcome',version:'0.19.0',roster:netRosterInfo(),frame:packWorld()});
+        sendPacket(transport,{t:'welcome',version:'0.19.1',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -2028,7 +2068,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.19.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.19.1'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -2110,7 +2150,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0190',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0191',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2756,11 +2796,15 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         const width=24+22*progress;
         const x=hole.x+hole.normalX*3,y=hole.y+hole.normalY*3;
         if(!worldVisible(x,y,100))continue;
-        const horizontal=hole.surfaceKind==='top';
+        const background=hole.surfaceKind==='background',horizontal=hole.surfaceKind==='top';
         const rx=horizontal?width+5:3+progress*6,ry=horizontal?3+progress*5:width+5;
-        renderer.ellipse(x,y,rx+3,ry+2,[.45,.64,.53,.65*alpha],16);
-        renderer.ellipse(x,y,rx,ry,[.025,.105,.12,.91*alpha],16);
-        for(const side of [-1,1]){
+        const bgRx=width+5,bgRy=(width+5)*.78;
+        renderer.ellipse(x,y,background?bgRx+5:rx+3,background?bgRy+5:ry+2,[.45,.64,.53,.65*alpha],20);
+        renderer.ellipse(x,y,background?bgRx:rx,background?bgRy:ry,[.025,.105,.12,.91*alpha],20);
+        if(background){
+          renderer.ellipse(x,y,bgRx*.62,bgRy*.62,[.10,.20,.21,.85*alpha],18);
+          renderer.ellipse(x,y,bgRx*.80,bgRy*.79,[.78,.87,.65,.32*alpha],20);
+        }else for(const side of [-1,1]){
           if(horizontal){
             const ex=x+side*(width+5);
             renderer.line(ex,y-3,ex+side*9,y-1,1.6,[.78,.87,.65,.55*alpha]);
@@ -2772,7 +2816,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         const sincePop=state.timeMs-hole.lastPopAtMs;
         if(hole.spawns>0&&sincePop>=0&&sincePop<240){
           const t=sincePop/240,flash=[1,.90,.62,(1-t)*.45*alpha];
-          renderer.ellipse(x+hole.normalX*5,y+hole.normalY*5,horizontal?17+t*19:5+t*4,horizontal?5+t*4:17+t*19,flash,14);
+          renderer.ellipse(x+hole.normalX*5,y+hole.normalY*5,background?17+t*19:horizontal?17+t*19:5+t*4,
+            background?15+t*17:horizontal?5+t*4:17+t*19,flash,16);
         }
       }
     }
@@ -3341,6 +3386,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         spawnHoles:state.spawnHoles.map(h=>({id:h.id,x:h.x,y:h.y,top:h.top,base:h.base,surfaceId:h.surfaceId,surfaceKind:h.surfaceKind,
           normalX:h.normalX,normalY:h.normalY,spawns:h.spawns,spawned:h.spawned,open:h.openProgress,phase:riftPhase(h),nextAtMs:h.nextAtMs,
           createdAtMs:h.createdAtMs,expiresAtMs:h.expiresAtMs,remainingMs:Math.max(0,h.expiresAtMs-state.timeMs)})),
+        spawnSiteKinds:[...new Set(state.spawnSites.map(site=>site.kind))],
         tierCounts:TIER_DEFS.map(t=>state.enemies.filter(e=>e.tier===t.tier).length),
         maxTier:CONFIG.enemy.maxTier,splitCount:state.splits,stageSplits:state.stageSplits,defeats:state.defeats,
         activeSplitFrays:state.frays.length,
@@ -3399,9 +3445,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           for(const e of [...state.enemies])removeEnemy(e);
         },
         qaSpawnSites:()=>state.spawnSites.map(site=>({...site})),
-        qaSpawnRift:(kind,surfaceId=null)=>{const eligible=state.spawnSites.filter(s=>s.kind===kind&&(surfaceId===null||s.surfaceId===surfaceId));
-          const site=eligible.sort((a,b)=>Math.hypot(a.x-(state.player?.body.position.x??CONFIG.world.width/2),a.y-(state.player?.body.position.y??CONFIG.world.groundY))-Math.hypot(b.x-(state.player?.body.position.x??CONFIG.world.width/2),b.y-(state.player?.body.position.y??CONFIG.world.groundY)))[0];if(!site)return null;
-          const hole=createSpawnHole(state.timeMs,site);state.nextRiftAtMs=Infinity;return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
+        qaPhysicsBodies:()=>state.engine?Composite.allBodies(state.engine.world).length:0,
+        qaSpawnRift:(kind,surfaceId=null,siteIndex=null)=>{const eligible=state.spawnSites.filter(s=>s.kind===kind&&(surfaceId===null||s.surfaceId===surfaceId));
+          const site=Number.isInteger(siteIndex)?eligible[siteIndex]:eligible.sort((a,b)=>Math.hypot(a.x-(state.player?.body.position.x??CONFIG.world.width/2),a.y-(state.player?.body.position.y??CONFIG.world.groundY))-Math.hypot(b.x-(state.player?.body.position.x??CONFIG.world.width/2),b.y-(state.player?.body.position.y??CONFIG.world.groundY)))[0];if(!site)return null;
+          const hole=createSpawnHole(state.timeMs,site);if(!hole)return null;state.nextRiftAtMs=Infinity;return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
         qaClearRifts:()=>{state.spawnHoles=[];state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=Infinity;},
         qaReachKillGoal:()=>{for(const e of [...state.enemies])removeEnemy(e);state.stageKills=state.stageKillGoal;state.nextRiftAtMs=Infinity;
           state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,...state.spawnHoles.filter(h=>riftPhase(h)!=='closing').map(h=>h.nextAtMs));},
