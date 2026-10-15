@@ -181,7 +181,7 @@ const check = (name, ok, evidence) => {
       assert.ok(hole, 'host creates each safe high-stage rift');
       fixtureIds.push(hole.id);
     }
-    await guest.waitForFunction(count => __YARN_MAYHEM.snapshot().activeRifts >= Math.min(count, 4), fixtureIds.length,
+    await guest.waitForFunction(count => __YARN_MAYHEM.snapshot().activeRifts === count, fixtureIds.length,
       { timeout: 15000 });
     const manyRifts = await Promise.all([
       host.evaluate(() => ({ tick: __YARN_MAYHEM.snapshot().tick, holes: __YARN_MAYHEM.qaNetworkFrame().holes })),
