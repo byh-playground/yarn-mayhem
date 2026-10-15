@@ -1,3 +1,11 @@
+# 0.16.2 legacy-profile mobile notice boundary
+
+Base: PR14 merge0054e25cd26f24a3adbc106f7d967967e9856802. A final legacy-profile check found the conversion notice could remain visible after menu navigation and push home actions outside568×280. The notice is now owned by menu rendering, shown only on home, and hidden in non-menu popups. In short landscape home with a notice, duplicate brand/subtitle decoration yields space to the full notice and actions. No saved points, text instructions, combat or room contract changes.
+
+PASS: final203 mobile assertions, including four new actual Edge legacy-profile/home/help checks, plus the199 fixed flows below. Prior21 experience/actual2-peer RTC checks passed for the same UI changes; the notice-only follow-up does not alter transport. Representative screenshots: test-results/mobile/568x280-legacy-home.png and568x280-legacy-help.png. Build/provenance and whitespace checks are required before publishing. Physical-device limitations below still apply.
+
+---
+
 # 0.16.1 mobile viewport flows without unnecessary scrolling
 
 Base: PR13 merge020861ff5b35a3b09d7f957852354ec6fa559e90 / deployed0.16.0. Additional user request1792025501.302979. UI-only compatible patch; progression, simulation and0.16.0/v0160 room contract stay unchanged. Other projects and C:/projects user changes are preserved.
