@@ -776,6 +776,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const cfg=CONFIG.enemy.spawn,stage=Math.max(1,Math.floor(state.stage));
       return Math.max(CONFIG.tickMs,cfg.riftIntervalMs*Math.pow(cfg.riftStageMultiplier,stage-1));
     }
+    function maxRiftLifetimeTicks(){
+      // A rift can emit at most once per fixed tick during its configured lifetime.
+      return Math.ceil(CONFIG.enemy.spawn.riftLifetimeMs/CONFIG.tickMs);
+    }
     function skipMissedRiftSpawns(hole,now,interval){
       if(!Number.isFinite(hole.nextAtMs)||hole.nextAtMs>now)return;
       const missedIntervals=Math.floor((now-hole.nextAtMs)/interval)+1;
@@ -2091,14 +2095,14 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }
       for(const e of [...state.enemies])if(!mobIds.has(e.id))removeEnemy(e);
       state.shots=frame.shots.filter(a=>Array.isArray(a)&&a.length===15&&[a[3],a[4],a[5],a[6],a[7],a[8],a[10],a[11]].every(Number.isFinite)&&Array.isArray(a[13])&&a[13].length<=160&&a[13].every(id=>typeof id==='string')&&validRicochet(a[14])).map(a=>({id:a[0],owner:a[1]?'player':'enemy',ownerId:a[2],x:a[3],y:a[4],vx:a[5],vy:a[6],damage:a[7],radius:a[8],kind:a[9],remainingMs:a[10],impulse:a[11],carry:a[12]===true,hitIds:new Set(a[13]),ricochet:a[14]?{...a[14],path:a[14].path.map(p=>[...p])}:null}));
-      const syncedHoles=[],maxSyncedHoles=Math.ceil(CONFIG.enemy.spawn.riftLifetimeMs/CONFIG.tickMs);
+      const syncedHoles=[],maxSyncedHoles=maxRiftLifetimeTicks();
       for(const data of Array.isArray(frame.holes)?frame.holes.slice(0,maxSyncedHoles):[]){
         if(!Array.isArray(data)||data.length!==14)continue;
         const [id,x,y,surfaceKind,surfaceId,normalX,normalY,open,nextAtMs,lastPopAtMs,spawned,spawns,createdAtMs,expiresAtMs]=data;
         const matchesSite=state.spawnSites.some(site=>site.kind===surfaceKind&&site.surfaceId===surfaceId&&
           Math.abs(site.x-x)<.11&&Math.abs(site.y-y)<.11&&site.normalX===normalX&&site.normalY===normalY);
         if(!Number.isSafeInteger(id)||id<0||![x,y,normalX,normalY,open,nextAtMs,lastPopAtMs,createdAtMs,expiresAtMs].every(Number.isFinite)||
-          !matchesSite||open<0||open>1||![0,1].includes(spawned)||!Number.isInteger(spawns)||spawns<0||spawns>8||
+          !matchesSite||open<0||open>1||![0,1].includes(spawned)||!Number.isInteger(spawns)||spawns<0||spawns>maxRiftLifetimeTicks()||
           expiresAtMs<=frame.ms||createdAtMs>frame.ms||expiresAtMs-createdAtMs>CONFIG.enemy.spawn.riftLifetimeMs+1)continue;
         syncedHoles.push({id,x,y,top:y,base:y,surfaceKind,surfaceId,normalX,normalY,width:86,openProgress:open,
           openingStartedAtMs:createdAtMs,nextAtMs,lastPopAtMs,spawned:spawned===1,spawns,createdAtMs,expiresAtMs});
@@ -3354,6 +3358,11 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         qaSpawnRift:(kind,surfaceId=null,siteIndex=null)=>{const eligible=state.spawnSites.filter(s=>s.kind===kind&&(surfaceId===null||s.surfaceId===surfaceId));
           const site=Number.isInteger(siteIndex)?eligible[siteIndex]:eligible.sort((a,b)=>Math.hypot(a.x-(state.player?.body.position.x??CONFIG.world.width/2),a.y-(state.player?.body.position.y??CONFIG.world.groundY))-Math.hypot(b.x-(state.player?.body.position.x??CONFIG.world.width/2),b.y-(state.player?.body.position.y??CONFIG.world.groundY)))[0];if(!site)return null;
           const hole=createSpawnHole(state.timeMs,site);if(!hole)return null;state.nextRiftAtMs=Infinity;return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
+        qaSetRiftSpawns:(id,spawns)=>{const hole=state.spawnHoles.find(candidate=>candidate.id===id);
+          if(!hole||!Number.isSafeInteger(spawns)||spawns<0)return false;hole.spawns=spawns;hole.nextAtMs=hole.expiresAtMs;return true;},
+        qaRenewRiftLifetime:id=>{const hole=state.spawnHoles.find(candidate=>candidate.id===id);
+          if(!hole)return false;hole.createdAtMs=state.timeMs;hole.openingStartedAtMs=state.timeMs;
+          hole.expiresAtMs=state.timeMs+CONFIG.enemy.spawn.riftLifetimeMs;hole.nextAtMs=hole.expiresAtMs;hole.openProgress=0;return true;},
         qaClearRifts:()=>{state.spawnHoles=[];state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=Infinity;},
         qaReachKillGoal:()=>{for(const e of [...state.enemies])removeEnemy(e);state.stageKills=state.stageKillGoal;state.nextRiftAtMs=Infinity;
           state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,...state.spawnHoles.filter(h=>riftPhase(h)!=='closing').map(h=>h.nextAtMs));},
