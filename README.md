@@ -2,13 +2,20 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.3**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.6**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
 
+
+## 0.19.6 — 단계별 균열 주기와 96마리 상한
+
+- 스테이지가 올라가면 각 균열의 적 출현 간격은 1초 × 0.9^(스테이지−1), 새 균열 간격은 2초 × 0.9^(스테이지−1)로 줄어듭니다. 균열 수명은 3초로 유지합니다.
+- 균열별 출현 간격을 전역 4.2회/초 예산으로 늦추지 않습니다. 동시 적 96마리 상한에 닿으면 예정 시각을 균열별 주기로 앞으로 넘겨 누적 출현을 버리고, 자리가 나면 정상 주기로 재개합니다.
+- 자동 균열 생성은 한 틱에 하나까지입니다. 출현은 3초 수명과 30 TPS로 제한되는 활성 균열 목록 안에서 전부 처리하며 싱글/호스트 `stepWorld`가 소환을 소유합니다.
+- `npm run test:spawn:interval`은 Edge 데스크톱과 844×390 가로 터치에서 스테이지 1/2/3/15/40 간격, 균열 수명, 동시 적 상한과 상한 해제 뒤 재개를 검사합니다.
 
 ## 0.19.3 — 배경 균열의 깊이와 적 출현 연출
 
