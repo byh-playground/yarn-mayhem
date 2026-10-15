@@ -307,3 +307,13 @@ Base: `efe9e240c44546f12330e4e982e028feca423cd7` (0.9.1). The tree was below the
 - PASS: temporary Node DOM-stub checks executed the actual UI functions for menu/play/pause/clear/dead, repeated button/T open-close, focus/ARIA, input/modifier guards and existing stat-action routing. Static layer ordering was checked. Temporary checks were not retained; these are not browser/game E2E.
 - Environment blocked: the dot cloud browser loading deployed 0.9.1 stopped before game boot with `WebGL 1 is required; no Canvas2D fallback`. Its computed DOM styles confirmed the old 6/7/9 tree/modal/loader ordering and missing menu entry. No renderer fallback was added. Local browser execution remained unavailable under the existing socket restriction and was not retried.
 - Not verified in this patch: actual GPU/gameplay/RTC, visual layout and physical touch input. Earlier 0.9.0 results above do not count as 0.9.2 runtime validation.
+
+
+## 0.19.3 — 배경 균열 시각 회귀
+
+- 재현 증상: 배경 균열이 배경 벽에서 떨어진 납작한 동심원처럼 보이고, 출현 적이 균열 위를 통째로 덮어 벽에서 나오는 순간이 읽히지 않았습니다.
+- 수정: 배경 균열을 좁고 세로인 천의 틈으로 렌더링하고, 기존 lastPopAtMs와 spawns를 쓰는 전경 실밥은 180ms만 표시됩니다. 배경 리프트의 입자 색과 크기도 줄여 금색 링이 다시 문처럼 읽히는 것을 피했습니다.
+- 안전 범위: CONFIG.enemy.spawn, 리프트 생성/RNG, 적 물리, 소환 주기/상한, 호스트 권한, packWorld 데이터와 v0192 멀티플레이 계약은 변경하지 않았습니다.
+- 비교 이미지: docs/rift-visual-comparison/의 PC 1280×844 및 가로 터치 844×390에서 열림/출현/닫힘 단계를 비교합니다. 가로 터치는 Edge Playwright 모바일 터치 환경 에뮬레이션이며 실제 휴대폰 실기기는 아닙니다.
+- 로컬 검증: npm run build 성공, Microsoft Edge 155.0.4283.45에서 test:rift 23/23 및 test:rift:rtc 10/10 통과, 브라우저 런타임/네트워크 오류 0건. 전 이미지에는 공개 0.19.2 HTML을, 후 이미지에는 0.19.3 수정본을 사용했습니다. PC 1280×844, 가로 터치 844×390이며 후자는 Edge의 모바일 터치 에뮬레이션입니다. 이미지 쌍은 before-/after-edge-pc-air-*.png 및 before-/after-landscape-touch-air-*.png입니다.
+- 시각 기준: BLOOM Visual UX rules (https://github.com/byh-playground/bloom-reference/blob/main/rules/visual-ux.html), Development rules (https://github.com/byh-playground/bloom-reference/blob/main/rules/development.html), AI development rules (https://github.com/byh-playground/bloom-reference/blob/main/rules/ai-development.html).
