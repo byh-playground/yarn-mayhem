@@ -1,3 +1,18 @@
+# 0.18.0 map-wide transient rifts
+
+Base: main 4da9c6eb0d6f109b4e8337015385a71aa5d85572 (0.17.0). The targeted 0.17.0 review did not reproduce a clear defect in the requested movement/combat/state-transition paths; the rift behavior below is an approved gameplay change, not a bug diagnosis.
+
+- A valid surface site may open a new rift every1000ms. The first rift opens at440ms so the established first enemy pop remains at760ms. Each rift expires after3000ms. Rifts do not directly damage players and needles cannot hit or seal them.
+- Preserve the existing enemy spawn rate (1.2/s +0.25/s per stage, capped at4.2/s), concurrent enemy cap96, first-spawn/open/close timings (760/320/520ms), and credited-kill goal (8, +4 each stage). Merges do not count as kills; uncredited split children do not add to the goal.
+- Reaching the kill goal stops creating new rifts. Rifts already open keep their existing spawn cycle until their natural three-second expiry; the stage-clear condition waits for zero active rifts and zero remaining enemies. This is the behavior implemented and verified in this change.
+- Candidate sites are derived from generated walkable surfaces, with horizontal edge/surface margins; they are not arbitrary coordinates. The rift's location, surface identity, expiry and host spawn deadlines are included in authoritative snapshots. The host/solo run the one GameKit `stepWorld`; RTC guests apply host snapshots. Protocol/room namespace is bumped to0.18.0/v0180.
+- PASS: focused actual Edge155.0.4283.45 regression,23 checks total (11 PC1280×844,11 emulated touch-landscape844×390, plus shared console/runtime check). Covers rift valid-site selection, first pop, three-second expiry, stop-at-goal behavior, natural expiry/clear, credited kills, merge/split accounting, T9→T10 bounds, T10 split bounds, death/restart, world edges and error-free runtime.
+- PASS: actual host+landscape-guest Nostr-WebRTC regression,4 checks. Verifies matching rift IDs/location/surface/expiry and host-authoritative kill/next-rift stopped state on the guest. Edge page errors and console errors0.
+- PASS: `npm run build` with `GITHUB_SHA=4da9c6eb0d6f109b4e8337015385a71aa5d85572`; syntax and pinned GameKit provenance checks pass. Package and lock versions both0.18.0.
+- CI currently runs the build/provenance job on pull requests; successful main-branch Actions deployment and byte-for-byte public-file/build-metadata match are checked after merge.
+- Reference contract: [BLOOM development rules](https://raw.githubusercontent.com/byh-playground/bloom-reference/main/rules/development.html), [Matter.js Body API](https://brm.io/matter-js/docs/classes/Body.html), and the pinned [GameKit simloop](https://github.com/byh-playground/bloom-gamekit/blob/72b09b260edf9650353017acb49c06873fe9f5a1/simloop.js). No physics ownership, enemy movement, hitbox, save/profile, or unrelated balance changes were made.
+
+---
 # 0.17.0 physical hopping, compact open terrain and modest walk reduction
 
 Base: main30d914d2efa46e4d15dd9a2332f40b9112de0f16 /0.16.2. Requests1792037172.691999 (all enemies bounce),1792037217.944049 (smaller map),1792037251.127279/1792037263.124729 (fewer, roomier platforms),1792037290.219179 (slower base walk). Original C:/projects changes and other repositories remain untouched.

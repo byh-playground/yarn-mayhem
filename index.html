@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.17.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.18.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.17.0</div>
+  <div id="toastLayer"></div><div class="version-label">v0.18.0</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -274,6 +274,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         bounce:{landMs:67,compressMs:100,tierCompressMs:4,speed:4.9,tierSpeed:.14},
         split: { mergeLockMs: 1350, flightMs: 720, graceMs: 280, launchSpeed: 690, upSpeed: 510 },
         spawn: { popSpeed: 790, openMs: 320, closeMs: 520, firstMs: 760, reopenWaitMs: 110,
+          riftIntervalMs:1000, riftLifetimeMs:3000,
           basePerSecond: 1.2, extraPerStage: 0.25, maxPerSecond: 4.2, maxConcurrent: 96 } },
       player: { maxHp: 200, radius: 18, dashCharges: 2, rechargeMs: 830, dashSpeed: 830, dashHoldMs: 190, moveSpeed: 250,
         jumpSpeed: 12.8, jumpBufferMs: 130, coyoteMs: 100, jumpCutRate: .50,
@@ -348,8 +349,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     const state = {
       phase:'MENU', tick:0, timeMs:0, stage:1, theme:1, kills:0, defeats:0, merges:0, splits:0,
       xp:0, level:1, xpGoal:10, score:0, shotsFired:0,
-      stageKills:0, stageKillGoal:8, totalPortals:0, sealedPortals:0, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
-      particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, spawnAttempts:0,
+      stageKills:0, stageKillGoal:8, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
+      particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, nextRiftAtMs:Infinity, nextSpawnHoleId:0, spawnAttempts:0,
       surfaces:[], platforms:[], collisionWalls:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
       nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), needleEchoes:[], ricochetTrails:[], impactMarks:[],
       toastUntil:0,
@@ -471,7 +472,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }
       state.terrainContacts.clear();state.reboundContacts.clear();state.needleEchoes=[];state.ricochetTrails=[];state.impactMarks=[];effectSeed=0x1badcafe;
       state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
-      state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.spawnAttempts=0;state.totalPortals=0;state.sealedPortals=0;state.mapStyle=null;
+      state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.nextRiftAtMs=Infinity;state.nextSpawnHoleId=0;state.spawnAttempts=0;state.mapStyle=null;
       $('toastLayer').replaceChildren();
       state.surfaces=[];state.platforms=[];state.collisionWalls=[];state.oneWayByBody.clear();state.surfacesByBody.clear();
       state.contacts.clear();state.navGraph.clear();state.routeCache.clear();state.groundSurface=null;state.contactKeys.clear();
@@ -563,12 +564,11 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       while(stack.length)for(const n of state.navGraph.get(stack.pop())||[])if(!seen.has(n)){seen.add(n);stack.push(n);}
       state.reachableSurfaces=seen.size;
       if(seen.size!==state.surfaces.length)throw new Error('절차적 맵의 발판 연결성 위반: '+seen.size+'/'+state.surfaces.length);
-      createSpawnPortals(stage);
+      createSpawnSites();
     }
-    function portalCount(stage){return Math.min(7,3+Math.floor((stage-1)/2));}
-    function createSpawnPortals(stage){
-      // A finite number of rifts are permanent stage objectives, but each has
-      // an UNLIMITED lifetime spawn budget until player kills seal it.
+    function createSpawnSites(){
+      // Keep only valid map surfaces as candidate rift locations. Rifts are transient.
+      state.spawnSites=[];
       const gap=220;
       for(const surface of state.surfaces){
         const left=Math.max(90,surface.x1+65),right=Math.min(CONFIG.world.width-90,surface.x2-65);
@@ -579,59 +579,34 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           state.spawnSites.push({x,top:surface.top-8,base:surface.top,surfaceId:surface.id});
         }
       }
-      const count=portalCount(stage),W=CONFIG.world.width;
-      state.totalPortals=count;state.sealedPortals=0;
-      for(let id=0;id<count;id++){
-        const targetX=(id+.5)*W/count;
-        const options=state.spawnSites.filter(s=>Math.abs(s.x-targetX)<W/count*.70);
-        const candidates=options.length?options:state.spawnSites;
-        let best=null,bestScore=-Infinity;
-        for(let trial=0;trial<20;trial++){
-          const site=candidates[Math.floor(random()*candidates.length)];
-          if(!site)continue;
-          const minimum=state.spawnHoles.reduce((d,h)=>Math.min(d,Math.hypot(site.x-h.x,site.base-h.base)),100000);
-          const score=minimum*.60-Math.abs(site.x-targetX)*.28+random()*150;
-          if(score>bestScore){best=site;bestScore=score;}
-        }
-        if(!best)throw new Error('No valid spawn portal site');
-        state.spawnHoles.push({id,x:best.x,top:best.top,base:best.base,surfaceId:best.surfaceId,width:86,
-          openingStartedAtMs:Infinity,nextAtMs:Infinity,openingUntilMs:-Infinity,
-          openProgress:0,lastPopAtMs:-Infinity,spawned:true,sealed:false,sealedAtMs:-Infinity,spawns:0});
+      state.nextSpawnHoleId=0;
+      const cfg=CONFIG.enemy.spawn;
+      state.nextRiftAtMs=state.timeMs+Math.max(0,cfg.firstMs-cfg.openMs);
+      state.nextSpawnAtMs=state.timeMs+cfg.firstMs;
+    }
+    function createSpawnHole(dueAtMs){
+      if(!state.spawnSites.length)throw new Error('No valid spawn rift site');
+      const candidates=state.spawnSites.filter(site=>state.spawnHoles.every(h=>
+        Math.hypot(site.x-h.x,site.base-h.base)>=150));
+      const options=candidates.length?candidates:state.spawnSites;
+      let best=null,bestScore=-Infinity;
+      for(let trial=0;trial<20;trial++){
+        const site=options[Math.floor(random()*options.length)];
+        const spacing=state.spawnHoles.reduce((d,h)=>Math.min(d,Math.hypot(site.x-h.x,site.base-h.base)),100000);
+        const score=spacing+random()*150;
+        if(score>bestScore){best=site;bestScore=score;}
       }
+      const cfg=CONFIG.enemy.spawn;
+      const hole={id:state.nextSpawnHoleId++,x:best.x,top:best.top,base:best.base,surfaceId:best.surfaceId,width:86,
+        createdAtMs:dueAtMs,expiresAtMs:dueAtMs+cfg.riftLifetimeMs,
+        openingStartedAtMs:dueAtMs,nextAtMs:dueAtMs,openingUntilMs:dueAtMs-cfg.openMs-cfg.reopenWaitMs,
+        openProgress:0,lastPopAtMs:dueAtMs-cfg.closeMs-cfg.reopenWaitMs,spawned:true,spawns:0};
+      state.spawnHoles.push(hole);
+      return hole;
     }
     function stageKillTarget(stage){return 8+Math.max(0,stage-1)*4;}
-    function nextSealThreshold(){
-      return state.sealedPortals>=state.totalPortals?state.stageKillGoal:
-        Math.ceil(state.stageKillGoal*(state.sealedPortals+1)/state.totalPortals);
-    }
-    function sealEligiblePortals(){
-      while(state.sealedPortals<state.totalPortals && state.stageKills>=nextSealThreshold()){
-        // All teammates share one objective; choose portal by WHOLE-TEAM center.
-        const active=[...state.players.values()].filter(p=>p.hp>0);
-        const people=active.length?active:[...state.players.values()];
-        const position=people.length?{
-          x:people.reduce((sum,p)=>sum+p.body.position.x,0)/people.length,
-          y:people.reduce((sum,p)=>sum+p.body.position.y,0)/people.length,
-        }:{x:CONFIG.world.width/2,y:CONFIG.world.groundY};
-        const candidates=state.spawnHoles.filter(h=>!h.sealed);
-        candidates.sort((a,b)=>Math.hypot(a.x-position.x,a.base-position.y)-Math.hypot(b.x-position.x,b.base-position.y)||a.id-b.id);
-        const hole=candidates[0];if(!hole)throw new Error('seal count desynchronised');
-        hole.sealed=true;hole.sealedAtMs=state.timeMs;hole.spawned=true;
-        hole.nextAtMs=Infinity;hole.openingUntilMs=-Infinity;hole.openProgress=0;
-        state.sealedPortals++;emitCombatEvent('seal',hole.x,hole.base-12,{count:state.sealedPortals});
-        ring(hole.x,hole.base-12,82,620,PALETTE.gold);
-        spawnBurst(hole.x,hole.base-12,18,175,PALETTE.player);
-        floatText('실구멍 봉쇄 '+state.sealedPortals+'/'+state.totalPortals,hole.x,hole.base-50,'merge');
-        sound('merge',.7);
-      }
-      if(state.sealedPortals>=state.totalPortals){
-        state.nextSpawnAtMs=Infinity;
-        stageToast('실구멍 봉쇄 완료','남은 적까지 모두 처치해야 클리어됩니다',1800);
-      }
-    }
     function stageComplete(){
-      return state.stageKills>=state.stageKillGoal && state.sealedPortals===state.totalPortals &&
-        state.totalPortals>0 && state.enemies.length===0;
+      return state.stageKills>=state.stageKillGoal && state.spawnHoles.length===0 && state.enemies.length===0;
     }
     function spawnRate(){
       const cfg=CONFIG.enemy.spawn;
@@ -639,8 +614,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     }
     function scheduleSpawnOpening(dueAtMs){
       const cfg=CONFIG.enemy.spawn;
-      const ready=state.spawnHoles.filter(h=>!h.sealed&&
-        h.openingUntilMs+cfg.reopenWaitMs<=dueAtMs-cfg.openMs);
+      const ready=state.spawnHoles.filter(h=>h.expiresAtMs>dueAtMs&&
+        (h.spawns===0||h.openingUntilMs+cfg.reopenWaitMs<=dueAtMs-cfg.openMs));
       if(!ready.length)return false;
       const living=[...state.players.values()].filter(p=>p.hp>0);
       let selected=null,best=-Infinity;
@@ -657,10 +632,14 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       return true;
     }
     function updateSpawnHoles(){
-      if(state.sealedPortals>=state.totalPortals)return;
       const now=state.timeMs,cfg=CONFIG.enemy.spawn,interval=1000/spawnRate();
+      state.spawnHoles=state.spawnHoles.filter(h=>now<h.expiresAtMs);
+      if(state.stageKills>=state.stageKillGoal)state.nextRiftAtMs=Infinity;
+      for(let i=0;i<3&&state.stageKills<state.stageKillGoal&&now>=state.nextRiftAtMs;i++){
+        createSpawnHole(state.nextRiftAtMs);state.nextRiftAtMs+=cfg.riftIntervalMs;
+      }
       for(let i=0;i<4&&now>=state.nextSpawnAtMs-cfg.openMs;i++){
-        const waiting=state.spawnHoles.filter(h=>!h.spawned&&!h.sealed).length;
+        const waiting=state.spawnHoles.filter(h=>!h.spawned).length;
         if(state.enemies.length+waiting>=cfg.maxConcurrent){state.nextSpawnAtMs=now+interval;break;}
         if(!scheduleSpawnOpening(state.nextSpawnAtMs)){
           state.nextSpawnAtMs=now+Math.min(150,interval*.5);break;
@@ -668,9 +647,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         state.nextSpawnAtMs+=interval;
       }
       for(const hole of state.spawnHoles){
-        if(hole.sealed)continue;
         hole.openProgress=hole.spawned?0:clamp((now-hole.openingStartedAtMs)/cfg.openMs,0,1);
-        if(hole.spawned||now<hole.nextAtMs)continue;
+        if(hole.spawned||now<hole.nextAtMs||now>=hole.expiresAtMs)continue;
         const enemy=createEnemy(1,hole.x,hole.base-RADII[0]+2,{fromHole:true});
         Body.setVelocity(enemy.body,{x:(random()-.5)*1.6,y:-(cfg.popSpeed/60)*(.91+random()*.16)});
         hole.lastPopAtMs=now;hole.spawned=true;hole.spawns++;metrics.spawned++;
@@ -678,6 +656,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         ring(hole.x,hole.top+23,36,340,PALETTE.gold);
         sound('pop',.64);
       }
+      if(state.stageKills>=state.stageKillGoal&&!state.spawnHoles.length)state.nextSpawnAtMs=Infinity;
     }
     function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
       const actorStats=deriveTechStats(progress);
@@ -765,10 +744,9 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       Events.on(state.engine,'beforeSolve',captureControlVelocities);
       Events.on(state.engine,'collisionStart',onMatterContact);
       Events.on(state.engine,'collisionActive',onMatterContact);
-      // Spawns continue forever until the final kill milestone seals the last portal.
+      // New rifts appear every second and live for three seconds; kill goal stops further creation.
       if(!preview){
-
-        stageToast('STAGE '+String(stage).padStart(2,'0'),state.mapStyle+' · '+state.totalPortals+'개 구멍 봉쇄 후 잔당 소탕',1400);
+        stageToast('STAGE '+String(stage).padStart(2,'0'),state.mapStyle+' · 처치 목표 '+state.stageKillGoal+' · 균열은 1초마다 나타나 3초 뒤 닫힙니다',1400);
       }
       updateHUD(true);
     }
@@ -1492,7 +1470,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       state.defeats++; // Every physical death. Split fragments do not re-credit a lineage.
       if(e.killCredit){
         state.kills++;state.stageKills++;state.score+=tierXP[e.tier-1]*75;
-        sealEligiblePortals();
+        if(state.stageKills>=state.stageKillGoal)state.nextRiftAtMs=Infinity;
         addExperience(tierXP[e.tier-1]);
       }
       spawnBurst(pos.x,pos.y,Math.min(28,13+e.tier*2),155,CONFIG.colors['t'+e.tier]);
@@ -1806,8 +1784,9 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       return {
         t:'frame',runId:state.runId,tick:state.tick,ms:p(state.timeMs),phase:state.phase,stage:state.stage,
         stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,kills:state.kills,defeats:state.defeats,
+        nextRiftAtMs:Number.isFinite(state.nextRiftAtMs)?p(state.nextRiftAtMs):null,
+        nextSpawnAtMs:Number.isFinite(state.nextSpawnAtMs)?p(state.nextSpawnAtMs):null,
         merges:state.merges,splits:state.splits,score:state.score,xp:state.xp,level:state.level,xpGoal:state.xpGoal,
-        sealedPortals:state.sealedPortals,
         players:[...state.players.values()].map(a=>[a.id,p(a.body.position.x),p(a.body.position.y),p(a.body.velocity.x),p(a.body.velocity.y),
           p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.progress.earnedPoints,a.progress.upgrades,
           p(a.lastShotDir.x),p(a.lastShotDir.y),a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs),a.body.angle]),
@@ -1817,7 +1796,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy),e.attack?[e.attack.phase,p(e.attack.untilMs),e.attack.targetId,p(e.attack.dx),p(e.attack.dy),e.attack.kind]:null,
           [e.locomotion.phase,p(e.locomotion.untilMs),p(e.locomotion.landedMs),p(e.locomotion.takeoffMs)]]),
         shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,sh.x,sh.y,sh.vx,sh.vy,sh.damage,sh.radius,sh.kind,sh.remainingMs,sh.impulse??0,!!sh.carry,[...(sh.hitIds||[])],sh.ricochet?{...sh.ricochet,path:sh.ricochet.path.map(a=>[...a])}:null]),
-        holes:state.spawnHoles.map(h=>[h.id,h.sealed?1:0,p(h.openProgress),h.spawned?1:0]),
+        holes:state.spawnHoles.map(h=>[h.id,p(h.x),p(h.top),p(h.base),h.surfaceId,p(h.openProgress),p(h.openingStartedAtMs),p(h.nextAtMs),
+          p(h.openingUntilMs),p(h.lastPopAtMs),h.spawned?1:0,h.spawns,p(h.createdAtMs),p(h.expiresAtMs)]),
         fx:state.fxNet.slice(-18),
       };
     }
@@ -1831,7 +1811,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport||!state.players.has(peerId))return;
-      sendPacket(transport,{t:'welcome',version:'0.17.0',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.18.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1886,9 +1866,12 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const previousPhase=state.phase;
       net.lastStateTick=frame.tick;state.runId=frame.runId;state.tick=frame.tick;state.timeMs=frame.ms;
       state.stageKills=frame.stageKills;state.stageKillGoal=frame.stageKillGoal;
+      if(frame.nextRiftAtMs===null)state.nextRiftAtMs=Infinity;
+      else if(Number.isFinite(frame.nextRiftAtMs))state.nextRiftAtMs=frame.nextRiftAtMs;
+      if(frame.nextSpawnAtMs===null)state.nextSpawnAtMs=Infinity;
+      else if(Number.isFinite(frame.nextSpawnAtMs))state.nextSpawnAtMs=frame.nextSpawnAtMs;
       state.kills=frame.kills;state.defeats=frame.defeats;state.merges=frame.merges;state.splits=frame.splits;
       state.score=frame.score;state.level=frame.level;state.xp=frame.xp;state.xpGoal=frame.xpGoal;
-      state.sealedPortals=frame.sealedPortals;
       const alive=new Set();
       for(const {values,progress,stats} of players){
         const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle]=values;
@@ -1930,7 +1913,19 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }
       for(const e of [...state.enemies])if(!mobIds.has(e.id))removeEnemy(e);
       state.shots=frame.shots.filter(a=>Array.isArray(a)&&a.length===15&&[a[3],a[4],a[5],a[6],a[7],a[8],a[10],a[11]].every(Number.isFinite)&&Array.isArray(a[13])&&a[13].length<=160&&a[13].every(id=>typeof id==='string')&&validRicochet(a[14])).map(a=>({id:a[0],owner:a[1]?'player':'enemy',ownerId:a[2],x:a[3],y:a[4],vx:a[5],vy:a[6],damage:a[7],radius:a[8],kind:a[9],remainingMs:a[10],impulse:a[11],carry:a[12]===true,hitIds:new Set(a[13]),ricochet:a[14]?{...a[14],path:a[14].path.map(p=>[...p])}:null}));
-      for(const [id,sealed,open,spawned]of frame.holes||[]){const h=state.spawnHoles.find(h=>h.id===id);if(h){h.sealed=!!sealed;h.openProgress=open;h.spawned=!!spawned;}}
+      const syncedHoles=[];
+      for(const data of Array.isArray(frame.holes)?frame.holes.slice(0,4):[]){
+        if(!Array.isArray(data)||data.length!==14)continue;
+        const [id,x,top,base,surfaceId,open,openingStartedAtMs,nextAtMs,openingUntilMs,lastPopAtMs,spawned,spawns,createdAtMs,expiresAtMs]=data;
+        if(!Number.isSafeInteger(id)||id<0||![x,top,base,open,openingStartedAtMs,nextAtMs,openingUntilMs,lastPopAtMs,createdAtMs,expiresAtMs].every(Number.isFinite)||
+          !Number.isInteger(surfaceId)||surfaceId<0||x<90||x>CONFIG.world.width-90||top<0||base<top||base>CONFIG.world.groundY||
+          open<0||open>1||![0,1].includes(spawned)||!Number.isInteger(spawns)||spawns<0||spawns>8||
+          expiresAtMs<=frame.ms||createdAtMs>frame.ms||expiresAtMs-createdAtMs>CONFIG.enemy.spawn.riftLifetimeMs+1)continue;
+        syncedHoles.push({id,x,top,base,surfaceId,width:86,openProgress:open,openingStartedAtMs,nextAtMs,openingUntilMs,
+          lastPopAtMs,spawned:spawned===1,spawns,createdAtMs,expiresAtMs});
+      }
+      state.spawnHoles=syncedHoles;
+      state.nextSpawnHoleId=syncedHoles.reduce((next,h)=>Math.max(next,h.id+1),0);
       // One-shot VFX is marked by monotonically increasing authority IDs: no duplicates on snapshots.
       for(const event of frame.fx||[]){
         if(!event||!Number.isSafeInteger(event.id)||event.id<=net.lastFxSeen)continue;
@@ -1950,7 +1945,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
         if(event.kind==='playerDeath'){ring(event.x,event.y,45,410,[1,.51,.50,.85]);spawnBurst(event.x,event.y,15,125,[1,.71,.65,1]);}
         if(event.kind==='playerRevive'){ring(event.x,event.y,42,380,PALETTE.player);spawnBurst(event.x,event.y,15,135,PALETTE.player);}
-        if(event.kind==='seal')ring(event.x,event.y,54,400,PALETTE.player);
       }
       state.phase=frame.phase;
       if(previousPhase!==state.phase||newRun){
@@ -2005,7 +1999,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.17.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.18.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -2087,7 +2081,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0170',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0180',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2340,16 +2334,16 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       $('modalCard').querySelector('.brand').textContent='STAGE COMPLETE';
       $('modalCard').querySelector('h1').textContent='CLEAR!';
       $('modalCard').querySelector('.hero-yarns').hidden=false;
-      $('modalCard').querySelector('.hangul').textContent='실타래 진화를 저지했어요';
-      $('modalText').innerHTML='모든 실구멍을 봉쇄했고, 맵에 남은 몬스터도 전부 제거했어요!<br>새 실타래가 더 이상 솟아나지 않습니다.';
+      $('modalCard').querySelector('.hangul').textContent='균열이 사라지고 적이 잠잠해졌습니다.';
+      $('modalText').innerHTML='처치 목표를 달성하고 남은 적까지 모두 정리했습니다.<br>다음 무리도 맞이할 준비가 됐어요.';
       $('modalControls').hidden=true;
       const kpi=$('kpi');kpi.hidden=false;kpi.replaceChildren();
-      for(const t of ['실구멍 '+state.sealedPortals+'/'+state.totalPortals+' 봉쇄','정예 처치 '+state.stageKills+' · 총 격파 '+state.defeats,'합체 '+state.stageMerges+' · 분열 '+state.stageSplits]){
+      for(const t of ['처치 목표 '+state.stageKills+'/'+state.stageKillGoal,'물리 처치 '+state.defeats,'합체 '+state.stageMerges+' · 분열 '+state.stageSplits]){
         const label=document.createElement('span');label.textContent=t;kpi.append(label);
       }
       const btn=$('mainButton');btn.hidden=false;
       btn.disabled=net.role==='join';
-      btn.textContent=btn.disabled?'방장의 다음 스테이지를 기다리는 중':'다음 스테이지 →';
+      btn.textContent=btn.disabled?'호스트의 진행을 기다립니다':'다음 단계';
       btn.onclick=()=>submitWorldAction({kind:'next-stage'});
     }
     function finishStage(){
@@ -2724,32 +2718,26 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       return Math.abs(x-cam.x) < cameraSize.w/(2*z)+r && Math.abs(y-cam.y)<cameraSize.h/(2*z)+r;
     }
     function drawSpawnHoles(){
+      const lifetime=CONFIG.enemy.spawn.riftLifetimeMs;
       for(const hole of state.spawnHoles){
         const x=hole.x,y=hole.base-3;
         if(!worldVisible(x,y,100))continue;
-        if(hole.sealed){
-          // Sealed rifts persist as embroidered X-shaped knots, never spawn again.
-          renderer.ellipse(x,y,29,7,[.24,.42,.39,.78],14);
-          renderer.line(x-12,y-9,x+12,y+2,3,[.78,.94,.77,.8]);
-          renderer.line(x+12,y-9,x-12,y+2,3,[.78,.94,.77,.8]);
-          const flash=Math.max(0,1-(state.timeMs-hole.sealedAtMs)/500);
-          if(flash>0)renderer.ellipse(x,y-3,38+flash*20,9,[.83,1,.75,flash*.24],14);
-          continue;
-        }
+        const remaining=clamp((hole.expiresAtMs-state.timeMs)/lifetime,0,1);
+        const alpha=.35+.65*remaining;
         const warming=!hole.spawned&&state.timeMs>=hole.openingStartedAtMs;
         const active=hole.spawned&&state.timeMs<=hole.openingUntilMs;
         const openness=warming?Math.max(.08,hole.openProgress):active?
           clamp((hole.openingUntilMs-state.timeMs)/CONFIG.enemy.spawn.closeMs,0,1):.08;
         const width=34+openness*11;
-        renderer.ellipse(x,y,width+5,4+openness*6,[.45,.64,.53,.65],16);
-        renderer.ellipse(x,y,width,3+openness*5,[.025,.105,.12,.91],16);
+        renderer.ellipse(x,y,width+5,4+openness*6,[.45,.64,.53,.65*alpha],16);
+        renderer.ellipse(x,y,width,3+openness*5,[.025,.105,.12,.91*alpha],16);
         for(const side of [-1,1]){
           const ex=x+side*(width+5);
-          renderer.line(ex,y-3,ex+side*9,y-1,1.6,[.78,.87,.65,.55]);
+          renderer.line(ex,y-3,ex+side*9,y-1,1.6,[.78,.87,.65,.55*alpha]);
         }
         if(active){
           const t=clamp((state.timeMs-hole.lastPopAtMs)/CONFIG.enemy.spawn.closeMs,0,1);
-          renderer.ellipse(x,y-7,17+t*19,5+t*4,[1,.90,.62,(1-t)*.45],14);
+          renderer.ellipse(x,y-7,17+t*19,5+t*4,[1,.90,.62,(1-t)*.45*alpha],14);
         }
       }
     }
@@ -3066,7 +3054,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const sx=w/CONFIG.world.width,sy=h/CONFIG.world.height;
       context.fillStyle='#60867e';
       for(const a of state.platforms)context.fillRect(a.x1*sx,a.top*sy,Math.max(1,(a.x2-a.x1)*sx),2);
-      for(const hole of state.spawnHoles){context.fillStyle=hole.sealed?'#77bd94':'#f3d69b';context.beginPath();context.arc(hole.x*sx,(hole.top+3)*sy,3,0,Math.PI*2);context.fill();}
+      for(const hole of state.spawnHoles){context.fillStyle='#f3d69b';context.beginPath();context.arc(hole.x*sx,(hole.top+3)*sy,3,0,Math.PI*2);context.fill();}
       context.fillStyle='#d9b6a2';
       for(const e of state.enemies){context.beginPath();context.arc(e.body.position.x*sx,e.body.position.y*sy,Math.min(6,1.5+e.tier*.52),0,Math.PI*2);context.fill();}
       for(const actor of state.players.values()){const p=actor.body.position;
@@ -3086,9 +3074,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       $('hpNumber').textContent=Math.round(p.hp)+'/'+Math.round(p.maxHp);
       $('xpBar').style.width=clamp(state.xp/state.xpGoal*100,0,100)+'%';
       $('xpNumber').textContent=state.xp+' / '+state.xpGoal;
-      $('leftEnemies').textContent='구멍 '+state.sealedPortals+'/'+state.totalPortals+' · 남은 적 '+state.enemies.length;
-      $('mergeCount').textContent=state.sealedPortals===state.totalPortals?'봉쇄 완료 · 남은 적 전멸시 클리어':
-        '다음 봉쇄 '+Math.min(state.stageKills,nextSealThreshold())+'/'+nextSealThreshold()+'킬 · '+spawnRate().toFixed(2)+'/초';
+      $('leftEnemies').textContent='처치 '+state.stageKills+'/'+state.stageKillGoal+' · 남은 적 '+state.enemies.length;
+      $('mergeCount').textContent=state.stageKills>=state.stageKillGoal?
+        '목표 도달 · 남은 균열 '+state.spawnHoles.length+' · 침공 '+spawnRate().toFixed(2)+'/초':
+        '새 균열 '+Math.max(0,(state.nextRiftAtMs-state.timeMs)/1000).toFixed(1)+'초 · 침공 '+spawnRate().toFixed(2)+'/초';
       const orbRoot=$('dashOrbs');
       if(orbRoot.children.length!==stats.dashMax){
         orbRoot.replaceChildren();for(let i=0;i<stats.dashMax;i++){const e=document.createElement('span');e.className='dash-orb';orbRoot.append(e);}
@@ -3306,9 +3295,13 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         attack:{power:state.player?.stats.needlePower,intervalMs:state.player?.stats.fireIntervalMs,techPoints:techPoints(state.player)},
         mergeCount:state.merges,stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,
         remainingEnemies:state.enemies.length,spawnRate:spawnRate(),spawnCandidateCount:state.spawnSites.length,
-        totalPortals:state.totalPortals,sealedPortals:state.sealedPortals,nextSealAt:nextSealThreshold(),stageComplete:stageComplete(),
+        spawnConfig:{firstMs:CONFIG.enemy.spawn.firstMs,openMs:CONFIG.enemy.spawn.openMs,closeMs:CONFIG.enemy.spawn.closeMs,
+          riftIntervalMs:CONFIG.enemy.spawn.riftIntervalMs,riftLifetimeMs:CONFIG.enemy.spawn.riftLifetimeMs,
+          basePerSecond:CONFIG.enemy.spawn.basePerSecond,extraPerStage:CONFIG.enemy.spawn.extraPerStage,
+          maxPerSecond:CONFIG.enemy.spawn.maxPerSecond,maxConcurrent:CONFIG.enemy.spawn.maxConcurrent},
+        activeRifts:state.spawnHoles.length,nextRiftAtMs:state.nextRiftAtMs,stageComplete:stageComplete(),
         mapStyle:state.mapStyle,mapSeed:state.mapSeed,reachableSurfaces:state.reachableSurfaces,
-        nextSpawnAtMs:state.nextSpawnAtMs,spawnHoles:state.spawnHoles.map(h=>({id:h.id,x:h.x,top:h.top,sealed:h.sealed,spawns:h.spawns,spawned:h.spawned,open:h.openProgress})),
+        nextSpawnAtMs:state.nextSpawnAtMs,spawnHoles:state.spawnHoles.map(h=>({id:h.id,x:h.x,top:h.top,base:h.base,surfaceId:h.surfaceId,spawns:h.spawns,spawned:h.spawned,open:h.openProgress,createdAtMs:h.createdAtMs,expiresAtMs:h.expiresAtMs,remainingMs:Math.max(0,h.expiresAtMs-state.timeMs)})),
         tierCounts:TIER_DEFS.map(t=>state.enemies.filter(e=>e.tier===t.tier).length),
         maxTier:CONFIG.enemy.maxTier,splitCount:state.splits,stageSplits:state.stageSplits,defeats:state.defeats,
         activeSplitFrays:state.frays.length,
@@ -3321,7 +3314,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         playerContact:(()=>{const c=state.contacts.get(state.player?.body.id);return c?{
           supportId:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight}:null;})(),
         world:{...CONFIG.world},moveSpeed:state.player?.stats.moveSpeed,
-        spawnPortals:state.spawnHoles.map(h=>({x:h.x,base:h.base,surfaceId:h.surfaceId})),
+        spawnSites:state.spawnSites.map(site=>({...site})),
         mapLayout:state.surfaces.map(s=>({id:s.id,kind:s.kind,x1:s.x1,x2:s.x2,top:s.top})),
         navigationEdges:[...state.navGraph.values()].reduce((n,adj)=>n+adj.length,0)/2,
         enemyDropCount:state.enemies.filter(e=>e.body.plugin.dropThrough).length,
@@ -3332,7 +3325,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
       ...((globalThis.__YARN_MAYHEM_QA===true)?{
         qaWorldPoint:(x,y)=>{const point={};renderer.worldToScreenInto(x,y,point);return point;},
-        qaQuietArena:()=>{state.nextSpawnAtMs=1e10;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
+        qaQuietArena:()=>{state.nextSpawnAtMs=1e10;state.nextRiftAtMs=Infinity;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
         qaSpawn:(tier,x,y,extra={})=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y,extra),
         qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
         qaHit:(id,damage)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
@@ -3359,14 +3352,14 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         qaContacts:()=>[...state.contacts].map(([id,c])=>({id,support:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight})),
         qaEnemyNav:(id)=>{const e=state.enemies.find(e=>e.id===id);return e?{intent:routeIntent(e,state.player),navFrom:e.navFrom,hopTarget:e.hopTarget,dropFromTop:e.dropFromTop,velocity:velocity(e.body),standing:standingSurface(e)?.id??null,locomotion:{...e.locomotion}}:null;},
         qaClearEnemies:()=>{for(const e of [...state.enemies])removeEnemy(e);},
-        qaKillAll:()=>{ // Fixture: seal every portal then sweep EVERY remaining body.
+        qaKillAll:()=>{ // Fixture: reach the kill goal and clear the stage.
           let remain=Math.max(0,state.stageKillGoal-state.stageKills);
           for(const e of [...state.enemies]){if(!remain)break;if(e.killCredit){removeEnemy(e);state.kills++;state.stageKills++;remain--;}}
           while(remain-->0){state.kills++;state.stageKills++;}
-          sealEligiblePortals();
+          state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=Infinity;state.spawnHoles=[];
           for(const e of [...state.enemies])removeEnemy(e);
         },
-        qaForceSpawns:()=>{state.nextSpawnAtMs=state.timeMs+CONFIG.enemy.spawn.openMs;updateSpawnHoles();},
+        qaForceSpawns:()=>{if(!state.spawnHoles.length)createSpawnHole(state.timeMs);state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=state.timeMs+CONFIG.enemy.spawn.openMs;updateSpawnHoles();},
         qaStart:()=>startNewRun(),
         qaDamagePlayer:(id,amount=9999)=>{const p=state.players.get(id);if(!p)return false;
           const point={x:p.body.position.x-90,y:p.body.position.y};

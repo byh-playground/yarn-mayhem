@@ -1,13 +1,22 @@
 # 털실 대소동 / Yarn Mayhem
 
-통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 원거리 공격으로 실구멍을 봉쇄하고, 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
+통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.17.0**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.18.0**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
+Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
 
+
+## 0.18.0 맵 곳곳에 나타나는 일시적 균열
+
+- 유효한 지형 위치에서 1초마다 새 균열이 나타나고 3초 뒤 사라집니다. 균열을 직접 공격하거나 봉인하지 않습니다.
+- 스테이지 처치 목표는 기존값인 8명, 다음 스테이지마다 4명씩 증가합니다. 목표 수에 도달하면 새 균열 생성을 멈춥니다. 합체로 사라진 적과 분열 자식의 죽음은 추가 처치로 세지 않습니다.
+- 기존 첫 출현 760ms, 균열 열림 320ms, 닫힘 520ms와 침공 속도 1.2/초(+스테이지당 0.25, 최대 4.2/초), 동시 적 상한 96을 재사용합니다.
+- 실제 배포 버전은 0.18.0이며, 멀티플레이 방은 0.18.0 계약으로 분리됩니다.
+- 목표에 도달하면 새 균열 생성을 멈춥니다. 이미 열린 균열은 3초 수명 안의 기존 출현 주기를 마친 뒤 사라지고, 모든 균열과 남은 적이 정리되면 스테이지가 끝납니다.
 
 ## 0.17.0 통통 이동과 열린 소형 맵
 
