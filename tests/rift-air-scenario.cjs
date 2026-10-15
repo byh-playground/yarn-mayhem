@@ -1,5 +1,5 @@
 const fs=require('fs'),path=require('path'),http=require('http'),assert=require('assert/strict'),{chromium}=require('playwright');
-const out=path.resolve('test-results/rift-air-0191');fs.mkdirSync(out,{recursive:true});
+const out=path.resolve('test-results/rift-air-0192');fs.mkdirSync(out,{recursive:true});
 const report={status:'RUNNING',browser:null,checks:[],errors:[],networkFailures:[]};
 const check=(name,ok,evidence)=>{report.checks.push({name,status:ok?'PASS':'FAIL',evidence});assert.ok(ok,name)};
 const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../index.html')))});
@@ -19,7 +19,7 @@ const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/ht
       await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForFunction(()=>!!window.__YARN_MAYHEM);
       await page.locator('#mainButton').click();await page.locator('#soloStart').click();
       await page.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='PLAYING');
-      await page.waitForTimeout(120);
+      await page.waitForTimeout(850);
       const setup=await page.evaluate(()=>{
         const q=__YARN_MAYHEM;q.qaClearEnemies();q.qaClearRifts();
         const snap=q.snapshot(),sites=q.qaSpawnSites(),background=sites.filter(site=>site.kind==='background');
@@ -31,7 +31,7 @@ const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/ht
         }));
         const player=q.qaPlayers().filter(p=>p.hp>0),eligible=background.map((site,index)=>({site,index,
           nearestPlayer:player.length?Math.min(...player.map(p=>Math.hypot(site.x-p.x,site.y-p.y))):Infinity}))
-          .filter(item=>item.nearestPlayer>=18+17+80).sort((a,b)=>a.nearestPlayer-b.nearestPlayer);
+          .filter(item=>item.nearestPlayer>=18+18+80).sort((a,b)=>a.nearestPlayer-b.nearestPlayer);
         return {mapSeed:snap.mapSeed,siteKinds:snap.spawnSiteKinds,backgroundCount:background.length,background,withinBounds,clearOfPlatforms,
           siteIdsUnique:new Set(background.map(s=>s.surfaceId)).size===background.length,eligible:eligible[0],bodyCount:q.qaPhysicsBodies()};
       });
@@ -42,6 +42,28 @@ const server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/ht
       await page.evaluate(()=>__YARN_MAYHEM.qaStart());await page.waitForFunction(()=>__YARN_MAYHEM.snapshot().phase==='PLAYING');
       const after=await page.evaluate(()=>__YARN_MAYHEM.qaSpawnSites().filter(s=>s.kind==='background').map(s=>[s.surfaceId,s.x,s.y]));
       check(`${tag}: air anchor position/kind list is deterministic from the map seed`,JSON.stringify(before)===JSON.stringify(after),{mapSeed:setup.mapSeed,count:after.length});
+
+      const visibleRift=await page.evaluate(()=>{
+        const q=__YARN_MAYHEM,beforeIds=q.qaEnemies().map(e=>e.id);q.qaClearRifts();const hole=q.qaAutomaticSpawnRift();
+        return hole?{hole,beforeIds,rules:q.qaSpawnRules(),diagnostics:q.qaSpawnDiagnostics(hole),screen:q.qaWorldPoint(hole.x,hole.y),viewport:{width:innerWidth,height:innerHeight}}:null;
+      });
+      check(`${tag}: automatic rift opens in a living player's visible peripheral view, clear of controls and all players`,
+        !!visibleRift&&visibleRift.diagnostics.observers.some(view=>view.periphery!==null)&&
+        visibleRift.diagnostics.playerGaps.every(player=>player.gap>=visibleRift.rules.playerGap)&&
+        visibleRift.screen.x>=0&&visibleRift.screen.x<=visibleRift.viewport.width&&visibleRift.screen.y>=0&&visibleRift.screen.y<=visibleRift.viewport.height,visibleRift);
+      if(visibleRift)await page.screenshot({path:path.join(out,`${tag}-automatic-visible-opening.png`)});
+      if(visibleRift){
+        await page.waitForFunction(id=>__YARN_MAYHEM.snapshot().spawnHoles.find(h=>h.id===id)?.spawns>=1,visibleRift.hole.id,{timeout:5000});
+        const visiblePop=await page.evaluate(({id,beforeIds})=>{
+          const q=__YARN_MAYHEM,h=q.snapshot().spawnHoles.find(h=>h.id===id),e=q.qaEnemies().find(e=>!beforeIds.includes(e.id));
+          return e?{hole:h,enemy:e,screen:q.qaWorldPoint(e.x,e.y),radiusScreen:e.radius*q.snapshot().camera.zoom,viewport:{width:innerWidth,height:innerHeight}}:null;
+        },{id:visibleRift.hole.id,beforeIds:visibleRift.beforeIds});
+        check(`${tag}: the first upward pop from that automatically placed rift appears inside the real camera`,
+          !!visiblePop&&visiblePop.screen.x-visiblePop.radiusScreen>=0&&visiblePop.screen.x+visiblePop.radiusScreen<=visiblePop.viewport.width&&
+          visiblePop.screen.y-visiblePop.radiusScreen>=0&&visiblePop.screen.y+visiblePop.radiusScreen<=visiblePop.viewport.height,visiblePop);
+        if(visiblePop)await page.screenshot({path:path.join(out,`${tag}-automatic-visible-pop.png`)});
+      }
+      await page.evaluate(()=>{__YARN_MAYHEM.qaClearRifts();__YARN_MAYHEM.qaClearEnemies();});
 
       const beforeIds=await page.evaluate(()=>__YARN_MAYHEM.qaEnemies().map(e=>e.id));
       const preEmitBodies=await page.evaluate(()=>__YARN_MAYHEM.qaPhysicsBodies());
