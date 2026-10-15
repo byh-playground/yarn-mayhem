@@ -1,6 +1,6 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.19.2",
+  "version": "0.19.3",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
