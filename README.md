@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.6**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.19.7**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.19.7 — Sync high-stage rifts in co-op
+
+- Guests now apply every active rift in the host snapshot. The former four-rift receive limit hid later rifts once stage-scaled creation exceeded four.
+- The receive limit derives from the existing 3-second lifetime and 30 TPS tick, supporting up to 90 active rifts without changing spawn timing or host ownership.
+- `npm run test:rift:rtc` covers six simultaneous stage-40 rifts between an Edge desktop host and a landscape-touch guest.
 
 
 ## 0.19.6 — 단계별 균열 주기와 96마리 상한
