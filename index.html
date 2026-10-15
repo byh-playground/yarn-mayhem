@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.19.5</title>
+<title>털실 대소동 / Yarn Mayhem 0.19.6</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
- <div id="toastLayer"></div><div class="version-label">v0.19.5</div>
+ <div id="toastLayer"></div><div class="version-label">v0.19.6</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -275,7 +275,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         split: { mergeLockMs: 1350, flightMs: 720, graceMs: 280, launchSpeed: 690, upSpeed: 510 },
         spawn: { popSpeed: 790, openMs: 320, closeMs: 300, firstMs: 760, perHoleIntervalMs:1000, perHoleStageMultiplier:.9,
           riftIntervalMs:2000, riftStageMultiplier:.9, riftLifetimeMs:3000,
-          basePerSecond: 1.2, extraPerStage: 0.25, maxPerSecond: 4.2, maxConcurrent: 96 } },
+          maxConcurrent: 96 } },
       player: { maxHp: 200, radius: 18, dashCharges: 2, rechargeMs: 830, dashSpeed: 830, dashHoldMs: 190, moveSpeed: 250,
         jumpSpeed: 12.8, jumpBufferMs: 130, coyoteMs: 100, jumpCutRate: .50,
         respawnMs: 5000, respawnHpRate: .5, respawnProtectionMs: 1500,
@@ -718,10 +718,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function stageComplete(){
       return state.stageKills>=state.stageKillGoal && state.spawnHoles.length===0 && state.enemies.length===0;
     }
-    function spawnRate(){
-      const cfg=CONFIG.enemy.spawn;
-      return Math.min(cfg.maxPerSecond,cfg.basePerSecond+(state.stage-1)*cfg.extraPerStage);
-    }
     // `stage` is combat stage, not player XP level; clamp below one step because simulation runs on fixed ticks.
     function perHoleSpawnIntervalMs(){
       const cfg=CONFIG.enemy.spawn,stage=Math.max(1,Math.floor(state.stage));
@@ -731,8 +727,11 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const cfg=CONFIG.enemy.spawn,stage=Math.max(1,Math.floor(state.stage));
       return Math.max(CONFIG.tickMs,cfg.riftIntervalMs*Math.pow(cfg.riftStageMultiplier,stage-1));
     }
-    // Keep the existing global rate cap even when many stage-scaled rifts are due together.
-    function globalSpawnIntervalMs(){return 1000/spawnRate();}
+    function skipMissedRiftSpawns(hole,now,interval){
+      if(!Number.isFinite(hole.nextAtMs)||hole.nextAtMs>now)return;
+      const missedIntervals=Math.floor((now-hole.nextAtMs)/interval)+1;
+      hole.nextAtMs+=missedIntervals*interval;
+    }
     function riftPhase(hole,now=state.timeMs){
       const cfg=CONFIG.enemy.spawn,age=now-hole.createdAtMs;
       if(now>=hole.expiresAtMs)return 'removed';
@@ -763,32 +762,33 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function updateSpawnHoles(){
       const now=state.timeMs,cfg=CONFIG.enemy.spawn;
       state.spawnHoles=state.spawnHoles.filter(h=>now<h.expiresAtMs);
-      const interval=globalSpawnIntervalMs(now);
-      if(Number.isFinite(state.nextSpawnAtMs))state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,now+interval);
       if(state.stageKills>=state.stageKillGoal)state.nextRiftAtMs=Infinity;
       if(state.stageKills<state.stageKillGoal&&now>=state.nextRiftAtMs){
         // One rift per fixed step prevents overdue intervals from creating catch-up bursts.
         createSpawnHole(now);
         state.nextRiftAtMs=now+riftCreationIntervalMs();
       }
-      // Service due holes in order, but never bypass the global spawn-rate deadline.
-      let attempts=0;
-      while(attempts++<8){
-        const ready=state.spawnHoles.filter(h=>h.nextAtMs<=now&&riftPhase(h,now)!=='closing')
-          .sort((a,b)=>a.nextAtMs-b.nextAtMs||a.id-b.id);
-        if(!ready.length){
-          const nextHoleAt=Math.min(...state.spawnHoles.filter(h=>riftPhase(h,now)!=='closing').map(h=>h.nextAtMs));
-          state.nextSpawnAtMs=Number.isFinite(nextHoleAt)?Math.max(state.nextSpawnAtMs,nextHoleAt):Infinity;
+      const interval=perHoleSpawnIntervalMs();
+      const ready=state.spawnHoles.filter(h=>h.nextAtMs<=now&&riftPhase(h,now)!=='closing')
+        .sort((a,b)=>a.nextAtMs-b.nextAtMs||a.id-b.id);
+      // At most one rift is created per fixed step and each lives 3s, so this list is itself bounded
+      // (about 91 at 30 TPS); service every due rift without another gameplay rate cap.
+      let index=0;
+      for(const hole of ready){
+        if(state.enemies.length>=cfg.maxConcurrent){
+          // Discard due emissions while full, advancing each rift on its own cadence so clearing a
+          // slot resumes the ordinary schedule instead of releasing a stored burst.
+          for(const pending of ready.slice(index))skipMissedRiftSpawns(pending,now,interval);
           break;
         }
-        if(now<state.nextSpawnAtMs)break;
-        if(state.enemies.length>=cfg.maxConcurrent){state.nextSpawnAtMs=now+interval;break;}
-        emitFromRift(ready[0],now,cfg);
-        state.nextSpawnAtMs=now+interval;
+        emitFromRift(hole,now,cfg);
+        index++;
       }
       for(const hole of state.spawnHoles){
         hole.openProgress=clamp((now-hole.openingStartedAtMs)/cfg.openMs,0,1);
       }
+      const nextHoleAt=Math.min(...state.spawnHoles.filter(h=>riftPhase(h,now)!=='closing').map(h=>h.nextAtMs));
+      state.nextSpawnAtMs=Number.isFinite(nextHoleAt)?nextHoleAt:Infinity;
       if(state.stageKills>=state.stageKillGoal&&!state.spawnHoles.some(h=>riftPhase(h,now)!=='closing'))state.nextSpawnAtMs=Infinity;
     }
     function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
@@ -3261,6 +3261,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(!force && state.tick===lastHudFrame)return;
       lastHudFrame=state.tick;
       const p=state.player,stats=p.stats;
+      const holeInterval=perHoleSpawnIntervalMs();
+      const holeCadence=holeInterval<1000?Math.round(holeInterval)+'ms':(holeInterval/1000).toFixed(1)+'초';
       $('stageTag').textContent='STAGE '+String(state.stage).padStart(2,'0');
       $('levelTag').textContent='LV. '+state.level;
       $('hpBar').style.width=clamp(p.hp/p.maxHp*100,0,100)+'%';
@@ -3269,8 +3271,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       $('xpNumber').textContent=state.xp+' / '+state.xpGoal;
       $('leftEnemies').textContent='처치 '+state.stageKills+'/'+state.stageKillGoal+' · 남은 적 '+state.enemies.length;
       $('mergeCount').textContent=state.stageKills>=state.stageKillGoal?
-        '목표 도달 · 남은 균열 '+state.spawnHoles.length+' · 침공 '+spawnRate().toFixed(2)+'/초':
-        '새 균열 '+Math.max(0,(state.nextRiftAtMs-state.timeMs)/1000).toFixed(1)+'초 · 침공 '+spawnRate().toFixed(2)+'/초';
+        '목표 도달 · 남은 균열 '+state.spawnHoles.length+' · 균열당 '+holeCadence:
+        '새 균열 '+Math.max(0,(state.nextRiftAtMs-state.timeMs)/1000).toFixed(1)+'초 · 균열당 '+holeCadence;
       const orbRoot=$('dashOrbs');
       if(orbRoot.children.length!==stats.dashMax){
         orbRoot.replaceChildren();for(let i=0;i<stats.dashMax;i++){const e=document.createElement('span');e.className='dash-orb';orbRoot.append(e);}
@@ -3487,12 +3489,11 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         tps:session.profile.tickRate,room:{role:net.role,code:net.code,players:state.players.size,connected:net.room?.transports.size??0,remoteReady:net.remoteReady,runId:state.runId},
         attack:{power:state.player?.stats.needlePower,intervalMs:state.player?.stats.fireIntervalMs,techPoints:techPoints(state.player)},
         mergeCount:state.merges,stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,
-        remainingEnemies:state.enemies.length,spawnRate:spawnRate(),spawnCandidateCount:state.spawnSites.length,
+        remainingEnemies:state.enemies.length,spawnCandidateCount:state.spawnSites.length,
         spawnConfig:{firstMs:CONFIG.enemy.spawn.firstMs,openMs:CONFIG.enemy.spawn.openMs,closeMs:CONFIG.enemy.spawn.closeMs,
           perHoleIntervalMs:CONFIG.enemy.spawn.perHoleIntervalMs,perHoleStageMultiplier:CONFIG.enemy.spawn.perHoleStageMultiplier,
           riftIntervalMs:CONFIG.enemy.spawn.riftIntervalMs,riftStageMultiplier:CONFIG.enemy.spawn.riftStageMultiplier,riftLifetimeMs:CONFIG.enemy.spawn.riftLifetimeMs,
-          basePerSecond:CONFIG.enemy.spawn.basePerSecond,extraPerStage:CONFIG.enemy.spawn.extraPerStage,
-          maxPerSecond:CONFIG.enemy.spawn.maxPerSecond,maxConcurrent:CONFIG.enemy.spawn.maxConcurrent},
+          maxConcurrent:CONFIG.enemy.spawn.maxConcurrent},
         activeRifts:state.spawnHoles.length,nextRiftAtMs:state.nextRiftAtMs,stageComplete:stageComplete(),
         mapStyle:state.mapStyle,mapSeed:state.mapSeed,reachableSurfaces:state.reachableSurfaces,
         nextSpawnAtMs:state.nextSpawnAtMs,nextSpawnHoleId:state.nextSpawnHoleId,

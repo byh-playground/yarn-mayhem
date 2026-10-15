@@ -4,7 +4,7 @@ const http = require('http');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-const out = path.resolve('test-results/rift-spawn-interval-0195');
+const out = path.resolve('test-results/rift-spawn-interval-0196');
 fs.mkdirSync(out, { recursive: true });
 const report = { status: 'RUNNING', browser: null, checks: [], errors: [], networkFailures: [] };
 const check = (name, ok, evidence) => {
@@ -92,7 +92,6 @@ const server = http.createServer((req, res) => {
             stage: q.snapshot().stage,
             requestedStage: stage,
             xpLevel: q.snapshot().level,
-            spawnRate: q.snapshot().spawnRate,
             desiredPerHoleMs: +desired.toFixed(2),
             tickMs: +tickMs.toFixed(2),
             config: q.snapshot().spawnConfig,
@@ -148,7 +147,6 @@ const server = http.createServer((req, res) => {
             stage: q.snapshot().stage,
             requestedStage: stage,
             xpLevel: q.snapshot().level,
-            spawnRate: q.snapshot().spawnRate,
             config: q.snapshot().spawnConfig,
             desiredPerHoleMs: +desiredPerHole.toFixed(2),
             desiredRiftIntervalMs: +desired.toFixed(2),
@@ -170,6 +168,60 @@ const server = http.createServer((req, res) => {
             peakEnemies,
           };
         }
+        function measureFullCap(stage) {
+          if (!q.qaStartStage(stage)) throw new Error('qaStartStage rejected ' + stage);
+          q.qaClearRifts();
+          q.qaClearEnemies();
+          const cap = q.snapshot().spawnConfig.maxConcurrent;
+          const fixtures = [];
+          for (let i = 0; i < cap; i++) {
+            const x = 60 + (i % 20) * 108, y = 100 + Math.floor(i / 20) * 250;
+            const enemy = q.qaSpawn(1, x, y, { killCredit: true });
+            if (!enemy) throw new Error('Could not fill enemy cap at index ' + i);
+            q.qaSetEnemyGoal(enemy.id, 'none');
+            fixtures.push({ id: enemy.id, x, y });
+          }
+          const sites = chooseSites(4);
+          const holes = sites.map(item => q.qaSpawnRift('background', null, item.index));
+          if (holes.some(hole => !hole)) throw new Error('Could not create four rifts for cap backlog check');
+          const created = q.snapshot().spawnHoles.filter(hole => holes.some(createdHole => createdHole.id === hole.id));
+          const startTick = q.snapshot().tick;
+          for (let step = 0; step < 15; step++) {
+            q.qaStep(1);
+            for (const fixture of fixtures) {
+              q.qaEnemyPosition(fixture.id, fixture.x, fixture.y);
+              q.qaEnemyVelocity(fixture.id, 0, 0);
+            }
+            for (const enemy of q.qaEnemies()) q.qaSetEnemyGoal(enemy.id, 'none');
+          }
+          const full = q.snapshot();
+          const fullHoles = full.spawnHoles.filter(hole => holes.some(createdHole => createdHole.id === hole.id));
+          const currentMs = created[0].createdAtMs + (full.tick - startTick) * tickMs;
+          const dueInMs = Math.min(...fullHoles.map(hole => hole.nextAtMs - currentMs));
+          const spawnsWhileFull = fullHoles.reduce((sum, hole) => sum + hole.spawns, 0);
+          const firstEnemy = q.qaEnemies()[0];
+          if (!firstEnemy || !q.qaHit(firstEnemy.id, 100000)) throw new Error('Could not defeat one enemy at full cap');
+          const killTick = q.snapshot().tick;
+          let emittedAfterKill = 0, resumeDelayMs = null, peakAfterKill = q.snapshot().remainingEnemies;
+          for (let step = 0; step < 4 && emittedAfterKill === 0; step++) {
+            q.qaStep(1);
+            for (const enemy of q.qaEnemies()) q.qaSetEnemyGoal(enemy.id, 'none');
+            const snap = q.snapshot();
+            const currentHoles = snap.spawnHoles.filter(hole => holes.some(createdHole => createdHole.id === hole.id));
+            emittedAfterKill = currentHoles.reduce((sum, hole) => sum + hole.spawns, 0) - spawnsWhileFull;
+            if (emittedAfterKill > 0) resumeDelayMs = (snap.tick - killTick) * tickMs;
+            peakAfterKill = Math.max(peakAfterKill, snap.remainingEnemies);
+          }
+          const resumed = q.snapshot();
+          return {
+            stage, cap, filledEnemies: full.remainingEnemies, activeTestRifts: fullHoles.length,
+            spawnsWhileFull, dueInMs: +dueInMs.toFixed(2),
+            enemiesAfterKill: full.remainingEnemies - 1, emittedAfterKill,
+            resumeDelayMs: resumeDelayMs === null ? null : +resumeDelayMs.toFixed(2),
+            enemiesAfterResume: resumed.remainingEnemies, peakAfterKill,
+            tickMs: +tickMs.toFixed(2),
+          };
+        }
         return {
           perHole: [
             measurePerHole(1, 1),
@@ -179,15 +231,16 @@ const server = http.createServer((req, res) => {
             measurePerHole(40, 1),
           ],
           automaticRifts: [1, 2, 3, 15, 40].map(stage => measureAutomaticRifts(stage, 180)),
+          fullCap: measureFullCap(40),
         };
       });
       report[mobile ? 'landscapeTouch' : 'edgePc'] = result;
       for (const scenario of result.perHole) {
-        const expected = Math.max(scenario.desiredPerHoleMs, 1000 / scenario.spawnRate);
+        const expected = scenario.desiredPerHoleMs;
         const intervals = scenario.intervals.flatMap(hole => hole.intervalsMs).sort((a, b) => a - b);
         const evidence = {
           stage: scenario.stage, xpLevel: scenario.xpLevel, targetMs: scenario.desiredPerHoleMs,
-          expectedMs: +expected.toFixed(2), spawnRateCapPerSecond: scenario.spawnRate,
+          expectedMs: +expected.toFixed(2),
           samples: intervals.length, minMs: intervals[0], medianMs: intervals[Math.floor(intervals.length / 2)],
           maxMs: intervals[intervals.length - 1], tickMs: scenario.tickMs,
         };
@@ -206,7 +259,7 @@ const server = http.createServer((req, res) => {
           maxRiftCreationsPerTick: scenario.maxCreatedPerTick,
           maxEnemySpawnsPerTick: scenario.maxEnemySpawnsPerTick,
           peakEnemies: scenario.peakEnemies, automaticPerHole: scenario.perHoleSpawnIntervalMs,
-          spawnRateCapPerSecond: scenario.spawnRate, totalSpawned: scenario.totalSpawned,
+          totalSpawned: scenario.totalSpawned,
         };
         check(tag + ' stage ' + scenario.stage + ' automatic rift cadence, lifetime and bounded per-tick production',
           scenario.stage === scenario.requestedStage && scenario.xpLevel === 1 &&
@@ -216,30 +269,39 @@ const server = http.createServer((req, res) => {
           riftIntervals.every(actual => Math.abs(actual - scenario.desiredRiftIntervalMs) <= scenario.tickMs + 0.5) &&
           scenario.maxCreatedPerTick <= 1 &&
           scenario.maxActiveRifts <= Math.floor(3000 / scenario.tickMs) &&
-          scenario.maxEnemySpawnsPerTick <= 1 &&
-          scenario.totalSpawned <= Math.ceil(scenario.spawnRate * scenario.durationMs / 1000) + 1 &&
+          scenario.maxEnemySpawnsPerTick <= Math.ceil(scenario.config.riftLifetimeMs / scenario.tickMs) + 1 &&
           scenario.peakEnemies <= scenario.config.maxConcurrent, evidence);
       }
       const overlapped = result.automaticRifts.find(scenario => scenario.requestedStage === 15);
-      check(tag + ' stage 15 overlapping rifts stay within the global spawn-rate budget',
-        overlapped.maxActiveRifts > 1 && overlapped.maxEnemySpawnsPerTick === 1 &&
-        overlapped.totalSpawned <= Math.ceil(overlapped.spawnRate * overlapped.durationMs / 1000) + 1,
+      check(tag + ' stage 15 overlapping rifts exceed the removed 4.2/s budget without exceeding 96 enemies',
+        overlapped.maxActiveRifts > 1 && overlapped.totalSpawned > 30 &&
+        overlapped.peakEnemies <= overlapped.config.maxConcurrent &&
+        overlapped.maxEnemySpawnsPerTick <= Math.ceil(overlapped.config.riftLifetimeMs / overlapped.tickMs) + 1,
         { stage: overlapped.stage, perHoleTargetMs: overlapped.desiredPerHoleMs,
-          actualPerHole: overlapped.perHoleSpawnIntervalMs, spawnRateCapPerSecond: overlapped.spawnRate,
-          totalSpawned: overlapped.totalSpawned, durationMs: overlapped.durationMs });
+          actualPerHole: overlapped.perHoleSpawnIntervalMs,
+          totalSpawned: overlapped.totalSpawned, maxPerTick: overlapped.maxEnemySpawnsPerTick,
+          peakEnemies: overlapped.peakEnemies, durationMs: overlapped.durationMs });
       const highStage = result.automaticRifts.find(scenario => scenario.requestedStage === 40);
-      check(tag + ' stage 40 automatic throughput stays within global rate, tick and enemy caps',
+      check(tag + ' stage 40 automatic throughput stays within the tick-work bound and 96-enemy cap',
         highStage.maxActiveRifts === Math.floor(3000 / highStage.tickMs) &&
-        highStage.maxCreatedPerTick === 1 && highStage.maxEnemySpawnsPerTick === 1 &&
-        highStage.totalSpawned <= Math.ceil(highStage.spawnRate * highStage.durationMs / 1000) + 1 &&
-        highStage.peakEnemies <= highStage.config.maxConcurrent &&
-        highStage.perHoleSpawnIntervalMs.median > highStage.desiredPerHoleMs + highStage.tickMs,
+        highStage.maxCreatedPerTick === 1 &&
+        highStage.maxEnemySpawnsPerTick <= Math.ceil(highStage.config.riftLifetimeMs / highStage.tickMs) + 1 &&
+        highStage.totalSpawned > 30 && highStage.peakEnemies <= highStage.config.maxConcurrent,
         { stage: highStage.stage, targetPerHoleMs: highStage.desiredPerHoleMs,
           observedMedianMs: highStage.perHoleSpawnIntervalMs.median, observedP95Ms: highStage.perHoleSpawnIntervalMs.p95,
           activeRifts: highStage.maxActiveRifts, maxRiftCreationsPerTick: highStage.maxCreatedPerTick,
-          maxEnemySpawnsPerTick: highStage.maxEnemySpawnsPerTick, spawnRateCapPerSecond: highStage.spawnRate,
+          maxEnemySpawnsPerTick: highStage.maxEnemySpawnsPerTick,
           totalSpawned: highStage.totalSpawned, durationMs: highStage.durationMs, peakEnemies: highStage.peakEnemies,
           maxConcurrentEnemies: highStage.config.maxConcurrent });
+      const cap = result.fullCap;
+      check(tag + ' stage 40 reaches exactly 96 enemies, then skips due rift emissions while full',
+        cap.filledEnemies === 96 && cap.cap === 96 && cap.activeTestRifts === 4 && cap.spawnsWhileFull === 0 &&
+        cap.dueInMs > 0 && cap.dueInMs <= cap.tickMs + 0.5,
+        cap);
+      check(tag + ' stage 40 resumes one ordinary rift emission after a cap slot opens, without a stored burst',
+        cap.emittedAfterKill === 1 && cap.resumeDelayMs !== null && cap.resumeDelayMs <= cap.tickMs * 2 + 0.5 &&
+        cap.enemiesAfterKill === 95 && cap.enemiesAfterResume === 96 && cap.peakAfterKill <= 96,
+        cap);
       await context.close();
 
     }
@@ -262,13 +324,13 @@ const server = http.createServer((req, res) => {
       failure: report.failure,
       edgePc: report.edgePc && report.edgePc.automaticRifts.map(s => ({
         stage: s.stage, createdCount: s.createdCount, totalSpawned: s.totalSpawned,
-        spawnRateCapPerSecond: s.spawnRate, maxActiveRifts: s.maxActiveRifts,
+        maxActiveRifts: s.maxActiveRifts,
         maxCreatedPerTick: s.maxCreatedPerTick, maxEnemySpawnsPerTick: s.maxEnemySpawnsPerTick,
         peakEnemies: s.peakEnemies, perHole: s.perHoleSpawnIntervalMs, riftIntervalSamples: s.intervalsMs.length, riftIntervalMinMs: Math.min(...s.intervalsMs), riftIntervalMaxMs: Math.max(...s.intervalsMs),
       })),
       landscapeTouch: report.landscapeTouch && report.landscapeTouch.automaticRifts.map(s => ({
         stage: s.stage, createdCount: s.createdCount, totalSpawned: s.totalSpawned,
-        spawnRateCapPerSecond: s.spawnRate, maxActiveRifts: s.maxActiveRifts,
+        maxActiveRifts: s.maxActiveRifts,
         maxCreatedPerTick: s.maxCreatedPerTick, maxEnemySpawnsPerTick: s.maxEnemySpawnsPerTick,
         peakEnemies: s.peakEnemies, perHole: s.perHoleSpawnIntervalMs, riftIntervalSamples: s.intervalsMs.length, riftIntervalMinMs: Math.min(...s.intervalsMs), riftIntervalMaxMs: Math.max(...s.intervalsMs),
       })),
