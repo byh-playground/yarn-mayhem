@@ -1,7 +1,7 @@
 {
-  "gamekitVersion": "0.5.0",
-  "sourceCommit": "2cb587b70d32bdb40379e15ba7f2f4744e2c8594",
-  "compilerVersion": "0.2.0",
+  "gamekitVersion": "0.6.1",
+  "sourceCommit": "4150109c7732a734e155b6d1e2cd83c13c1f1d0c",
+  "compilerVersion": "0.4.0",
   "schemaVersion": 1,
   "dependencies": {
     "@xmldom/xmldom": "0.9.12",
@@ -9,12 +9,12 @@
   },
   "files": {
     "scripts/vector-assets/compiler.js": {
-      "gitBlob": "ece6e9223701b3331561c26df727b2911f68b144",
-      "sha256": "2b3b7d3bada85e980b483fad731d2aebb2d0e783b0d7e63a2df6e2e710e00a60"
+      "gitBlob": "be370376ae3fe1f36d9a71f39c273afb2916f41a",
+      "sha256": "1dfa99e9ce11afb9a9de18290ec049cbaecc3c720e3f6bd6ec7a7eb5913775cb"
     },
     "scripts/vector-assets/schema.js": {
-      "gitBlob": "e9bc2e7d51f5d7b14a2dd2cfb27be81834362f6e",
-      "sha256": "bc48dd5d7eb9e45b9248a7c30483f26224808cb5365fe5bdce4fc0745ef57549"
+      "gitBlob": "4afc1134fe9147d5a19c5c1cea3d3fad33d75eca",
+      "sha256": "989bb4eee231b973adcc2c0744c63055692399c3dfb592bd46457dadb2b3b1fd"
     }
   }
 }

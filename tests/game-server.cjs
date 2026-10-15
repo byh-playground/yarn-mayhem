@@ -2,7 +2,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
-const publicRoot = path.resolve(__dirname, '../_site');
+const defaultPublicRoot = path.resolve(__dirname, '../_site');
 const contentTypes = Object.freeze({
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -11,7 +11,8 @@ const contentTypes = Object.freeze({
   '.svg': 'image/svg+xml',
 });
 
-function createGameServer({ htmlPath = path.resolve(__dirname, '../index.html') } = {}) {
+function createGameServer({ htmlPath = path.resolve(__dirname, '../index.html'), publicRoot = defaultPublicRoot } = {}) {
+  publicRoot = path.resolve(publicRoot);
   return http.createServer((req, res) => {
     let pathname;
     try { pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname); }
