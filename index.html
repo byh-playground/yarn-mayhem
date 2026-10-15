@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.16.1</title>
+<title>털실 대소동 / Yarn Mayhem 0.16.2</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -183,6 +183,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
  #app[data-touch=true] .tech-map-note{font-size:12px}#app[data-touch=true] .tech-node{min-height:84px}
 }
 @media(orientation:landscape) and (max-height:340px){
+ #app[data-touch=true] .modal-card[data-view=home]:has(#saveNotice:not([hidden]))>:is(.brand,.hangul){display:none}
  #app[data-touch=true] .modal-card:is([data-phase=CLEAR],[data-phase=DEAD])>.brand{display:none}
  #app[data-touch=true] .modal-card{padding:8px 14px}#app[data-touch=true] .modal-card[data-view=home]>.hero-yarns{display:none}#app[data-touch=true] #menuHint{margin-bottom:5px}#app[data-touch=true] #helpContent [data-help-page]{min-height:108px}#app[data-touch=true] #helpContent h3{margin:3px 0}#app[data-touch=true] .hangul{margin:3px 0}
  #app[data-touch=true] #techPanel{padding:7px;gap:5px}#app[data-touch=true] #techPanel header{min-height:44px}#app[data-touch=true] #techPanel h2{font-size:16px;margin:0}#app[data-touch=true] #techDetailBack{position:absolute;left:7px;top:7px;margin:0}#app[data-touch=true] #techPanel[data-pane=detail] header>div{margin-left:118px}
@@ -216,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.16.1</div>
+  <div id="toastLayer"></div><div class="version-label">v0.16.2</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -1687,7 +1688,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     }
     function updateTechUI(){
       const p=state.player;
-      $('saveNotice').hidden=!progressMigrationNotice||state.phase!=='MENU'||menuScreen!=='home';$('saveNotice').textContent=progressMigrationNotice;
       $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(progressStorageNotice?' · '+progressStorageNotice:'');
       $('techOpen').textContent='스탯 '+techPoints(p);
       $('techOpen').classList.toggle('ready',techPoints(p)>0);
@@ -3223,11 +3223,12 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const menu=state.phase==='MENU';
       $('roomControls').hidden=!menu||menuScreen!=='multiplayer';
       for(const id of ['menuBack','menuTitle','menuHint','modeChoices','helpContent','helpOpen'])if(!menu)$(id).hidden=true;
-      if(!menu){$('modalText').hidden=false;$('modalCard').removeAttribute('data-view');}
+      if(!menu){$('saveNotice').hidden=true;$('modalText').hidden=false;$('modalCard').removeAttribute('data-view');}
     }
     function renderMainMenu(focus=false){
       if(state.phase!=='MENU'){syncMenuChrome();return;}
       const screen=menuScreen;$('modalCard').dataset.view=screen;
+      $('saveNotice').hidden=!progressMigrationNotice||screen!=='home';$('saveNotice').textContent=progressMigrationNotice;
       $('menuBack').hidden=screen==='home';$('menuTitle').hidden=$('menuHint').hidden=screen==='home';
       $('menuTitle').textContent=screen==='start'?'어떻게 플레이할까요?':screen==='multiplayer'?'함께 플레이':'플레이 방법';
       $('menuHint').textContent=screen==='start'?'혼자 또는 친구와 모험을 시작하세요.':screen==='multiplayer'?'방을 만들고 코드를 공유하거나, 친구의 방에 참가하세요.':'실구멍을 봉쇄하고 다음 스테이지로';
