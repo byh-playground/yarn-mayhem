@@ -1,3 +1,16 @@
+# 0.16.1 mobile viewport flows without unnecessary scrolling
+
+Base: PR13 merge020861ff5b35a3b09d7f957852354ec6fa559e90 / deployed0.16.0. Additional user request1792025501.302979. UI-only compatible patch; progression, simulation and0.16.0/v0160 room contract stay unchanged. Other projects and C:/projects user changes are preserved.
+
+- Actual baseline844×390: multiplayer card client374px/content428px with footer buttons outside viewport; help client374px/content743px. Whole-page overflow:hidden did not make those controls usable. The fix restructures content instead: topic tabs for help; list→detail/back for mobile landscape stats; compact mode/room menus; connected-room code/copy/leave; result-first pause/clear/gameover with repeat instructions kept in help. Desktop stats retain two panes. All current help content and technology descriptions/requirements remain reachable.
+- Native dynamic viewport height is bounded by100dvh so a stale visualViewport value cannot extend the app during a height decrease. visualViewport resize clears held input and synchronizes height. Safe-area variables default to native env insets. Controls reserve space for the movement hint. A tree-open portrait rotation keeps the higher rotation guide interactive and the tree inert.
+- PASS: fixed mobile user-flow scenario199 assertions in installed Edge155.0.4283.45, touch844×390,667×320,568×280 and740×320 with explicit safe-area proxy top10/bottom14/left24/right24px. Main/mode/multiplayer, real connected host/leave, all four help topics, every technology in every branch, purchase, gameplay/native touch drag, pause/clear/gameover, expanded/contracted viewport and portrait over an open tree are checked. Panel and content extents, every visible button/input, and page scroll positions are measured; decorative hero glyphs and inline icon font extents are excluded from scroll-container checks. Terminal states use explicit QA completion/HP fixtures; inputs, rendering, Matter and actual room creation are real.
+- PASS: existing21 actual-browser experience/real2-peer RTC checks after updating the mobile purchase path for list/detail navigation. No new transport, damage, save or simulation implementation. Prior0.16.0 pressure20 checks remain the unchanged-combat evidence; they were not rerun for this UI patch. Build/syntax/provenance and git whitespace checks are required before publishing.
+- Test artifacts: test-results/mobile/report.json and representative short/safe-area detail, play, clear, gameover and portrait screenshots. Existing experience report remains test-results/experience/report.json. npm run test:mobile runs the permanent fixed flows; temporary observation/edit helpers are outside the repository and removed after recording.
+- NOT VERIFIED: physical phone notch/OS keyboard/address-bar behavior, successful OS orientation locking, audible quality, four peers, long sessions or subjective pressure/fun. Safe-area proxy and actual viewport resizing are clearly distinguished from physical-device tests. No CSS document rotation or software renderer fallback.
+
+---
+
 # 0.16.0 needle-only growth, mobile landscape and committed enemy pressure
 
 Base: main 8d7825a7f7be7697ce9e80d4bd4d8ef89b1cf333 (merged PR12 / 0.15.0). Original C:/projects checkout and other game projects remain untouched. No Actions or Pages configuration changes.
