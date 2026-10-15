@@ -1,6 +1,6 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
@@ -10,7 +10,8 @@
     "test:rift": "node tests/rift-air-scenario.cjs",
     "test:rift:rtc": "node tests/rift-air-rtc-scenario.cjs",
     "test:mobile": "node tests/mobile-scenario.cjs",
-    "test:hopping": "node tests/hopping-scenario.cjs"
+    "test:hopping": "node tests/hopping-scenario.cjs",
+    "test:spawn:interval": "node tests/spawn-interval-scenario.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
