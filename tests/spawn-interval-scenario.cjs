@@ -4,7 +4,7 @@ const http = require('http');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-const out = path.resolve('test-results/rift-spawn-interval-0194');
+const out = path.resolve('test-results/rift-spawn-interval-0195');
 fs.mkdirSync(out, { recursive: true });
 const report = { status: 'RUNNING', browser: null, checks: [], errors: [], networkFailures: [] };
 const check = (name, ok, evidence) => {
@@ -92,6 +92,7 @@ const server = http.createServer((req, res) => {
             stage: q.snapshot().stage,
             requestedStage: stage,
             xpLevel: q.snapshot().level,
+            spawnRate: q.snapshot().spawnRate,
             desiredPerHoleMs: +desired.toFixed(2),
             tickMs: +tickMs.toFixed(2),
             config: q.snapshot().spawnConfig,
@@ -147,10 +148,12 @@ const server = http.createServer((req, res) => {
             stage: q.snapshot().stage,
             requestedStage: stage,
             xpLevel: q.snapshot().level,
+            spawnRate: q.snapshot().spawnRate,
             config: q.snapshot().spawnConfig,
             desiredPerHoleMs: +desiredPerHole.toFixed(2),
             desiredRiftIntervalMs: +desired.toFixed(2),
             tickMs: +tickMs.toFixed(2),
+            durationMs: ticks * tickMs,
             createdCount: createdAtMs.length,
             creationTimesMs: createdAtMs,
             intervalsMs,
@@ -172,7 +175,7 @@ const server = http.createServer((req, res) => {
             measurePerHole(1, 1),
             measurePerHole(2, 1),
             measurePerHole(3, 1),
-            measurePerHole(15, 2),
+            measurePerHole(15, 1),
             measurePerHole(40, 1),
           ],
           automaticRifts: [1, 2, 3, 15, 40].map(stage => measureAutomaticRifts(stage, 180)),
@@ -180,10 +183,11 @@ const server = http.createServer((req, res) => {
       });
       report[mobile ? 'landscapeTouch' : 'edgePc'] = result;
       for (const scenario of result.perHole) {
-        const expected = scenario.desiredPerHoleMs;
+        const expected = Math.max(scenario.desiredPerHoleMs, 1000 / scenario.spawnRate);
         const intervals = scenario.intervals.flatMap(hole => hole.intervalsMs).sort((a, b) => a - b);
         const evidence = {
-          stage: scenario.stage, xpLevel: scenario.xpLevel, expectedMs: expected,
+          stage: scenario.stage, xpLevel: scenario.xpLevel, targetMs: scenario.desiredPerHoleMs,
+          expectedMs: +expected.toFixed(2), spawnRateCapPerSecond: scenario.spawnRate,
           samples: intervals.length, minMs: intervals[0], medianMs: intervals[Math.floor(intervals.length / 2)],
           maxMs: intervals[intervals.length - 1], tickMs: scenario.tickMs,
         };
@@ -202,6 +206,7 @@ const server = http.createServer((req, res) => {
           maxRiftCreationsPerTick: scenario.maxCreatedPerTick,
           maxEnemySpawnsPerTick: scenario.maxEnemySpawnsPerTick,
           peakEnemies: scenario.peakEnemies, automaticPerHole: scenario.perHoleSpawnIntervalMs,
+          spawnRateCapPerSecond: scenario.spawnRate, totalSpawned: scenario.totalSpawned,
         };
         check(tag + ' stage ' + scenario.stage + ' automatic rift cadence, lifetime and bounded per-tick production',
           scenario.stage === scenario.requestedStage && scenario.xpLevel === 1 &&
@@ -211,24 +216,29 @@ const server = http.createServer((req, res) => {
           riftIntervals.every(actual => Math.abs(actual - scenario.desiredRiftIntervalMs) <= scenario.tickMs + 0.5) &&
           scenario.maxCreatedPerTick <= 1 &&
           scenario.maxActiveRifts <= Math.floor(3000 / scenario.tickMs) &&
-          scenario.maxEnemySpawnsPerTick <= 8 &&
+          scenario.maxEnemySpawnsPerTick <= 1 &&
+          scenario.totalSpawned <= Math.ceil(scenario.spawnRate * scenario.durationMs / 1000) + 1 &&
           scenario.peakEnemies <= scenario.config.maxConcurrent, evidence);
       }
       const overlapped = result.automaticRifts.find(scenario => scenario.requestedStage === 15);
-      check(tag + ' stage 15 automatic overlapping rifts keep their per-hole rhythm within tick quantization',
-        overlapped.perHoleSpawnIntervalMs.count > 5 &&
-        overlapped.perHoleSpawnIntervalMs.max <= overlapped.desiredPerHoleMs + overlapped.tickMs + 0.5,
-        { stage: overlapped.stage, targetMs: overlapped.desiredPerHoleMs, ...overlapped.perHoleSpawnIntervalMs });
+      check(tag + ' stage 15 overlapping rifts stay within the global spawn-rate budget',
+        overlapped.maxActiveRifts > 1 && overlapped.maxEnemySpawnsPerTick === 1 &&
+        overlapped.totalSpawned <= Math.ceil(overlapped.spawnRate * overlapped.durationMs / 1000) + 1,
+        { stage: overlapped.stage, perHoleTargetMs: overlapped.desiredPerHoleMs,
+          actualPerHole: overlapped.perHoleSpawnIntervalMs, spawnRateCapPerSecond: overlapped.spawnRate,
+          totalSpawned: overlapped.totalSpawned, durationMs: overlapped.durationMs });
       const highStage = result.automaticRifts.find(scenario => scenario.requestedStage === 40);
-      check(tag + ' stage 40 automatic throughput ceiling stays bounded and is measured explicitly',
+      check(tag + ' stage 40 automatic throughput stays within global rate, tick and enemy caps',
         highStage.maxActiveRifts === Math.floor(3000 / highStage.tickMs) &&
-        highStage.maxCreatedPerTick === 1 && highStage.maxEnemySpawnsPerTick === 8 &&
+        highStage.maxCreatedPerTick === 1 && highStage.maxEnemySpawnsPerTick === 1 &&
+        highStage.totalSpawned <= Math.ceil(highStage.spawnRate * highStage.durationMs / 1000) + 1 &&
         highStage.peakEnemies <= highStage.config.maxConcurrent &&
         highStage.perHoleSpawnIntervalMs.median > highStage.desiredPerHoleMs + highStage.tickMs,
         { stage: highStage.stage, targetPerHoleMs: highStage.desiredPerHoleMs,
           observedMedianMs: highStage.perHoleSpawnIntervalMs.median, observedP95Ms: highStage.perHoleSpawnIntervalMs.p95,
           activeRifts: highStage.maxActiveRifts, maxRiftCreationsPerTick: highStage.maxCreatedPerTick,
-          maxEnemySpawnsPerTick: highStage.maxEnemySpawnsPerTick, peakEnemies: highStage.peakEnemies,
+          maxEnemySpawnsPerTick: highStage.maxEnemySpawnsPerTick, spawnRateCapPerSecond: highStage.spawnRate,
+          totalSpawned: highStage.totalSpawned, durationMs: highStage.durationMs, peakEnemies: highStage.peakEnemies,
           maxConcurrentEnemies: highStage.config.maxConcurrent });
       await context.close();
 
@@ -251,12 +261,14 @@ const server = http.createServer((req, res) => {
       errors: report.errors,
       failure: report.failure,
       edgePc: report.edgePc && report.edgePc.automaticRifts.map(s => ({
-        stage: s.stage, createdCount: s.createdCount, maxActiveRifts: s.maxActiveRifts,
+        stage: s.stage, createdCount: s.createdCount, totalSpawned: s.totalSpawned,
+        spawnRateCapPerSecond: s.spawnRate, maxActiveRifts: s.maxActiveRifts,
         maxCreatedPerTick: s.maxCreatedPerTick, maxEnemySpawnsPerTick: s.maxEnemySpawnsPerTick,
         peakEnemies: s.peakEnemies, perHole: s.perHoleSpawnIntervalMs, riftIntervalSamples: s.intervalsMs.length, riftIntervalMinMs: Math.min(...s.intervalsMs), riftIntervalMaxMs: Math.max(...s.intervalsMs),
       })),
       landscapeTouch: report.landscapeTouch && report.landscapeTouch.automaticRifts.map(s => ({
-        stage: s.stage, createdCount: s.createdCount, maxActiveRifts: s.maxActiveRifts,
+        stage: s.stage, createdCount: s.createdCount, totalSpawned: s.totalSpawned,
+        spawnRateCapPerSecond: s.spawnRate, maxActiveRifts: s.maxActiveRifts,
         maxCreatedPerTick: s.maxCreatedPerTick, maxEnemySpawnsPerTick: s.maxEnemySpawnsPerTick,
         peakEnemies: s.peakEnemies, perHole: s.perHoleSpawnIntervalMs, riftIntervalSamples: s.intervalsMs.length, riftIntervalMinMs: Math.min(...s.intervalsMs), riftIntervalMaxMs: Math.max(...s.intervalsMs),
       })),
