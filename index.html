@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.16.2</title>
+<title>털실 대소동 / Yarn Mayhem 0.17.0</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
-  <div id="toastLayer"></div><div class="version-label">v0.16.2</div>
+  <div id="toastLayer"></div><div class="version-label">v0.17.0</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -269,12 +269,13 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     const actions = new ActionState();
     const CONFIG = Object.freeze({
       tickMs: 1000 / 30,
-      world: { width: 3050, height: 1830, groundY: 1650, stepHeight: 128, platformWidth: 520, platformRows: 7, wallReveal:40 },
+      world: { width: 2280, height: 1590, groundY: 1410, stepHeight: 168, wallReveal:40 },
       enemy: { maxTier: 10, aiRetargetMs: 270, counterAttackMs: 1350, chargeMs:300, attackMs:100, recoveryMs:220, waitMs:140, alertRange:720, commitGap:30, chaseSpeed:560, chaseTierStep:8, dashSpeed:1120, dashHoldMs:220, rangedTier:6,
+        bounce:{landMs:67,compressMs:100,tierCompressMs:4,speed:4.9,tierSpeed:.14},
         split: { mergeLockMs: 1350, flightMs: 720, graceMs: 280, launchSpeed: 690, upSpeed: 510 },
         spawn: { popSpeed: 790, openMs: 320, closeMs: 520, firstMs: 760, reopenWaitMs: 110,
           basePerSecond: 1.2, extraPerStage: 0.25, maxPerSecond: 4.2, maxConcurrent: 96 } },
-      player: { maxHp: 200, radius: 18, dashCharges: 2, rechargeMs: 830, dashSpeed: 830, dashHoldMs: 190, moveSpeed: 280,
+      player: { maxHp: 200, radius: 18, dashCharges: 2, rechargeMs: 830, dashSpeed: 830, dashHoldMs: 190, moveSpeed: 250,
         jumpSpeed: 12.8, jumpBufferMs: 130, coyoteMs: 100, jumpCutRate: .50,
         respawnMs: 5000, respawnHpRate: .5, respawnProtectionMs: 1500,
         groundAccel: 3600, groundBrake: 4200, airAccel: 1350, airBrake: 900, wallDeadzone: 6 },
@@ -495,7 +496,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       for(const a of surfaces)state.navGraph.set(a.id,[]);
       for(let i=0;i<surfaces.length;i++)for(let j=i+1;j<surfaces.length;j++){
         const a=surfaces[i],b=surfaces[j],delta=Math.abs(a.top-b.top),overlap=platformOverlap(a,b);
-        // All platforms can be reached with ONE unboosted tier-1 jump (>= 128px rise).
+        // All platforms can be reached with ONE unboosted tier-1 navigation jump (>= 168px rise).
         const stair=delta<=CONFIG.world.stepHeight+4 && overlap>=125;
         // Consecutive level ledges can also be crossed with a small horizontal jump.
         const hop=delta<2 && overlap>=-90;
@@ -504,11 +505,11 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }
     }
     const MAP_ARCHETYPES=Object.freeze([
-      {name:'짜임 계단',lanes:4,rows:7,widthMin:390,widthMax:570,drift:112,branches:1},
-      {name:'쌍둥이 실탑',lanes:2,rows:8,widthMin:350,widthMax:510,drift:140,branches:2},
-      {name:'떠있는 섬',lanes:4,rows:6,widthMin:275,widthMax:410,drift:96,branches:2},
-      {name:'갈래 실정원',lanes:3,rows:7,widthMin:410,widthMax:630,drift:145,branches:2},
-      {name:'넓은 층층절벽',lanes:3,rows:5,widthMin:480,widthMax:710,drift:118,branches:1},
+      {name:'열린 짜임 계단',lanes:2,rows:3,widthMin:390,widthMax:520,drift:90},
+      {name:'쌍둥이 실탑',lanes:2,rows:3,widthMin:350,widthMax:480,drift:110},
+      {name:'떠있는 섬',lanes:3,rows:2,widthMin:300,widthMax:410,drift:70},
+      {name:'갈래 실정원',lanes:2,rows:3,widthMin:410,widthMax:570,drift:100},
+      {name:'열린 층층절벽',lanes:2,rows:2,widthMin:480,widthMax:650,drift:90},
     ]);
     function layoutSeed(stage){return (0x64ae21d9^Math.imul(stage,0x9e3779b9))>>>0;}
     function createMap(stage){
@@ -518,7 +519,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       // Ground is one unbroken corridor; the other ledges never trap the player.
       makeTerrain(-100,W+100,groundY,180,'ground');
       const laneCount=archetype.lanes;
-      let routes=Array.from({length:laneCount},(_,i)=>({x:W*(i+.5)/laneCount,width:520,top:groundY}));
+      let routes=Array.from({length:laneCount},(_,i)=>({x:W*(i+.5)/laneCount,width:(archetype.widthMin+archetype.widthMax)/2,top:groundY}));
       for(let row=1;row<=archetype.rows;row++){
         const next=[];
         const generated=[];
@@ -526,7 +527,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           const prior=routes[lane];
           // Each climbing route has its OWN elevation, producing staggered islands
           // instead of the old uniform horizontal shelves.
-          const rise=Math.min(stepHeight,102+Math.round(random()*24));
+          const rise=Math.min(stepHeight,144+Math.round(random()*24));
           const y=prior.top-rise;
           const influence=(Math.sin(stage*.91+row*.77+lane*1.7)*.40+(random()-.5)*1.2)*archetype.drift;
           const centre=clamp(prior.x+influence,110+archetype.widthMin/2,W-110-archetype.widthMin/2);
@@ -548,17 +549,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
           }
           const entry=makeTerrain(x1,x2,y,16,'platform');
           generated.push(entry);next[lane]={x:(x1+x2)/2,width,top:y};
-        }
-        // Side-branch islands are optional but always attach to one guaranteed route.
-        // Same-height gaps are at most 66px, below the navigation hop limit (90px).
-        for(let branch=0;branch<archetype.branches;branch++){
-          if(!generated.length||random()<(row===1?.32:.16))continue;
-          const parent=generated[Math.floor(random()*generated.length)];
-          const side=random()<.5?-1:1,span=180+Math.floor(random()*110),gap=24+Math.floor(random()*41);
-          const start=side<0?parent.x1-gap-span:parent.x2+gap;
-          const end=start+span;
-          if(start<45||end>W-45||generated.some(p=>Math.min(p.x2,end)-Math.max(p.x1,start)>25))continue;
-          generated.push(makeTerrain(start,end,parent.top,14,'platform'));
         }
         // Missing lanes retain the last guaranteed branch, never generate disconnected routes.
         routes=routes.map((prior,i)=>next[i]||prior);
@@ -721,7 +711,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         splitFlightUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.flightMs:0,
         damageGraceUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.graceMs:0,
         thinkLeftMs:random()*160,goalId:null,goalKind:'none',attackLeftMs:CONFIG.enemy.waitMs,
-        jumpLeftMs:250+random()*320,stuckMs:0,previousX:x,
+        locomotion:{phase:'air',untilMs:0,landedMs:0,takeoffMs:0},stuckMs:0,previousX:x,
         stats:{dashMax:CONFIG.player.dashCharges,dashRechargeMs:CONFIG.player.rechargeMs,dashSpeed:CONFIG.enemy.dashSpeed,dashHoldMs:CONFIG.enemy.dashHoldMs},
         dash:{charges:CONFIG.player.dashCharges,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},attack:null,
         navFrom:null,dropFromTop:null,hopTarget:null,
@@ -948,6 +938,9 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       state.routeCache.set(key,candidate);
       return state.surfaces[candidate];
     }
+    function navigationLandingX(body,targetBody){
+      return targetBody.position.x+(body.position.x<=targetBody.position.x?-1:1)*(halfWidth(body)+(targetBody.circleRadius||0)+48);
+    }
     function routeIntent(enemy,target){
       const body=enemy.body,standing=standingSurface(enemy);
       // Keep the takeoff surface while airborne. Update it only on an actual landing.
@@ -959,7 +952,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(enemy.hopTarget!==null && enemy.hopTarget!==undefined && !standing){
         const hop=state.surfaces[enemy.hopTarget];
         if(hop){const margin=halfWidth(body)+8,left=hop.x1+margin,right=hop.x2-margin;
-          return {x:left<right?clamp(targetBody.position.x,left,right):(hop.x1+hop.x2)/2,
+          const landingX=hop.top<from.top?navigationLandingX(body,targetBody):targetBody.position.x;
+          return {x:left<right?clamp(landingX,left,right):(hop.x1+hop.x2)/2,
             y:hop.top,jump:false,drop:false};}
       }
       if(standing)enemy.hopTarget=null;
@@ -969,7 +963,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const ascending=next.top<from.top-3,descending=next.top>from.top+3;
       let waypointX;
       if(overlapR>overlapL+pad*2){
-        waypointX=clamp(targetBody.position.x,overlapL+pad,overlapR-pad);
+        waypointX=clamp(ascending?navigationLandingX(body,targetBody):targetBody.position.x,overlapL+pad,overlapR-pad);
       }else if(next.x1>=from.x2){waypointX=from.x2-pad;}
       else if(next.x2<=from.x1){waypointX=from.x1+pad;}
       else waypointX=clamp(targetBody.position.x,Math.min(overlapL,overlapR),Math.max(overlapL,overlapR));
@@ -979,13 +973,33 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         nextId:next.id,drop:descending&&aligned&&!!standing?.oneWay,
         fromTop:from.top};
     }
+    function suspendEnemyHop(e){e.locomotion.phase='suspended';e.locomotion.untilMs=0;}
+    function updateEnemyHop(e,intent,ground,vx,targetPoint){
+      const m=e.locomotion,now=state.timeMs,cfg=CONFIG.enemy.bounce;
+      // Existing contact support owns landing; the Matter body owns the entire flight.
+      if(!ground){
+        // Rolling polygon contacts may blink off for a tick. Keep preparation through
+        // a small contact bounce, but launch only once an actual support returns.
+        if(['land','compress'].includes(m.phase)&&Math.abs(e.body.velocity.y)<2.5)return;
+        if(m.phase!=='takeoff'||now>=m.untilMs){m.phase='air';m.untilMs=0;}return;
+      }
+      if(['air','takeoff','suspended'].includes(m.phase)){
+        m.phase='land';m.untilMs=now+cfg.landMs;m.landedMs=now;return;
+      }
+      if(now<m.untilMs)return;
+      if(m.phase==='land'){m.phase='compress';m.untilMs=now+cfg.compressMs+(e.tier-1)*cfg.tierCompressMs;return;}
+      const navigationJump=intent.jump||(targetPoint.y<e.body.position.y-64&&Math.abs(intent.x-e.body.position.x)<55)||e.stuckMs>540;
+      const speed=navigationJump?TIER_DEFS[e.tier-1].hop:cfg.speed+(e.tier-1)*cfg.tierSpeed;
+      Body.setVelocity(e.body,{x:vx,y:-speed});
+      e.hopTarget=navigationJump?(intent.nextId??null):null;e.stuckMs=0;
+      m.phase='takeoff';m.takeoffMs=now;m.untilMs=now+CONFIG.tickMs;
+    }
     function updateEnemyAI(dtMs){
       const living=[...state.players.values()].filter(p=>p.hp>0);
       if(!living.length)return;
       const now=state.timeMs;
       for(const e of state.enemies){
         e.attackLeftMs=Math.max(0,e.attackLeftMs-dtMs);
-        e.jumpLeftMs=Math.max(0,e.jumpLeftMs-dtMs);
         processDashRecharge(dtMs,e);
         e.thinkLeftMs-=dtMs;
         const b=e.body,pos=b.position;
@@ -993,8 +1007,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         let attacked=living[0],nearest=distance(pos,attacked.body.position);
         for(let i=1;i<living.length;i++){const d=distance(pos,living[i].body.position);if(d<nearest){nearest=d;attacked=living[i];}}
         const p=attacked.body.position,dp=nearest;
-        if(e.control||now<e.impulseUntilMs||now<e.popUntilMs||now<e.splitFlightUntilMs){e.attack=null;e.dash.untilMs=0;continue;}
-        if(updateEnemyAttack(e,dtMs))continue;
+        if(e.control||now<e.impulseUntilMs||now<e.popUntilMs||now<e.splitFlightUntilMs){suspendEnemyHop(e);e.attack=null;e.dash.untilMs=0;continue;}
+        if(e.attack){suspendEnemyHop(e);if(updateEnemyAttack(e,dtMs))continue;}
         if(e.thinkLeftMs<=0){
           e.thinkLeftMs=CONFIG.enemy.aiRetargetMs+random()*90;
           const partner=e.tier<CONFIG.enemy.maxTier?pickPartner(e):null;
@@ -1035,15 +1049,9 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         if(moved<.6&&Math.abs(dx)>35)e.stuckMs+=dtMs;
         else e.stuckMs=Math.max(0,e.stuckMs-dtMs*1.8);
         e.previousX=pos.x;
-        // A jump is always a single impulse on an actual contact surface.
-        if(ground&&e.jumpLeftMs<=0&&(intent.jump||
-            (target&&targetPoint.y<pos.y-64&&Math.abs(dx)<55)||e.stuckMs>540)){
-          const hop=TIER_DEFS[e.tier-1].hop;
-          Body.setVelocity(b,{x:newVx,y:-hop});
-          e.hopTarget=intent.nextId??null;
-          e.jumpLeftMs=350+random()*200;e.stuckMs=0;
-        }
-        if(e.goalKind==='attack'&&e.attackLeftMs<=0&&(enemyCanEngage(e,p)||(e.tier>=CONFIG.enemy.rangedTier&&dp<TIER_DEFS[e.tier-1].range)))enemyAttack(e,p);
+        if(e.hopTarget===null&&e.goalKind==='attack'&&e.attackLeftMs<=0&&(enemyCanEngage(e,p)||(e.tier>=CONFIG.enemy.rangedTier&&dp<TIER_DEFS[e.tier-1].range)))enemyAttack(e,p);
+        if(e.attack)suspendEnemyHop(e);
+        else updateEnemyHop(e,intent,ground,newVx,targetPoint);
       }
     }
     function fireFan(e,dir,count,spread,speed,damage,kind){
@@ -1806,7 +1814,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),e.body.angle,p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
           e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
             p(e.control.originX),p(e.control.originY),p(e.control.anchorX),p(e.control.anchorY),e.control.normalX,e.control.normalY]:null,
-          p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy),e.attack?[e.attack.phase,p(e.attack.untilMs),e.attack.targetId,p(e.attack.dx),p(e.attack.dy),e.attack.kind]:null]),
+          p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy),e.attack?[e.attack.phase,p(e.attack.untilMs),e.attack.targetId,p(e.attack.dx),p(e.attack.dy),e.attack.kind]:null,
+          [e.locomotion.phase,p(e.locomotion.untilMs),p(e.locomotion.landedMs),p(e.locomotion.takeoffMs)]]),
         shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,sh.x,sh.y,sh.vx,sh.vy,sh.damage,sh.radius,sh.kind,sh.remainingMs,sh.impulse??0,!!sh.carry,[...(sh.hitIds||[])],sh.ricochet?{...sh.ricochet,path:sh.ricochet.path.map(a=>[...a])}:null]),
         holes:state.spawnHoles.map(h=>[h.id,h.sealed?1:0,p(h.openProgress),h.spawned?1:0]),
         fx:state.fxNet.slice(-18),
@@ -1822,7 +1831,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     function sendWelcome(peerId){
       const transport=net.room?.transports.get(peerId);
       if(!transport||!state.players.has(peerId))return;
-      sendPacket(transport,{t:'welcome',version:'0.16.0',roster:netRosterInfo(),frame:packWorld()});
+      sendPacket(transport,{t:'welcome',version:'0.17.0',roster:netRosterInfo(),frame:packWorld()});
     }
     function announceRoster(){
       for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
@@ -1899,9 +1908,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       for(const id of [...state.players.keys()])if(!alive.has(id))removeRemotePlayer(id);
       const mobIds=new Set(),oldEnemies=new Map(state.enemies.map(e=>[e.id,e]));
       for(const data of frame.enemies){
-        if(!Array.isArray(data)||data.length!==16||!Number.isFinite(data[2])||!Number.isFinite(data[3]))continue;
-        const [id,tier,x,y,angle,hp,maxHp,flash,credit,control,cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy,attack]=data;
+        if(!Array.isArray(data)||data.length!==17||!Number.isFinite(data[2])||!Number.isFinite(data[3]))continue;
+        const [id,tier,x,y,angle,hp,maxHp,flash,credit,control,cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy,attack,locomotion]=data;
         if(![cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy].every(Number.isFinite))continue;
+        if(!Array.isArray(locomotion)||locomotion.length!==4||!['air','land','compress','takeoff','suspended'].includes(locomotion[0])||!locomotion.slice(1).every(n=>Number.isFinite(n)&&n>=0))continue;
         if(attack!==null&&(!Array.isArray(attack)||attack.length!==6||!['charge','dash','attack','recover'].includes(attack[0])||!['dash','ranged'].includes(attack[5])||typeof attack[2]!=='string'||![attack[1],attack[3],attack[4]].every(Number.isFinite)))continue;
         if(control!==null&&(!Array.isArray(control)||control.length!==12||!['flying','pinned','rebound'].includes(control[0])||
           typeof control[1]!=='string'||control[1].length>128||!control.slice(2).every(Number.isFinite)))continue;
@@ -1913,6 +1923,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         enemy.control=control?{mode:control[0],ownerId:control[1],dx:control[2],dy:control[3],startedMs:control[4],untilMs:control[5],
           originX:control[6],originY:control[7],anchorX:control[8],anchorY:control[9],normalX:control[10],normalY:control[11]}:null;
         enemy.attack=attack?{phase:attack[0],untilMs:attack[1],targetId:attack[2],dx:attack[3],dy:attack[4],kind:attack[5]}:null;
+        enemy.locomotion={phase:locomotion[0],untilMs:locomotion[1],landedMs:locomotion[2],takeoffMs:locomotion[3]};
         enemy.controlCooldownUntilMs=cooldown;enemy.impulseUntilMs=impulseUntil;
         enemy.controlReleaseUntilMs=releaseUntil;enemy.controlReleaseDx=releaseDx;enemy.controlReleaseDy=releaseDy;
         mobIds.add(id);
@@ -1994,7 +2005,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         }
       }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
         if(payload.t==='welcome'){
-          if(payload.version!=='0.16.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          if(payload.version!=='0.17.0'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
           const {epoch,players,hostId}=payload.roster;
           if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
           try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
@@ -2076,7 +2087,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
       net.abort=new AbortController();
       try{
-        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0160',
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0170',
           maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
         net.room=room;net.role=role;net.code=room.room;net.connection='connected';
         net.unsubscribe=room.subscribe(roomEvent);
@@ -2902,9 +2913,12 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
       const hitMark=state.impactMarks.findLast(m=>m.targetId===e.id&&m.ageMs<120);
       const hitSquash=hitMark?.06*Math.sin(hitMark.ageMs/120*Math.PI):0;
-      const dashStretch=(e.attack?.phase==='dash'?.08:0)+hitSquash;
+      const hop=e.locomotion,cfg=CONFIG.enemy.bounce;
+      const press=!control&&!e.attack&&(hop.phase==='land'||hop.phase==='compress')
+        ?(hop.phase==='land'?.04*Math.min(1,(state.timeMs-hop.landedMs)/cfg.landMs):.04+.025*(1-clamp((hop.untilMs-state.timeMs)/(cfg.compressMs+(tier-1)*cfg.tierCompressMs),0,1))):0;
+      const dashStretch=(e.attack?.phase==='dash'?.08:0)+hitSquash+press;
       const sx=1+dashStretch-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch,sy=1-dashStretch-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
-      const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash;
+      const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash+r*press;
       const bodyVisual={x:visualX,y:visualY,sx,sy};
       drawEnemyControl(e,pose,bodyVisual);
       drawYarnBall(visualX,visualY,r,tier,pose.angle,hit,false,e.visualSeed,
@@ -2991,8 +3005,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const zoom=cameraSize.w<650?.91:1.06;
       cam.zoom=zoom;
       const halfW=cameraSize.w/(zoom*2),halfH=cameraSize.h/(zoom*2);
-      const targetX=clamp(p.x,halfW-CONFIG.world.wallReveal,CONFIG.world.width-halfW+CONFIG.world.wallReveal);
-      const targetY=clamp(p.y-40,halfH,CONFIG.world.height-halfH);
+      const targetX=halfW>=CONFIG.world.width/2+CONFIG.world.wallReveal?CONFIG.world.width/2:clamp(p.x,halfW-CONFIG.world.wallReveal,CONFIG.world.width-halfW+CONFIG.world.wallReveal);
+      const targetY=halfH>=CONFIG.world.height/2?CONFIG.world.height/2:clamp(p.y-40,halfH,CONFIG.world.height-halfH);
       cam.x+=(targetX-cam.x)*.115;cam.y+=(targetY-cam.y)*.115;
       const shake=cam.shake;
       renderer.setCamera({x:cam.x+Math.sin(metrics.frames*2.43)*shake*.5,y:cam.y+Math.cos(metrics.frames*1.71)*shake*.5,zoom,rotation:0});
@@ -3306,25 +3320,27 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         supportContactCount:[...state.contacts.values()].filter(c=>c.support).length,
         playerContact:(()=>{const c=state.contacts.get(state.player?.body.id);return c?{
           supportId:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight}:null;})(),
+        world:{...CONFIG.world},moveSpeed:state.player?.stats.moveSpeed,
+        spawnPortals:state.spawnHoles.map(h=>({x:h.x,base:h.base,surfaceId:h.surfaceId})),
         mapLayout:state.surfaces.map(s=>({id:s.id,kind:s.kind,x1:s.x1,x2:s.x2,top:s.top})),
         navigationEdges:[...state.navGraph.values()].reduce((n,adj)=>n+adj.length,0)/2,
         enemyDropCount:state.enemies.filter(e=>e.body.plugin.dropThrough).length,
         playerV:state.player?worldVelocity(state.player.body):null,
-        camera:{x:state.camera.x,y:state.camera.y},player:{...state.player?.body.position},fps:Math.round(fps),
+        camera:{x:state.camera.x,y:state.camera.y,zoom:state.camera.zoom},player:{...state.player?.body.position},fps:Math.round(fps),
         physicalBodies:state.engine?Composite.allBodies(state.engine.world).length:0,
         ...metrics}),
       // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
       ...((globalThis.__YARN_MAYHEM_QA===true)?{
         qaWorldPoint:(x,y)=>{const point={};renderer.worldToScreenInto(x,y,point);return point;},
         qaQuietArena:()=>{state.nextSpawnAtMs=1e10;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
-        qaSpawn:(tier,x,y)=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y),
+        qaSpawn:(tier,x,y,extra={})=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y,extra),
         qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
         qaHit:(id,damage)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
           // Exercise the actual projectile-hit path, not a separate QA-only damage policy.
           hitEnemy(e,{x:e.body.position.x,y:e.body.position.y,vx:1000,vy:0,damage,impulse:CONFIG.shot.impulse});return true;},
         qaEnemies:()=>state.enemies.map(e=>({id:e.id,tier:e.tier,hp:e.hp,maxHp:e.maxHp,goal:e.goalKind,
           recentHitUntilMs:e.recentHitUntilMs,killCredit:e.killCredit,splitOrigin:e.splitOrigin,
-          attack:e.attack?{...e.attack}:null,dash:{...e.dash},control:e.control?{...e.control}:null,controlCooldownUntilMs:e.controlCooldownUntilMs,
+          locomotion:{...e.locomotion},grounded:isGrounded(e),bounds:{min:{...e.body.bounds.min},max:{...e.body.bounds.max}},attack:e.attack?{...e.attack}:null,dash:{...e.dash},control:e.control?{...e.control}:null,controlCooldownUntilMs:e.controlCooldownUntilMs,
           vx:e.body.velocity.x,vy:e.body.velocity.y,
           mergeLockedMs:Math.max(0,e.noMergeUntilMs-state.timeMs),splitFlightMs:Math.max(0,e.splitFlightUntilMs-state.timeMs),
           x:e.body.position.x,y:e.body.position.y,radius:e.body.circleRadius,face:TIER_DEFS[e.tier-1].face})),
@@ -3341,7 +3357,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         qaSetPhase:(phase)=>{state.phase=phase;},
         qaNavigation:(fromId,toId)=>{const a=state.surfaces[fromId],b=state.surfaces[toId];return {fromId,toId,next:firstNavStep(a,b)?.id??null};},
         qaContacts:()=>[...state.contacts].map(([id,c])=>({id,support:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight})),
-        qaEnemyNav:(id)=>{const e=state.enemies.find(e=>e.id===id);return e?{intent:routeIntent(e,state.player),navFrom:e.navFrom,hopTarget:e.hopTarget,dropFromTop:e.dropFromTop,velocity:velocity(e.body),standing:standingSurface(e)?.id??null,jumpLeftMs:e.jumpLeftMs}:null;},
+        qaEnemyNav:(id)=>{const e=state.enemies.find(e=>e.id===id);return e?{intent:routeIntent(e,state.player),navFrom:e.navFrom,hopTarget:e.hopTarget,dropFromTop:e.dropFromTop,velocity:velocity(e.body),standing:standingSurface(e)?.id??null,locomotion:{...e.locomotion}}:null;},
         qaClearEnemies:()=>{for(const e of [...state.enemies])removeEnemy(e);},
         qaKillAll:()=>{ // Fixture: seal every portal then sweep EVERY remaining body.
           let remain=Math.max(0,state.stageKillGoal-state.stageKills);
