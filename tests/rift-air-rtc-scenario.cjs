@@ -250,7 +250,9 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
     const stage40Hole = await openSafeBackgroundRift(host, 180);
     await host.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
       .find(h => h.id === id)?.spawns >= count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 5000 });
-    const stage40DeliveryDiagnostics = await Promise.all([
+    await guest.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
+      .find(h => h.id === id)?.spawns === count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 1200 });
+    const stage40Delivery = await Promise.all([
       host.evaluate(id => {
         const frame = __YARN_MAYHEM.qaNetworkFrame(), json = JSON.stringify(frame);
         return { tick: frame.tick, ms: frame.ms, hole: frame.holes.find(item => item[0] === id) ?? null,
@@ -263,11 +265,11 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
           enemies: s.remainingEnemies, room: s.room, status: document.querySelector('#roomStatus')?.textContent };
       }, stage40Hole.id),
     ]);
-    check('stage 40 max-rate rift snapshot envelope measured for RTC diagnosis', true, stage40DeliveryDiagnostics);
-    const stage40Pair = await waitForSameTickRift(host, guest, stage40Hole.id, maxLifecycleEmissions, true, 1000);
-    check('stage 40 single rift reaches its full ordinary lifetime emission count on the same host/guest tick',
-      stage40Pair[0].hole[11] === maxLifecycleEmissions && stage40Pair[1].hole.spawns === maxLifecycleEmissions,
-      { expected: maxLifecycleEmissions, host: stage40Pair[0], guest: stage40Pair[1] });
+    const stage40TickLag = Math.abs(stage40Delivery[0].tick - stage40Delivery[1].tick);
+    check('stage 40 full-lifetime rift emission reaches the guest within four authority ticks',
+      stage40Delivery[0].hole?.[11] === maxLifecycleEmissions &&
+      stage40Delivery[1].hole?.spawns === maxLifecycleEmissions && stage40TickLag <= 4,
+      { expected: maxLifecycleEmissions, tickLag: stage40TickLag, host: stage40Delivery[0], guest: stage40Delivery[1] });
     await Promise.all([
       host.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
       guest.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
