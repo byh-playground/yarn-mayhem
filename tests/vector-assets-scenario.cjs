@@ -106,6 +106,21 @@ async function runScene(browser, server, tag, mobile) {
     const q = __YARN_MAYHEM;
     return { fps: q.snapshot().fps, viewport: { width: innerWidth, height: innerHeight }, stats: q.qaVectorStats?.() ?? null };
   });
+  const normalScale = await page.evaluate(() => {
+    const q = __YARN_MAYHEM;
+    q.qaClearEnemies();
+    q.qaClearRifts();
+    const player = q.qaPlayers()[0];
+    const y = q.snapshot().world.groundY - 38;
+    const enemies = [q.qaSpawn(1, player.x + 150, y), q.qaSpawn(1, player.x + 245, y)];
+    for (const enemy of enemies) q.qaSetEnemyGoal(enemy.id, 'none');
+    q.qaSetTime(120);
+    return { player, enemies: q.qaEnemies(), timeMs: q.qaTimeMs(), mapSeed: q.snapshot().mapSeed };
+  });
+  await page.waitForTimeout(180);
+  await page.evaluate(() => __YARN_MAYHEM.qaRender());
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.screenshot({ path: path.join(outputDir, `${tag}-normal-scale-0206.png`) });
   if (measurements.stats?.assets?.some(asset => asset.name === 'yarnProgress')) {
     const previousPulseDraws = measurements.stats.totalDrawsByAsset.riftPulse;
     const pulse = await page.evaluate(() => {
@@ -137,7 +152,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress-0205.png`) });
   }
   await context.close();
-  return { setup, measurements };
+  return { setup, normalScale, measurements };
 }
 
 (async () => {
@@ -156,12 +171,15 @@ async function runScene(browser, server, tag, mobile) {
       const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
       const yarnSurface = stats?.yarnSurface ?? {};
-      check(`${tag}: GameKit YarnSurfaceRenderer draws the authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 2 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === false && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
+      check(`${tag}: GameKit YarnSurfaceRenderer draws the authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 2 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === true && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
       check(`${tag}: visible high-tier enemy is present`, current.setup.enemies.some(enemy => enemy.tier === 10), current.setup);
       if (baseline) {
         check(`${tag}: baseline and candidate use the same map seed and display time`,
           current.setup.mapSeed === baseline.setup.mapSeed && current.setup.timeMs === baseline.setup.timeMs && current.setup.timeMs === 120,
           { baseline: { mapSeed: baseline.setup.mapSeed, timeMs: baseline.setup.timeMs }, current: { mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs } });
+        check(`${tag}: normal-scale baseline and candidate use the same map seed and display time`,
+          current.normalScale.mapSeed === baseline.normalScale.mapSeed && current.normalScale.timeMs === baseline.normalScale.timeMs && current.normalScale.timeMs === 120,
+          { baseline: { mapSeed: baseline.normalScale.mapSeed, timeMs: baseline.normalScale.timeMs, enemies: baseline.normalScale.enemies.length }, current: { mapSeed: current.normalScale.mapSeed, timeMs: current.normalScale.timeMs, enemies: current.normalScale.enemies.length } });
       }
       check(`${tag}: all six retained character, prop and UI SVG meshes load`,
         ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
@@ -199,9 +217,11 @@ async function runScene(browser, server, tag, mobile) {
         evidence: {
           baselineScreenshot: baseline ? `${tag}-baseline-0204.png` : null,
           surfaceScreenshot: `${tag}-runtime-0205.png`,
+          normalScaleScreenshot: `${tag}-runtime-normal-scale-0206.png`,
           pulseScreenshot: `${tag}-runtime-0205-rift-pulse-0205.png`,
           progressScreenshot: `${tag}-runtime-0205-revive-progress-0205.png`,
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
+          normalScale: { mapSeed: current.normalScale.mapSeed, timeMs: current.normalScale.timeMs, actorCount: current.normalScale.enemies.length + 1 },
           baselineFps: baseline?.measurements.fps ?? null, surfaceFps: current.measurements.fps,
           renderer, yarnSurface, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
           actorDraws: current.measurements.progress?.actorDraws ?? stats.actorDraws,
