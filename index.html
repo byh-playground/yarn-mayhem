@@ -217,7 +217,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
    <div id="dashHud" class="glass" hidden><div class="dash-label">DASH ENERGY</div><div id="dashOrbs"></div></div>
   <div id="stageToast"></div>
   <div id="deathNotice" hidden role="status" aria-live="polite"><strong>전투 불능</strong><small id="deathNoticeText">동료를 관전하는 중…</small></div>
- <div id="toastLayer"></div><div class="version-label">v0.20.1</div>
+ <div id="toastLayer"></div><div class="version-label">v0.20.3</div>
   <div id="hint" hidden>A/D 이동 · W/Space 점프 · S/↓ 플랫폼 통과 · Shift 대시 · 클릭 바늘 / 유지 연사</div>
   <div id="mobile" data-gamekit-ui>
     <div id="stick" role="button" aria-label="이동 방향 패드"><div id="stickKnob"></div></div>
@@ -233,7 +233,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     <div id="modeChoices" class="menu-choices" hidden><button id="soloStart" class="menu-choice">싱글 플레이<small>혼자 새로운 모험 시작</small></button><button id="multiOpen" class="menu-choice">멀티 플레이<small>방 코드로 최대 4명이 함께</small></button></div>
     <div id="roomControls" hidden data-gamekit-ui><label for="roomCode" style="grid-column:1/-1;text-align:left;font-size:13px">방 코드 · 만들 때는 비워도 됩니다</label><input id="roomCode" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4자리 방 코드" autocomplete="off"><button id="hostRoom">방 만들기</button><button id="joinRoom">방 참가</button><div id="roomStatus" role="status" aria-live="polite">방을 만들거나 코드를 입력해 참가하세요.</div></div>
     <div id="helpContent" hidden><nav id="helpTabs" aria-label="도움말 주제"><button type="button" data-help="goal" aria-pressed="true">목표</button><button type="button" data-help="move" aria-pressed="false">이동</button><button type="button" data-help="battle" aria-pressed="false">전투</button><button type="button" data-help="growth" aria-pressed="false">성장</button></nav>
-    <section data-help-page="goal"><h3>실구멍을 봉쇄하세요</h3><p>적 처치로 실구멍을 막습니다. 모든 구멍을 막고 남은 적까지 처치하면 다음 스테이지로 이동합니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p></section>
+    <section data-help-page="goal"><h3>실구멍을 봉쇄하세요</h3><p>적을 처치해 화면의 목표를 채우세요. 목표를 달성하면 새 실구멍은 더 이상 나타나지 않고, 이미 열린 구멍은 저절로 닫힙니다. 열린 구멍이 모두 닫히고 적이 남지 않으면 다음 스테이지로 넘어갑니다.</p><p>같은 등급의 적은 합쳐지고, 2등급 이상은 죽으면 둘로 갈라집니다.</p></section>
     <section data-help-page="move" hidden><h3>이동과 회피</h3><ul><li>이동: A·D / 방향키 / 화면 패드</li><li>점프: W·Space / ↑ 버튼</li><li>발판 내려가기: S·↓ 유지 / 패드 아래</li><li>대시: Shift / 대시 버튼</li></ul></section>
     <section data-help-page="battle" hidden><h3>바늘과 적의 돌진</h3><ul><li>클릭·터치로 바늘 발사, 유지하면 연사</li><li>적의 주황색 충전 예고 뒤 대시 접촉은 피해</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul></section>
     <section data-help-page="growth" hidden><h3>투자는 다음 모험에도 유지</h3><p>바늘: 피해 → 빠른 연사 → 분열 메아리<br>제어: 벽·발판 아래 고정 → 3체 튕겨꿰기 → 바늘 재명중 회수절단</p><p>기동·생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></section></div>
@@ -932,7 +932,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       Events.on(state.engine,'collisionActive',onMatterContact);
       // New rifts use the configured map-wide cadence and live for three seconds; kill goal stops further creation.
       if(!preview){
-        stageToast('STAGE '+String(stage).padStart(2,'0'),state.mapStyle+' · 처치 목표 '+state.stageKillGoal+' · 새 균열은 2초마다 나타나 3초 뒤 닫힙니다',1400);
+        stageToast('STAGE '+String(stage).padStart(2,'0'),'실구멍을 봉쇄하세요',1400);
       }
       updateHUD(true);
     }
@@ -3049,8 +3049,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(!force && state.tick===lastHudFrame)return;
       lastHudFrame=state.tick;
       const p=state.player,stats=p.stats;
-      const holeInterval=perHoleSpawnIntervalMs();
-      const holeCadence=holeInterval<1000?Math.round(holeInterval)+'ms':(holeInterval/1000).toFixed(1)+'초';
       $('stageTag').textContent='STAGE '+String(state.stage).padStart(2,'0');
       $('levelTag').textContent='LV. '+state.level;
       $('hpBar').style.width=clamp(p.hp/p.maxHp*100,0,100)+'%';
@@ -3059,8 +3057,8 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       $('xpNumber').textContent=state.xp+' / '+state.xpGoal;
       $('leftEnemies').textContent='처치 '+state.stageKills+'/'+state.stageKillGoal+' · 남은 적 '+state.enemies.length;
       $('mergeCount').textContent=state.stageKills>=state.stageKillGoal?
-        '목표 도달 · 남은 균열 '+state.spawnHoles.length+' · 균열당 '+holeCadence:
-        '새 균열 '+Math.max(0,(state.nextRiftAtMs-state.timeMs)/1000).toFixed(1)+'초 · 균열당 '+holeCadence;
+        (state.spawnHoles.length?'목표 달성 · 열린 실구멍 '+state.spawnHoles.length+'개가 닫히는 중':'목표 달성 · 남은 적 '+state.enemies.length):
+        '열린 실구멍 '+state.spawnHoles.length+'개 · 적을 처치해 목표를 채우세요';
       const orbRoot=$('dashOrbs');
       if(orbRoot.children.length!==stats.dashMax){
         orbRoot.replaceChildren();for(let i=0;i<stats.dashMax;i++){const e=document.createElement('span');e.className='dash-orb';orbRoot.append(e);}
