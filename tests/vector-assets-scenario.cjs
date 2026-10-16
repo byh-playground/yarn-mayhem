@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { createGameServer } = require('./game-server.cjs');
 
-const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0201');
+const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0204');
 fs.mkdirSync(outputDir, { recursive: true });
 const baselineHtml = process.env.YARN_TEST_BASELINE_HTML ? path.resolve(process.env.YARN_TEST_BASELINE_HTML) : null;
 const servers = [createGameServer()];
@@ -131,7 +131,7 @@ async function runScene(browser, server, tag, mobile) {
     report.browser = browser.version();
     for (const mobile of [false, true]) {
       const tag = mobile ? 'landscape-touch' : 'edge-desktop';
-      const current = await runScene(browser, servers[0], `${tag}-svg-0201`, mobile);
+      const current = await runScene(browser, servers[0], `${tag}-runtime-0204`, mobile);
       const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0200`, mobile) : null;
       const stats = current.measurements.stats;
       const assets = stats?.assets ?? [];
@@ -142,8 +142,8 @@ async function runScene(browser, server, tag, mobile) {
           current.setup.mapSeed === baseline.setup.mapSeed && current.setup.timeMs === baseline.setup.timeMs && current.setup.timeMs === 120,
           { baseline: { mapSeed: baseline.setup.mapSeed, timeMs: baseline.setup.timeMs }, current: { mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs } });
       }
-      check(`${tag}: all seven retained SVG meshes load`,
-        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnEffects','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
+      check(`${tag}: all six retained character, prop and UI SVG meshes load`,
+        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
           Number(renderer.instances) > 0 && Number(renderer.draws) > 0,
         { assets, renderer });
       check(`${tag}: yarn body, face and needle meshes draw in the play scene`,
@@ -176,9 +176,9 @@ async function runScene(browser, server, tag, mobile) {
         status: 'CAPTURED',
         evidence: {
           baselineScreenshot: baseline ? `${tag}-baseline-0200.png` : null,
-          svgScreenshot: `${tag}-svg-0201.png`,
-          pulseScreenshot: `${tag}-svg-0201-rift-pulse-0201.png`,
-          progressScreenshot: `${tag}-svg-0201-revive-progress-0201.png`,
+          svgScreenshot: `${tag}-runtime-0204.png`,
+          pulseScreenshot: `${tag}-runtime-0204-rift-pulse-0201.png`,
+          progressScreenshot: `${tag}-runtime-0204-revive-progress-0201.png`,
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
           baselineFps: baseline?.measurements.fps ?? null, svgFps: current.measurements.fps,
           renderer, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,

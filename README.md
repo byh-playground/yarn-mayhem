@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.3**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.4**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.20.4 - Restore yarn winding and runtime effects
+
+- Restores the pre-migration yarn outline, six/five/four contour windings, nine short fibers, per-tier marker count and live squash/stretch.
+- Returns path-dependent needle trails, collision impacts, split and absorption particles to the shared Renderer2D path while keeping character and prop SVG art and authored clips.
+- Keeps host-owned rift positions, timing, tier and concurrency rules unchanged.
 
 ## 0.20.3 - Restore original game presentation
 
@@ -154,7 +160,7 @@ npm test
 
 이전 버전의 검증·환경 제한 기록은 [검증 이력](docs/verification.md)에 보관합니다.
 
-PR CI는 문법과 배포 산출물을 검사합니다. 실제 RTC 검증은 로컬 E2E이며 CI 성공만으로 대신하지 않습니다. main 병합 뒤 Actions Pages가 동일 HTML과 [빌드 정보](https://byh-playground.github.io/yarn-mayhem/build.json)를 배포합니다.
+Windows Edge PR CI는 0.20.0 기준본과 같은 시드·시각의 PC 및 가로 터치 화면을 비교하고, PC/가로 모바일 전투·모바일 화면·실제 2인 RTC 흐름을 실행합니다. 브라우저 보고서와 스크린샷은 Actions 산출물로 남깁니다. main 병합 뒤 기존 Actions Pages가 같은 커밋의 HTML과 [빌드 정보](https://byh-playground.github.io/yarn-mayhem/build.json)를 배포합니다.
 
 ## 출처와 변경
 

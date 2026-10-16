@@ -8,7 +8,7 @@ import { VECTOR_ASSET_COMPILER_VERSION, VECTOR_ASSET_SCHEMA_VERSION } from './ve
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = join(root, 'assets', 'active-theme');
 const outputDir = join(root, '_site', 'assets', 'active-theme');
-const expectedFiles = ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.svg', 'yarn-effects.svg', 'yarn-face.svg', 'yarn-progress.svg'];
+const expectedFiles = ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.svg',  'yarn-face.svg', 'yarn-progress.svg'];
 const files = (await readdir(sourceDir)).filter(name => name.endsWith('.svg')).sort();
 if (files.join('\n') !== expectedFiles.join('\n')) throw new Error('Active theme SVG inventory differs from the verified set');
 
