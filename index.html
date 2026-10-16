@@ -251,34 +251,39 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@e9af07d30125b5ffade5aff7b46d266f723eb5f7/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@95d8676e3eaaa9f80aeed2e3361e258381511c77/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const [{ Renderer2D, WebGLDevice, MeshRenderer, YarnSurfaceRenderer }, { createVectorAsset },
-      { ACTIVE_THEME_ASSETS }, { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
+    const [{ Renderer2D, WebGLDevice, MeshRenderer }, { createVectorAsset }, { createVectorAssetLoader },
+      { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
       { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
       import(GAMEKIT_DIST + 'vector-assets.js'),
-      import(new URL('assets/active-theme/compiled-assets.mjs', document.baseURI).href),
+      import(GAMEKIT_DIST + 'vector-assets-loader.js'),
       import(GAMEKIT_DIST + 'input.js'),
       import(GAMEKIT_DIST + 'simloop.js'),
       import(GAMEKIT_DIST + 'audio.js'),
       import(GAMEKIT_DIST + 'transport.js'),
       import(GAMEKIT_DIST + 'interpolation.js'),
     ]);
+    const sourceManifestResponse = await fetch(new URL('assets/active-theme/manifest.json', document.baseURI));
+    if (!sourceManifestResponse.ok) throw new Error('Authored SVG manifest failed to load: ' + sourceManifestResponse.status);
+    const sourceManifest = await sourceManifestResponse.json();
+    const loader = createVectorAssetLoader({ maxEntries: 8 });
+    const loadedAssets = await Promise.all(sourceManifest.assets.map(async item => [item.key, await loader.load(
+      new URL(item.path, document.baseURI).href,
+      { sourcePath: item.path, expectedSha256: item.sha256, maxBytes: 512 * 1024, curveSegments: 16, includeSourcePaths: true },
+    )]));
+    const ACTIVE_THEME_ASSETS = Object.freeze(Object.fromEntries(loadedAssets));
     const Matter = globalThis.Matter;
     const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
     const canvas = $('gl');
     const renderer = new Renderer2D(canvas, { batchVertices: 12288, antialias: true });
     const device = new WebGLDevice(canvas, { alpha: true, antialias: true, depth: false, stencil: false });
     const meshRenderer = new MeshRenderer(device, { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 });
-    const yarnSurfaceRenderer = new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 });
-    const yarnSurfaceGeometry = ACTIVE_THEME_ASSETS.yarnBody.yarnSurface;
+    const yarnShaderSurfaces = ACTIVE_THEME_ASSETS.yarnBody.geometry.shaderSurfaces ?? [];
     const yarnSurfaceStyle = ACTIVE_THEME_ASSETS.yarnBody.metadata.styles.find(style => style.kind === 'yarn' && style.target === 'yarn-shell');
-    if (!yarnSurfaceGeometry || !yarnSurfaceStyle) throw new Error('Compiled yarn surface geometry or SVG style is missing');
-    const yarnSurface = yarnSurfaceRenderer.createSurface({ ...yarnSurfaceGeometry, style: { ...yarnSurfaceStyle, pattern: true, fiber: true } });
-    const yarnSurfaceBare = yarnSurfaceRenderer.createSurface({ ...yarnSurfaceGeometry, style: { ...yarnSurfaceStyle, fiber: false } });
-    let yarnSurfaceDrawCount = 0;
+    if (yarnShaderSurfaces.length !== 1 || yarnSurfaceStyle?.backend !== 'shader') throw new Error('Authored yarn SVG did not compile to one GameKit shader surface');
     const vectorAssets = Object.freeze({
       yarnBody:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnBody),
       yarnFace:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnFace),
@@ -451,7 +456,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
 
     let hintTimeout=0;
     const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
-    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'e9af07d30125b5ffade5aff7b46d266f723eb5f7',gamekitVersion:'0.10.0',matterVersion:Matter.version||'0.20.0'};
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'95d8676e3eaaa9f80aeed2e3361e258381511c77',gamekitVersion:'0.10.4',matterVersion:Matter.version||'0.20.0'};
     // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
     // The collision normal prevents catching the platform's corner as a side wall.
     const nativeDetectorCollisions = Matter.Detector.collisions;
@@ -2915,19 +2920,10 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const player=vectorPlayers.yarnBody;
       player.setExpression(expression);player.play(clip,startedAtMs).seek(state.timeMs);
       setVectorPose(player,'shell',{rotation:angle});
-      setVectorPose(player,'shell-base',{opacity:0});
+      setVectorPose(player,'shell-base',{rotation:angle+seedAngle,opacity:1});
       for(let i=1;i<=6;i++)setVectorPose(player,`winding-${i}`,{rotation:seedAngle});
       const world=vectorMatrixFor(x,y,radius/120*scaleX,radius/120*scaleY,0,120,120);
-      const root=player.getPartPose('root'),fallen=expression==='fallen';
-      const surfaceWorld=multiplyVectorMatrix(
-        vectorMatrixFor(x,y,radius/120*scaleX,radius/120*scaleY,angle+seedAngle,120,120),root.transform);
-      const outline=expression==='player'?PALETTE.playerOutline:PALETTE.cream;
-      if(!fallen)renderer.ellipse(x,y,(radius+2)*scaleX,(radius+2)*scaleY,rgbScale(outline,.82,.96),18);
-      renderer.flush();meshRenderer.flush();
-      yarnSurfaceRenderer.drawSurface(fallen?yarnSurfaceBare:yarnSurface,{
-        projection:renderer.projection,transform:surfaceWorld,color,alpha:root.opacity??1,timeMs:state.timeMs,
-      });
-      yarnSurfaceDrawCount++;
+      const root=player.getPartPose('root');
       drawVector('yarnBody',{expression,clip,startedAtMs,timeMs:state.timeMs,matrix:world,color,actorKey});
       return multiplyVectorMatrix(world,root.transform);
     }
@@ -3474,13 +3470,13 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
         qaRender:()=>renderFrame(),
         qaStopSimulation:()=>loop?.stop(),
         qaStartSimulation:()=>loop?.start(),
-        qaVectorStats:()=>({renderer:meshRenderer.stats(),yarnSurface:{...yarnSurfaceRenderer.stats(),fiberEnabled:yarnSurface.style.fiber===true,patternEnabled:yarnSurface.style.pattern!==false,fillVertices:yarnSurfaceGeometry.fillVertices.length/6,outlinePoints:yarnSurfaceGeometry.outline.length/2,draws:yarnSurfaceDrawCount},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}])),assets:Object.entries(vectorAssets).map(([name,asset])=>({
+        qaVectorStats:()=>({renderer:meshRenderer.stats(),yarnSurface:{state:'ready',surfaceCount:yarnShaderSurfaces.length,fiberEnabled:yarnSurfaceStyle.fiber===true,patternEnabled:yarnSurfaceStyle.pattern!==false,fillVertices:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.fillVertices.length/6,0),outlinePoints:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.outline.length/2,0),draws:vectorDrawTotals.yarnBody},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}])),assets:Object.entries(vectorAssets).map(([name,asset])=>({
           name,bytes:asset.mesh.byteLength,vertices:asset.mesh.count,parts:asset.mesh.partCount,
         }))}),
       }:{}),
     };
     window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
-      yarnSurfaceRenderer.dispose();for(const asset of Object.values(vectorAssets))asset.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
+      for(const asset of Object.values(vectorAssets))asset.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
       Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
   } catch(error) {showFatal(error);}
   function showFatal(error) {

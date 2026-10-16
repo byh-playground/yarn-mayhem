@@ -1,6 +1,6 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.20.5",
+  "version": "0.20.6",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
@@ -24,8 +24,6 @@
     "test:vector-assets": "node tests/vector-assets-scenario.cjs"
   },
   "devDependencies": {
-    "@xmldom/xmldom": "0.9.12",
-    "playwright": "1.63.0",
-    "three": "0.186.1"
+    "playwright": "1.63.0"
   }
 }
