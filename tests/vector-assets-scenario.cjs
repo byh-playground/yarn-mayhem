@@ -21,7 +21,7 @@ if (baselineHtml && fs.existsSync(baselineHtml)) {
     if (!html.includes('qaRender:'))
       html = html.replace(stopHook, 'qaRender:()=>renderFrame(),'+stopHook);
   }
-  baselineTestHtml = path.join(outputDir, 'baseline-0.20.0.qa.html');
+  baselineTestHtml = path.join(outputDir, 'baseline-0.20.4.qa.html');
   fs.writeFileSync(baselineTestHtml, html);
   const baselinePublicRoot = process.env.YARN_TEST_BASELINE_ASSET_ROOT
     ? path.resolve(process.env.YARN_TEST_BASELINE_ASSET_ROOT)
@@ -121,7 +121,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.evaluate(() => __YARN_MAYHEM.qaRender());
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().totalDrawsByAsset.riftPulse > previous,
       previousPulseDraws, { timeout: 5000 });
-    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse-0201.png`) });
+    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse-0205.png`) });
     measurements.riftPulse = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
     await page.evaluate(() => {
       const q = __YARN_MAYHEM;
@@ -134,7 +134,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().drawsByAsset.yarnProgress > previous,
       measurements.riftPulse.drawsByAsset.yarnProgress, { timeout: 5000 });
     measurements.progress = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
-    await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress-0201.png`) });
+    await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress-0205.png`) });
   }
   await context.close();
   return { setup, measurements };
@@ -150,14 +150,16 @@ async function runScene(browser, server, tag, mobile) {
     report.browser = browser.version();
     for (const mobile of [false, true]) {
       const tag = mobile ? 'landscape-touch' : 'edge-desktop';
-      const current = await runScene(browser, servers[0], `${tag}-runtime-0204`, mobile);
+      const current = await runScene(browser, servers[0], `${tag}-runtime-0205`, mobile);
       const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0200`, mobile) : null;
       const stats = current.measurements.stats;
       const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
+      const yarnSurface = stats?.yarnSurface ?? {};
+      check(`${tag}: GameKit YarnSurfaceRenderer draws the authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 2 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === false && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
       check(`${tag}: visible high-tier enemy is present`, current.setup.enemies.some(enemy => enemy.tier === 10), current.setup);
       if (baseline) {
-        check(`${tag}: baseline and migrated screenshots use the same map seed and display time`,
+        check(`${tag}: baseline and candidate use the same map seed and display time`,
           current.setup.mapSeed === baseline.setup.mapSeed && current.setup.timeMs === baseline.setup.timeMs && current.setup.timeMs === 120,
           { baseline: { mapSeed: baseline.setup.mapSeed, timeMs: baseline.setup.timeMs }, current: { mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs } });
       }
@@ -187,20 +189,21 @@ async function runScene(browser, server, tag, mobile) {
       check(`${tag}: revive progress is drawn from its SVG asset`,
         current.measurements.progress?.drawsByAsset.yarnProgress > 0,
         { drawsByAsset: current.measurements.progress?.drawsByAsset });
-      check(`${tag}: retained SVG geometry stays below 4 MiB`,
-        assets.reduce((sum, asset) => sum + asset.bytes, 0) < 4 * 1024 * 1024,
-        { bytes: assets.reduce((sum, asset) => sum + asset.bytes, 0), assets });
+      const retainedBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0) + Number(yarnSurface.retainedBytes ?? 0);
+      check(`${tag}: retained vector and yarn surface geometry stays below 4 MiB`,
+        retainedBytes < 4 * 1024 * 1024,
+        { bytes: retainedBytes, assets, yarnSurface });
       report.comparisons.push({
-        name: baseline ? `${tag}: baseline versus SVG visual/performance capture` : `${tag}: SVG visual/performance capture`,
+        name: baseline ? `${tag}: v0.20.4 baseline versus yarn surface capture` : `${tag}: yarn surface visual/performance capture`,
         status: 'CAPTURED',
         evidence: {
-          baselineScreenshot: baseline ? `${tag}-baseline-0200.png` : null,
-          svgScreenshot: `${tag}-runtime-0204.png`,
-          pulseScreenshot: `${tag}-runtime-0204-rift-pulse-0201.png`,
-          progressScreenshot: `${tag}-runtime-0204-revive-progress-0201.png`,
+          baselineScreenshot: baseline ? `${tag}-baseline-0204.png` : null,
+          surfaceScreenshot: `${tag}-runtime-0205.png`,
+          pulseScreenshot: `${tag}-runtime-0205-rift-pulse-0205.png`,
+          progressScreenshot: `${tag}-runtime-0205-revive-progress-0205.png`,
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
-          baselineFps: baseline?.measurements.fps ?? null, svgFps: current.measurements.fps,
-          renderer, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
+          baselineFps: baseline?.measurements.fps ?? null, surfaceFps: current.measurements.fps,
+          renderer, yarnSurface, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
           actorDraws: current.measurements.progress?.actorDraws ?? stats.actorDraws,
         },
       });

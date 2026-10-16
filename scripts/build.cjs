@@ -21,8 +21,15 @@ for (const [relative, expected] of Object.entries(vectorPin.files)) {
   const actual = crypto.createHash('sha256').update(fs.readFileSync(relative)).digest('hex');
   if (actual !== expected.sha256) throw new Error('Official GameKit compiler source changed: ' + relative);
 }
-if (vectorPin.gamekitVersion !== gamekit.version || vectorPin.sourceCommit !== gamekit.sourceCommit) {
-  throw new Error('Vector compiler provenance differs from the pinned GameKit source');
+if (vectorPin.gamekitVersion !== gamekit.vectorCompiler?.gamekitVersion || vectorPin.sourceCommit !== gamekit.vectorCompiler?.sourceCommit) {
+  throw new Error('Vector compiler provenance differs from its separate GameKit compiler pin');
+}
+if (gamekit.officialManifestSha256 !== 'e01c8c0dd85ced758cae7aec47835934f8fece404c567fb5fde18775b43eca28'
+    || gamekit.modules.find(module => module.file === 'rendering.js')?.sha256 !== 'fd254f4f8b91ab74dae294abbe3f2d76736648e797ccc370abf35aec8ea41f94') {
+  throw new Error('Official GameKit 0.10.0 rendering manifest pin changed');
+}
+if (!htmlText.includes('YarnSurfaceRenderer') || !htmlText.includes('yarnSurfaceRenderer.drawSurface')) {
+  throw new Error('Official YarnSurfaceRenderer is not connected to the game');
 }
 
 cp.execFileSync(process.execPath, ['scripts/compile-vector-assets.mjs'], { stdio: 'inherit' });
@@ -31,7 +38,7 @@ for (const name of ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.
   fs.copyFileSync(path.join('assets', 'active-theme', name), path.join(outputDir, name));
 }
 const compiledAssets = JSON.parse(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8'));
-if (compiledAssets.compilerVersion !== vectorPin.compilerVersion || compiledAssets.sourceCommit !== gamekit.sourceCommit) {
+if (compiledAssets.compilerVersion !== vectorPin.compilerVersion || compiledAssets.sourceCommit !== vectorPin.sourceCommit) {
   throw new Error('Generated vector asset report does not match the official compiler pin');
 }
 

@@ -1,7 +1,11 @@
 {
-  "version": "0.6.1",
-  "distCommit": "a92e8e1e94302e903760bfe319b5b9380454e202",
-  "sourceCommit": "4150109c7732a734e155b6d1e2cd83c13c1f1d0c",
+  "version": "0.10.0",
+  "distCommit": "e9af07d30125b5ffade5aff7b46d266f723eb5f7",
+  "officialManifestSha256": "e01c8c0dd85ced758cae7aec47835934f8fece404c567fb5fde18775b43eca28",
+  "vectorCompiler": {
+    "gamekitVersion": "0.6.1",
+    "sourceCommit": "4150109c7732a734e155b6d1e2cd83c13c1f1d0c"
+  },
   "modules": [
     {
       "file": "interpolation.js",
@@ -9,11 +13,11 @@
     },
     {
       "file": "rendering.js",
-      "sha256": "c359b07969c67474bcdf6b1df481ec7a801029d9ba235bf928558c3b5933b4c2"
+      "sha256": "fd254f4f8b91ab74dae294abbe3f2d76736648e797ccc370abf35aec8ea41f94"
     },
     {
       "file": "vector-assets.js",
-      "sha256": "464c6fdb7d79a961d103e256158b98a216042c733bd7634ab04073312a1e5c26"
+      "sha256": "a4a0db5cba7ce4d7ad9cd4d411c72c6e3bfaeabcfebdaad5884ccd693bf2fda3"
     },
     {
       "file": "input.js",
