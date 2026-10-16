@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.20.1</title>
+<title>털실 대소동 / Yarn Mayhem 0.20.4</title>
 <style>
 :root{color-scheme:dark;--cream:#f4eedb;--muted:#a6c3c0;--mint:#b8efcb;--gold:#f9db9a;--stroke:#74918c;--panel:#173039e9;--panel2:#28414aa8;--red:#f8a7a9}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -278,7 +278,6 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       needle:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.needle),
       riftHole:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftHole),
       riftPulse:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftPulse),
-      yarnEffects:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnEffects),
       yarnProgress:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnProgress),
     });
     const vectorPlayers = Object.freeze(Object.fromEntries(Object.entries(vectorAssets).map(([name,asset])=>[name,asset.createPlayer()])));
@@ -1310,11 +1309,16 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(!step&&gain>.03)sound('hit',.8*gain);
     }
     function drawImpactMarks(){
-      const now=state.timeMs;
       for(const m of state.impactMarks){
         if(!worldVisible(m.x,m.y,70))continue;
-        drawVector('yarnEffects',{expression:'impact',clip:'impact',startedAtMs:now-m.ageMs,timeMs:now,x:m.x,y:m.y,
-          scaleX:m.radius/132,scaleY:m.radius/132,originX:150,originY:150,color:m.step?CHAIN_COLORS[m.step-1]:PALETTE.gold});
+        const t=m.ageMs/CONFIG.feedback.impactMs,fade=1-t,c=m.step?CHAIN_COLORS[m.step-1]:PALETTE.gold;
+        const turn=Math.atan2(m.dy||0,m.dx||1),reach=m.radius*(.35+.65*t);
+        for(let j=0;j<4;j++){
+          const a=turn+j*Math.PI/2,dx=Math.cos(a),dy=Math.sin(a);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,5*fade,[.08,.20,.22,.9*fade]);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,2.4*fade,[c[0],c[1],c[2],fade]);
+        }
+        if(t<.4)renderer.ellipse(m.x,m.y,4*(1-t),4*(1-t),[1,.97,.8,fade],8);
       }
     }
     // Presentation only: authority and guests call this once per combat event.
@@ -2680,12 +2684,12 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       {body:[.32,.37,.51,1],hem:[.53,.61,.85,.82],detail:[.83,.89,1,.29]},
     ]);
     function drawNeedleTrail(path,alpha,step=1){
-      const age=Math.max(0,(1-alpha)*CONFIG.feedback.trailMs),color=CHAIN_COLORS[clamp(step-1,0,2)];
+      const c=CHAIN_COLORS[clamp(step-1,0,2)];
       for(let i=1;i<path.length;i++){
-        const a=path[i-1],b=path[i],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
-        if(length<.1)continue;
-        drawVector('yarnEffects',{expression:'trail',clip:'trail',startedAtMs:state.timeMs-age,x:(a[0]+b[0])*.5,y:(a[1]+b[1])*.5,
-          scaleX:length/290,scaleY:.9,rotation:Math.atan2(dy,dx),originX:150,originY:150,alpha,color});
+        const a=path[i-1],b=path[i];
+        if(Math.hypot(b[0]-a[0],b[1]-a[1])<.1)continue;
+        renderer.line(a[0],a[1],b[0],b[1],5,[.06,.19,.21,alpha*.85]);
+        renderer.line(a[0],a[1],b[0],b[1],2.2,[c[0],c[1],c[2],alpha]);
       }
     }
     function drawBackdrop() {
@@ -2779,73 +2783,110 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }
     }
     function drawSpawnHoleFronts(){
-      const now=state.timeMs;
+      const cfg=CONFIG.enemy.spawn,paint=MAP_SURFACE_PALETTES[(state.stage-1)%MAP_SURFACE_PALETTES.length],now=state.timeMs;
       for(const hole of state.spawnHoles){
         if(hole.surfaceKind!=='background'||!hole.spawns)continue;
         const since=now-hole.lastPopAtMs;if(since<0||since>=180)continue;
         const phase=riftPhase(hole,now),progress=phase==='closing'?
-          clamp((hole.expiresAtMs-now)/CONFIG.enemy.spawn.closeMs,0,1):1;
+          clamp((hole.expiresAtMs-now)/cfg.closeMs,0,1):1;
         const open=progress*progress*(3-2*progress),rx=8+14*open,ry=14+24*Math.sqrt(open);
-        const x=hole.x,y=hole.y,alpha=.56*(1-since/180);
-        drawVector('yarnEffects',{expression:'lips',clip:'lips',startedAtMs:hole.lastPopAtMs,timeMs:now,x,y,
-          scaleX:rx/150,scaleY:ry/150,originX:150,originY:150,alpha});
+        const alpha=.56*(1-since/180),x=hole.x,y=hole.y;
+        // The two short lower lips sit over the new body's feet for a few frames.
+        for(const side of [-1,1]){
+          renderer.line(x+side*rx*.96,y+ry*.04,x+side*rx*.61,y+ry*.30,1.7,
+            [paint.hem[0],paint.hem[1],paint.hem[2],alpha]);
+          renderer.line(x+side*rx*.61,y+ry*.30,x+side*rx*.34,y+ry*.42,1.3,
+            [paint.detail[0],paint.detail[1],paint.detail[2],alpha*.78]);
+        }
       }
     }
-
     function drawAbsorptions() {
-      const now=state.timeMs;
       for(const a of state.absorptions){
         if(!worldVisible(a.x,a.y,110))continue;
-        const color=effectTint(CONFIG.colors['t'+a.fromTier]);
-        drawVector('yarnEffects',{expression:'absorb',clip:'absorb',startedAtMs:now-a.ageMs,timeMs:now,x:a.x,y:a.y,
-          scaleX:a.r/150,scaleY:a.r/150,originX:150,originY:150,alpha:1,color});
+        const p=clamp(a.ageMs/a.durationMs,0,1),s=1-Math.pow(1-p,3);
+        const color=CONFIG.colors['t'+a.fromTier],alpha=(1-p)*.68;
+        for(const origin of [{x:a.ax,y:a.ay},{x:a.bx,y:a.by}]){
+          const cx=origin.x+(a.x-origin.x)*s,cy=origin.y+(a.y-origin.y)*s;
+          renderer.ellipse(cx,cy,Math.max(1,a.r*(1-p)*.9),Math.max(1,a.r*(1-p)*.9),[color[0],color[1],color[2],alpha*.50],15);
+          for(let k=0;k<4;k++){
+            const phase=a.seed+k*1.57+p*8;
+            const swirl=(1-s)*a.r*(.65+k*.11);
+            renderer.line(cx+Math.cos(phase)*swirl,cy+Math.sin(phase)*swirl,a.x,a.y,
+              Math.max(.7,2.5*(1-p)),[1,.91,.66,alpha*.65]);
+          }
+        }
+        const spiralR=RADII[a.tier-1]*(.95-.7*p);
+        for(let k=0;k<16;k++){
+          const t=k/16*Math.PI*2+p*8,u=(k+1)/16*Math.PI*2+p*8;
+          renderer.line(a.x+Math.cos(t)*spiralR,a.y+Math.sin(t)*spiralR,
+            a.x+Math.cos(u)*spiralR,a.y+Math.sin(u)*spiralR,
+            Math.max(.8,2.5*(1-p)),[1,.93,.73,alpha*.55]);
+        }
       }
     }
     function drawSplitFrays(){
-      const now=state.timeMs;
       for(const effect of state.frays){
         if(!worldVisible(effect.x,effect.y,effect.r+160))continue;
-        drawVector('yarnEffects',{expression:'split',clip:'split',startedAtMs:now-effect.ageMs,timeMs:now,x:effect.x,y:effect.y,
-          scaleX:effect.r/150,scaleY:effect.r/150,originX:150,originY:150,color:effectTint(CONFIG.colors['t'+effect.tier])});
+        const t=clamp(effect.ageMs/effect.durationMs,0,1);
+        const fade=(1-t)*.88,reach=effect.r*(.70+t*.95);
+        const c=CONFIG.colors['t'+effect.tier];
+        // Two loose winding threads travel outward in opposite directions.
+        for(const sign of [-1,1]){
+          let x0=effect.x,y0=effect.y;
+          for(let i=1;i<=7;i++){
+            const q=i/7;
+            const x1=effect.x+sign*reach*q;
+            const y1=effect.y-Math.sin(q*Math.PI)*effect.r*.18+Math.sin(q*11+t*8+sign)*effect.r*.08;
+            renderer.line(x0,y0,x1,y1,Math.max(1.4,effect.r*.017),[c[0],c[1],c[2],fade]);
+            x0=x1;y0=y1;
+          }
+          renderer.ellipse(x0,y0,Math.max(2,effect.r*.055),Math.max(2,effect.r*.055),[1,.95,.70,fade],10);
+        }
       }
     }
     function drawEnemyControl(e,pose,bodyVisual,foreground=false){
-      const pos=bodyVisual||pose.position,r=e.body.circleRadius,now=state.timeMs;
+      const center=bodyVisual||pose.position,p=pose.position,r=e.body.circleRadius,now=state.timeMs;
       const c=e.control&&e.control.mode!=='rebound'&&e.control.untilMs>now?e.control:null;
-      if(!worldVisible(pos.x,pos.y,r+300))return;
+      if(!worldVisible(center.x,center.y,r+300))return;
       if(!c){
         if(foreground||!(e.controlReleaseUntilMs>now))return;
+        const t=clamp(1-(e.controlReleaseUntilMs-now)/CONFIG.combat.releaseFxMs,0,1),fade=1-t;
         const dx=e.controlReleaseDx??1,dy=e.controlReleaseDy??0;
-        drawVector('yarnEffects',{expression:'release',clip:'release',startedAtMs:e.controlReleaseUntilMs-CONFIG.combat.releaseFxMs,
-          timeMs:now,x:pos.x,y:pos.y,scaleX:.65,scaleY:.65,rotation:Math.atan2(dy,dx),originX:150,originY:150});
+        let px=p.x-dx*r*.4,py=p.y-dy*r*.4;
+        for(let i=1;i<=12;i++){
+          const q=i/12,nx=p.x-dx*(r*.4+q*86)+Math.sin(q*10+t*4)*q*12;
+          const ny=p.y-dy*(r*.4+q*86)+q*q*(15+95*t*t)+Math.sin(q*8-t*5)*q*8;
+          renderer.line(px,py,nx,ny,1.7,[1,.92,.72,fade*.75]);px=nx;py=ny;
+        }
         return;
       }
+      const sx=center.sx??1,sy=center.sy??1;
       if(foreground){
-        const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-pos.x,c.anchorY-pos.y):normalize(c.dx,c.dy);
-        const dist=pinned?Math.hypot(c.anchorX-pos.x,c.anchorY-pos.y):((r+2)+23);
-        const edge=(r+2)/Math.hypot(axis.x,axis.y),width=clamp(r*.018+2.4,2.8,5);
+        const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-center.x,c.anchorY-center.y):normalize(c.dx,c.dy);
+        const dist=pinned?Math.hypot(c.anchorX-center.x,c.anchorY-center.y):((r+2)+23);
+        const edge=(r+2)/Math.hypot(axis.x/sx,axis.y/sy),width=clamp(r*.018+2.4,2.8,5);
         if(dist-edge<=1)return;
         const player=vectorPlayers.needle;
         setVectorPose(player,'front',{scaleX:dist/78,scaleY:width/6});
         setVectorPose(player,'rear');setVectorPose(player,'puncture',{x:edge,scaleY:width/6});
         setVectorPose(player,'pin-tip',{x:dist});
-        drawVector('needle',{expression:'pinned-front',clip:'idle',startedAtMs:0,timeMs:now,x:pos.x,y:pos.y,
+        drawVector('needle',{expression:'pinned-front',clip:'idle',startedAtMs:0,timeMs:now,x:center.x,y:center.y,
           rotation:Math.atan2(axis.y,axis.x),originX:100,originY:100});
         return;
       }
-      const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-pos.x,c.anchorY-pos.y):normalize(c.dx,c.dy),dx=axis.x,dy=axis.y;
-      const edge=(r+2)/Math.hypot(dx,dy),rear=clamp(r*.45+22,30,75);
+      const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-center.x,c.anchorY-center.y):normalize(c.dx,c.dy);
+      const dx=axis.x,dy=axis.y,edge=(r+2)/Math.hypot(dx/sx,dy/sy),rear=clamp(r*.45+22,30,75);
       const length=pinned?clamp(r*1.6+70,105,240):clamp(r*1.4+110,140,285);
       const reach=edge+rear+length+20;let rearLimit=reach;
       if(pinned)for(const terrain of Composite.allBodies(state.engine.world)){
         if(!terrain.isStatic||!['wall','terrain'].includes(terrain.label))continue;
-        const b=terrain.bounds,t=segmentAabb(pos.x,pos.y,pos.x-dx*reach,pos.y-dy*reach,b.min.x-6,b.min.y-6,b.max.x+6,b.max.y+6);
+        const b=terrain.bounds,t=segmentAabb(center.x,center.y,center.x-dx*reach,center.y-dy*reach,b.min.x-6,b.min.y-6,b.max.x+6,b.max.y+6);
         if(t!==null)rearLimit=Math.min(rearLimit,t*reach);
       }
       const width=clamp(r*.018+2.4,2.8,5),player=vectorPlayers.needle;
       setVectorPose(player,'rear',{scaleX:rearLimit/89,scaleY:width/6});
       setVectorPose(player,'front');setVectorPose(player,'puncture',{x:-edge,scaleY:width/6});setVectorPose(player,'pin-tip');
-      drawVector('needle',{expression:'pinned-rear',clip:'idle',startedAtMs:0,timeMs:now,x:pos.x,y:pos.y,
+      drawVector('needle',{expression:'pinned-rear',clip:'idle',startedAtMs:0,timeMs:now,x:center.x,y:center.y,
         rotation:Math.atan2(dy,dx),originX:100,originY:100});
     }
     function enemyBodyClip(e,now){
@@ -2862,11 +2903,21 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(hop.phase==='air'||hop.phase==='takeoff')return {name:'hop',at:hop.takeoffMs};
       return {name:'idle',at:0};
     }
-    function drawYarnActor(x,y,radius,expression,clip,startedAtMs,color,scaleX=1,scaleY=1,angle=0,actorKey=null){
+    function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
+    function drawYarnActor(x,y,radius,expression,clip,startedAtMs,color,scaleX=1,scaleY=1,angle=0,actorKey=null,seedAngle=0){
       const player=vectorPlayers.yarnBody;
       player.setExpression(expression);setVectorPose(player,'shell',{rotation:angle});
+      for(let i=1;i<=6;i++)setVectorPose(player,`winding-${i}`,{rotation:seedAngle});
       const world=vectorMatrixFor(x,y,radius/120*scaleX,radius/120*scaleY,0,120,120);
+      const fallen=expression==='fallen';
+      const outline=expression==='player'?PALETTE.playerOutline:PALETTE.cream;
+      if(!fallen)renderer.ellipse(x,y,(radius+2)*scaleX,(radius+2)*scaleY,rgbScale(outline,.82,.96),18);
       drawVector('yarnBody',{expression,clip,startedAtMs,timeMs:state.timeMs,matrix:world,color,actorKey});
+      if(!fallen)for(let k=0;k<9;k++){
+        const theta=k*2*Math.PI/9+angle+seedAngle,dx=Math.cos(theta),dy=Math.sin(theta);
+        renderer.line(x+dx*radius*.82*scaleX,y+dy*radius*.82*scaleY,
+          x+dx*(radius+1.8)*scaleX,y+dy*(radius+1.8)*scaleY,1.7,rgbScale(outline,.92,.86));
+      }
       return multiplyVectorMatrix(world,player.getPartPose('root').transform);
     }
     function drawQueuedVectorFaces(){
@@ -2890,29 +2941,58 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(!worldVisible(pos.x,pos.y,r+(controlVisible?300:0)))return;
       const floor=shadowUnder(pose,r),height=Math.max(0,floor-(pos.y+r)),scale=clamp(1-height/430,.22,1);
       renderer.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
-      const clip=enemyBodyClip(e,now),face='tier-'+tier+(e.hp<=e.maxHp*.5?'-panic':'');
       if(e.fromHole&&now<e.popUntilMs){
-        drawVector('yarnEffects',{expression:'pop',clip:'pop',startedAtMs:e.popUntilMs-380,timeMs:now,x:pos.x,y:pos.y+r*.8,
-          scaleX:r/95,scaleY:r*.19/28,originX:150,originY:150});
+        const t=1-(e.popUntilMs-now)/380;
+        renderer.ellipse(pos.x,pos.y+r*.8,r*(1-t*.45),r*.19,[1,.88,.65,(1-t)*.32],12);
       }
-      drawEnemyControl(e,pose,{x:pos.x,y:pos.y});
+      const control=e.control&&e.control.untilMs>now?e.control:null;
+      const pinned=control?.mode==='pinned';
+      const age=control?Math.max(0,now-control.startedMs):0;
+      const squash=pinned?.09+.26*Math.exp(-age/235)*Math.cos(age*.026):0;
+      const stretch=control?.mode==='flying'?.06*Math.exp(-age/300):0;
+      const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
+      const hitMark=state.impactMarks.findLast(m=>m.targetId===e.id&&m.ageMs<120);
+      const hitSquash=hitMark?.06*Math.sin(hitMark.ageMs/120*Math.PI):0;
+      const hop=e.locomotion,cfg=CONFIG.enemy.bounce;
+      const press=!control&&!e.attack&&(hop.phase==='land'||hop.phase==='compress')
+        ?(hop.phase==='land'?.04*Math.min(1,(now-hop.landedMs)/cfg.landMs):.04+.025*(1-clamp((hop.untilMs-now)/(cfg.compressMs+(tier-1)*cfg.tierCompressMs),0,1))):0;
+      const dashStretch=(e.attack?.phase==='dash'?.08:0)+hitSquash+press;
+      const sx=1+dashStretch-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch;
+      const sy=1-dashStretch-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
+      const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash+r*press;
+      const bodyVisual={x:visualX,y:visualY,sx,sy};
+      const clip=enemyBodyClip(e,now),face='tier-'+tier+(e.hp<=e.maxHp*.5?'-panic':'');
+      drawEnemyControl(e,pose,bodyVisual);
       const actorKey=`enemy:${e.id}`;
-      const matrix=drawYarnActor(pos.x,pos.y,r,'tier-'+tier,clip.name,clip.at,CONFIG.colors['t'+tier],1,1,pose.angle,actorKey);
-      vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:face,matrix,flash:now<e.hitFlashUntil,actorKey});
-      enemyOverlayCommands.push({e,pose,pos,tier,r});
+      const matrix=drawYarnActor(visualX,visualY,r,'tier-'+tier,clip.name,clip.at,CONFIG.colors['t'+tier],sx,sy,pose.angle,actorKey,e.visualSeed);
+      vectorFaceCommands.push({x:visualX,y:visualY,radius:r,expression:face,matrix,flash:now<e.hitFlashUntil,actorKey});
+      enemyOverlayCommands.push({e,pose,bodyVisual,pos,tier,r});
     }
     function drawEnemyOverlays(){
       for(const item of enemyOverlayCommands){
-        const {e,pose,pos,tier,r}=item;
-        drawEnemyControl(e,pose,{x:pos.x,y:pos.y},true);
+        const {e,pose,bodyVisual,pos,tier,r}=item;
+        drawEnemyControl(e,pose,bodyVisual,true);
+        if(tier>=3){
+          const dots=tier===3?3:tier===4?4:5,seedAngle=e.visualSeed??0;
+          const markerColor=[PALETTE.cream[0]*.8,PALETTE.cream[1]*.8,PALETTE.cream[2]*.8,.95];
+          for(let i=0;i<dots;i++){
+            const angle=-Math.PI*.82+i*(Math.PI*1.64/Math.max(1,dots-1))+seedAngle*.14;
+            const dx=Math.cos(angle)*r*.78,dy=Math.sin(angle)*r*.78;
+            renderer.ellipse(bodyVisual.x+dx*bodyVisual.sx,bodyVisual.y+dy*bodyVisual.sy,
+              r*.1*bodyVisual.sx,r*.1*bodyVisual.sy,markerColor,10);
+          }
+        }
         if(tier>=2||e.hp<e.maxHp){
           const width=r*1.6,y=pos.y-r-12;renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
           const fillWidth=width*clamp(e.hp/Math.max(1,e.maxHp),0,1);
           if(fillWidth>0)renderer.rect(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
         }
-        if(tier>=2&&e.goalKind==='merge')renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
-        if(e.fromSplit)drawVector('yarnEffects',{expression:'split-mark',clip:'split-mark',startedAtMs:e.splitFlightUntilMs-CONFIG.enemy.split.flightMs,
-          timeMs:state.timeMs,x:pos.x-r*.40,y:pos.y-r*.80,scaleX:r*.29/40,scaleY:r*.29/40,originX:150,originY:150});
+        if(e.tier>=2&&e.goalKind==='merge')renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
+        if(e.fromSplit){
+          const curl=r*.29;
+          renderer.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
+          renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
+        }
       }
       enemyOverlayCommands.length=0;
     }
@@ -2938,7 +3018,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       const dashing=now<p.dash.untilMs,clip=dashing?'dash':now<p.hitInvulnerableUntil?'invulnerable':'idle';
       const clipStart=clip==='dash'?p.dash.untilMs-p.stats.dashHoldMs:0;
       const actorKey=`player:${p.id}`;
-      const matrix=drawYarnActor(pos.x,pos.y,r,'player',clip,clipStart,PALETTE.player,dashing?1.08:1,dashing?.92:1,pose.angle,actorKey);
+      const matrix=drawYarnActor(pos.x,pos.y,r,'player',clip,clipStart,PALETTE.player,dashing?1.08:1,dashing?.92:1,pose.angle,actorKey,.2);
       vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:'player',matrix,flash:now<p.hitInvulnerableUntil,actorKey});
       if(state.players.size>1){
         const labelColor=p.id===localId()?[.65,1,.72,1]:[.91,.72,1,1];

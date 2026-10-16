@@ -1,0 +1,45 @@
+name: Edge gameplay regression
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  edge-gameplay:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          ref: bd2bf959f39362211123e856b8ff71f67d6998ff
+          path: baseline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install current dependencies
+        run: npm ci
+      - name: Install and build legacy visual baseline
+        working-directory: baseline
+        run: |
+          npm ci
+          npm run build
+      - name: Compare PC and landscape-touch visuals in Edge
+        env:
+          YARN_TEST_BASELINE_HTML: ${{ github.workspace }}/baseline/index.html
+          YARN_TEST_BASELINE_ASSET_ROOT: ${{ github.workspace }}/baseline/_site
+        run: npm run test:vector-assets
+      - name: Run PC and landscape-touch combat in Edge
+        run: npm run test:combat
+      - name: Run mobile landscape UI in Edge
+        run: npm run test:mobile
+      - name: Run two-peer host-PC and landscape-touch RTC in Edge
+        run: npm run test:rift:rtc
+      - name: Upload Edge reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yarn-mayhem-edge-regression
+          path: test-results/**
+          if-no-files-found: warn

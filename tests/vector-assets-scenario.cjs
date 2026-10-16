@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { createGameServer } = require('./game-server.cjs');
 
-const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0201');
+const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0204');
 fs.mkdirSync(outputDir, { recursive: true });
 const baselineHtml = process.env.YARN_TEST_BASELINE_HTML ? path.resolve(process.env.YARN_TEST_BASELINE_HTML) : null;
 const servers = [createGameServer()];
@@ -30,7 +30,7 @@ if (baselineHtml && fs.existsSync(baselineHtml)) {
     throw new Error('The legacy baseline needs its matching compiled-assets.mjs via YARN_TEST_BASELINE_ASSET_ROOT');
   servers.push(createGameServer({ htmlPath: baselineTestHtml, publicRoot: baselinePublicRoot }));
 }
-const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], requestFailures: [] };
+const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], consoleErrors: [], requestFailures: [] };
 const check = (name, ok, evidence) => {
   report.comparisons.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
   assert.ok(ok, name);
@@ -45,6 +45,7 @@ async function runScene(browser, server, tag, mobile) {
   await context.addInitScript(() => { globalThis.__YARN_MAYHEM_QA = true; });
   const page = await context.newPage();
   page.on('pageerror', error => report.errors.push(`${tag}: ${error.message}`));
+  page.on('console', message => { if (message.type() === 'error') report.consoleErrors.push(`${tag}: ${message.text()}`); });
   page.on('requestfailed', request => report.requestFailures.push({ tag, url: request.url(), error: request.failure()?.errorText }));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   try {
@@ -55,7 +56,25 @@ async function runScene(browser, server, tag, mobile) {
     await page.screenshot({ path: path.join(outputDir, `${tag}-load-failure.png`) }).catch(() => {});
     throw new Error(`${error.message}; browser state: ${JSON.stringify(state)}`);
   }
-  await page.locator('#mainButton').click();
+  await page.waitForFunction(() => document.querySelector('#loading')?.hidden === true, null, { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const bootState = await page.evaluate(() => ({ loadingHidden: document.querySelector('#loading')?.hidden,
+    loadingDisplay: getComputedStyle(document.querySelector('#loading')).display,
+    error: document.querySelector('#error')?.textContent, ready: !!window.__YARN_MAYHEM,
+    phase: window.__YARN_MAYHEM?.snapshot().phase }));
+  if (!bootState.loadingHidden || bootState.error) {
+    await page.screenshot({ path: path.join(outputDir, `${tag}-boot-failure.png`) }).catch(() => {});
+    throw new Error(`${tag}: game boot did not remain ready: ${JSON.stringify(bootState)}`);
+  }
+  try { await page.locator('#mainButton').click({ timeout: 10000 }); }
+  catch (error) {
+    const state = await page.evaluate(() => ({ loadingHidden: document.querySelector('#loading')?.hidden,
+      loadingDisplay: getComputedStyle(document.querySelector('#loading')).display,
+      error: document.querySelector('#error')?.textContent, ready: !!window.__YARN_MAYHEM,
+      phase: window.__YARN_MAYHEM?.snapshot().phase }));
+    await page.screenshot({ path: path.join(outputDir, `${tag}-menu-click-failure.png`) }).catch(() => {});
+    throw new Error(`${error.message}; menu click state: ${JSON.stringify(state)}; console errors: ${JSON.stringify(report.consoleErrors)}`);
+  }
   await page.locator('#soloStart').click();
   await page.waitForFunction(() => __YARN_MAYHEM.snapshot().phase === 'PLAYING');
   const setup = await page.evaluate(() => {
@@ -131,7 +150,7 @@ async function runScene(browser, server, tag, mobile) {
     report.browser = browser.version();
     for (const mobile of [false, true]) {
       const tag = mobile ? 'landscape-touch' : 'edge-desktop';
-      const current = await runScene(browser, servers[0], `${tag}-svg-0201`, mobile);
+      const current = await runScene(browser, servers[0], `${tag}-runtime-0204`, mobile);
       const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0200`, mobile) : null;
       const stats = current.measurements.stats;
       const assets = stats?.assets ?? [];
@@ -142,8 +161,8 @@ async function runScene(browser, server, tag, mobile) {
           current.setup.mapSeed === baseline.setup.mapSeed && current.setup.timeMs === baseline.setup.timeMs && current.setup.timeMs === 120,
           { baseline: { mapSeed: baseline.setup.mapSeed, timeMs: baseline.setup.timeMs }, current: { mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs } });
       }
-      check(`${tag}: all seven retained SVG meshes load`,
-        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnEffects','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
+      check(`${tag}: all six retained character, prop and UI SVG meshes load`,
+        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
           Number(renderer.instances) > 0 && Number(renderer.draws) > 0,
         { assets, renderer });
       check(`${tag}: yarn body, face and needle meshes draw in the play scene`,
@@ -176,9 +195,9 @@ async function runScene(browser, server, tag, mobile) {
         status: 'CAPTURED',
         evidence: {
           baselineScreenshot: baseline ? `${tag}-baseline-0200.png` : null,
-          svgScreenshot: `${tag}-svg-0201.png`,
-          pulseScreenshot: `${tag}-svg-0201-rift-pulse-0201.png`,
-          progressScreenshot: `${tag}-svg-0201-revive-progress-0201.png`,
+          svgScreenshot: `${tag}-runtime-0204.png`,
+          pulseScreenshot: `${tag}-runtime-0204-rift-pulse-0201.png`,
+          progressScreenshot: `${tag}-runtime-0204-revive-progress-0201.png`,
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
           baselineFps: baseline?.measurements.fps ?? null, svgFps: current.measurements.fps,
           renderer, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,

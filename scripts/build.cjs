@@ -27,7 +27,7 @@ if (vectorPin.gamekitVersion !== gamekit.version || vectorPin.sourceCommit !== g
 
 cp.execFileSync(process.execPath, ['scripts/compile-vector-assets.mjs'], { stdio: 'inherit' });
 const outputDir = path.join('_site', 'assets', 'active-theme');
-for (const name of ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.svg', 'yarn-effects.svg', 'yarn-face.svg', 'yarn-progress.svg']) {
+for (const name of ['needle.svg', 'rift-hole.svg', 'rift-pulse.svg', 'yarn-body.svg',  'yarn-face.svg', 'yarn-progress.svg']) {
   fs.copyFileSync(path.join('assets', 'active-theme', name), path.join(outputDir, name));
 }
 const compiledAssets = JSON.parse(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8'));

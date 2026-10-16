@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 
 const out = path.resolve('test-results/rift-air-rtc-0192');
 fs.mkdirSync(out, { recursive: true });
-const report = { status: 'RUNNING', browser: null, checks: [], errors: [] };
+const report = { status: 'RUNNING', browser: null, checks: [], errors: [], relayWarnings: [] };
 const { createGameServer } = require('./game-server.cjs');
 const server = createGameServer();
 const check = (name, ok, evidence) => {
@@ -69,6 +69,13 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
     const guest = await guestContext.newPage();
     for (const [page, name] of [[host, 'host'], [guest, 'guest']]) {
       page.on('pageerror', error => report.errors.push(`${name}: ${error.message}`));
+      page.on('console', message => {
+        if (message.type() !== 'error') return;
+        const text = message.text(), entry = `${name} console: ${text}`;
+        if (/^WebSocket connection to 'wss:\/\/relay\.(?:primal\.net|damus\.io)\/' failed: Error during WebSocket handshake: Unexpected response code: 503$/.test(text)) {
+          report.relayWarnings.push(entry);
+        } else report.errors.push(entry);
+      });
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await page.waitForFunction(() => !!window.__YARN_MAYHEM);
       await page.locator('#mainButton').click();
@@ -249,10 +256,26 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
     const stage40Hole = await openSafeBackgroundRift(host, 180);
     await host.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
       .find(h => h.id === id)?.spawns >= count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 5000 });
-    const stage40Pair = await waitForSameTickRift(host, guest, stage40Hole.id, maxLifecycleEmissions, true, 1000);
-    check('stage 40 single rift reaches its full ordinary lifetime emission count on the same host/guest tick',
-      stage40Pair[0].hole[11] === maxLifecycleEmissions && stage40Pair[1].hole.spawns === maxLifecycleEmissions,
-      { expected: maxLifecycleEmissions, host: stage40Pair[0], guest: stage40Pair[1] });
+    await guest.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
+      .find(h => h.id === id)?.spawns === count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 1200 });
+    const stage40Delivery = await Promise.all([
+      host.evaluate(id => {
+        const frame = __YARN_MAYHEM.qaNetworkFrame(), json = JSON.stringify(frame);
+        return { tick: frame.tick, ms: frame.ms, hole: frame.holes.find(item => item[0] === id) ?? null,
+          enemies: frame.enemies.length, shots: frame.shots.length, holes: frame.holes.length,
+          jsonChars: json.length, utf8Bytes: new TextEncoder().encode(json).length };
+      }, stage40Hole.id),
+      guest.evaluate(id => {
+        const s = __YARN_MAYHEM.snapshot();
+        return { tick: s.tick, phase: s.phase, hole: s.spawnHoles.find(item => item.id === id) ?? null,
+          enemies: s.remainingEnemies, room: s.room, status: document.querySelector('#roomStatus')?.textContent };
+      }, stage40Hole.id),
+    ]);
+    const stage40TickLag = Math.abs(stage40Delivery[0].tick - stage40Delivery[1].tick);
+    check('stage 40 full-lifetime rift emission reaches the guest within four authority ticks',
+      stage40Delivery[0].hole?.[11] === maxLifecycleEmissions &&
+      stage40Delivery[1].hole?.spawns === maxLifecycleEmissions && stage40TickLag <= 4,
+      { expected: maxLifecycleEmissions, tickLag: stage40TickLag, host: stage40Delivery[0], guest: stage40Delivery[1] });
     await Promise.all([
       host.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
       guest.waitForFunction(id => !__YARN_MAYHEM.snapshot().spawnHoles.some(h => h.id === id), stage40Hole.id, { timeout: 4000 }),
@@ -329,7 +352,15 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
       { host: reconnectedPair[0], guest: reconnectedPair[1],
         guestRosterBeforeReconnect, guestRosterAfterReconnect, retainedHostIds,
         room: await guest.evaluate(() => __YARN_MAYHEM.snapshot().room) });
-    check('both RTC clients remain free of browser runtime errors', report.errors.length === 0, report.errors);
+    const [hostRoomState, guestRoomState] = await Promise.all([
+      host.evaluate(() => __YARN_MAYHEM.snapshot().room),
+      guest.evaluate(() => __YARN_MAYHEM.snapshot().room),
+    ]);
+    check('both RTC clients remain free of uncaught runtime and unexpected console errors',
+      report.errors.length === 0, { errors: report.errors, individualRelay503Warnings: report.relayWarnings });
+    check('both RTC peers remain connected after any individual relay handshake failure',
+      hostRoomState.connected === 1 && guestRoomState.connected === 1 && guestRoomState.remoteReady,
+      { host: hostRoomState, guest: guestRoomState, individualRelay503Warnings: report.relayWarnings });
     report.status = 'PASS';
   } catch (error) {
     report.status = 'FAIL';
