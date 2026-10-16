@@ -69,6 +69,7 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
     const guest = await guestContext.newPage();
     for (const [page, name] of [[host, 'host'], [guest, 'guest']]) {
       page.on('pageerror', error => report.errors.push(`${name}: ${error.message}`));
+      page.on('console', message => { if (message.type() === 'error') report.errors.push(`${name} console: ${message.text()}`); });
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await page.waitForFunction(() => !!window.__YARN_MAYHEM);
       await page.locator('#mainButton').click();
@@ -249,6 +250,20 @@ async function waitForSameTickRift(host, guest, id, expectedSpawns, expectGuest 
     const stage40Hole = await openSafeBackgroundRift(host, 180);
     await host.waitForFunction(({ id, count }) => __YARN_MAYHEM.snapshot().spawnHoles
       .find(h => h.id === id)?.spawns >= count, { id: stage40Hole.id, count: maxLifecycleEmissions }, { timeout: 5000 });
+    const stage40DeliveryDiagnostics = await Promise.all([
+      host.evaluate(id => {
+        const frame = __YARN_MAYHEM.qaNetworkFrame(), json = JSON.stringify(frame);
+        return { tick: frame.tick, ms: frame.ms, hole: frame.holes.find(item => item[0] === id) ?? null,
+          enemies: frame.enemies.length, shots: frame.shots.length, holes: frame.holes.length,
+          jsonChars: json.length, utf8Bytes: new TextEncoder().encode(json).length };
+      }, stage40Hole.id),
+      guest.evaluate(id => {
+        const s = __YARN_MAYHEM.snapshot();
+        return { tick: s.tick, phase: s.phase, hole: s.spawnHoles.find(item => item.id === id) ?? null,
+          enemies: s.remainingEnemies, room: s.room, status: document.querySelector('#roomStatus')?.textContent };
+      }, stage40Hole.id),
+    ]);
+    check('stage 40 max-rate rift snapshot envelope measured for RTC diagnosis', true, stage40DeliveryDiagnostics);
     const stage40Pair = await waitForSameTickRift(host, guest, stage40Hole.id, maxLifecycleEmissions, true, 1000);
     check('stage 40 single rift reaches its full ordinary lifetime emission count on the same host/guest tick',
       stage40Pair[0].hole[11] === maxLifecycleEmissions && stage40Pair[1].hole.spawns === maxLifecycleEmissions,
