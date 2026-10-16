@@ -171,7 +171,7 @@ async function runScene(browser, server, tag, mobile) {
       const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
       const yarnSurface = stats?.yarnSurface ?? {};
-      check(`${tag}: GameKit YarnSurfaceRenderer draws the authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 2 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === true && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
+      check(`${tag}: GameKit YarnSurfaceRenderer draws the single authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 1 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === true && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
       check(`${tag}: visible high-tier enemy is present`, current.setup.enemies.some(enemy => enemy.tier === 10), current.setup);
       if (baseline) {
         check(`${tag}: baseline and candidate use the same map seed and display time`,
