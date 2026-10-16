@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Install current dependencies
+        run: npm ci
       - name: Install and build legacy visual baseline
         working-directory: baseline
         run: |
