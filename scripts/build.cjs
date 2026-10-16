@@ -26,6 +26,10 @@ if (!loaderModule || loaderModule.sha256 !== 'bdc951f4f6b912a9beea98c2d6056c4370
 if (!htmlText.includes('createVectorAssetLoader({ maxEntries: 8 })') || !htmlText.includes('expectedSha256: item.sha256')
     || !htmlText.includes('includeSourcePaths: true') || htmlText.includes('compiled-assets.mjs')
     || htmlText.includes('compileVectorAssetFile')) throw new Error('Runtime must verify and compile source SVGs through the shared startup loader');
+if (!htmlText.includes('new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 })')
+    || !htmlText.includes('{surfaceRenderer:yarnSurfaceRenderer}') || !htmlText.includes('yarnSurfaceRenderer.dispose()')) {
+  throw new Error('Authored shader SVG surfaces must use the shared GameKit surface renderer lifecycle');
+}
 if (sourceManifest.schemaVersion !== 1 || sourceManifest.compileMode !== 'browser-startup'
     || !Array.isArray(sourceManifest.assets) || sourceManifest.assets.length !== 6) {
   throw new Error('The source manifest must list the six original SVGs');

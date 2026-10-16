@@ -254,7 +254,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
   const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@95d8676e3eaaa9f80aeed2e3361e258381511c77/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const [{ Renderer2D, WebGLDevice, MeshRenderer }, { createVectorAsset }, { createVectorAssetLoader },
+    const [{ Renderer2D, WebGLDevice, MeshRenderer, YarnSurfaceRenderer }, { createVectorAsset }, { createVectorAssetLoader },
       { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
       { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
@@ -281,16 +281,17 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     const renderer = new Renderer2D(canvas, { batchVertices: 12288, antialias: true });
     const device = new WebGLDevice(canvas, { alpha: true, antialias: true, depth: false, stencil: false });
     const meshRenderer = new MeshRenderer(device, { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 });
+    const yarnSurfaceRenderer = new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 });
     const yarnShaderSurfaces = ACTIVE_THEME_ASSETS.yarnBody.geometry.shaderSurfaces ?? [];
     const yarnSurfaceStyle = ACTIVE_THEME_ASSETS.yarnBody.metadata.styles.find(style => style.kind === 'yarn' && style.target === 'yarn-shell');
     if (yarnShaderSurfaces.length !== 1 || yarnSurfaceStyle?.backend !== 'shader') throw new Error('Authored yarn SVG did not compile to one GameKit shader surface');
     const vectorAssets = Object.freeze({
-      yarnBody:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnBody),
-      yarnFace:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnFace),
-      needle:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.needle),
-      riftHole:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftHole),
-      riftPulse:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftPulse),
-      yarnProgress:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnProgress),
+      yarnBody:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnBody,{surfaceRenderer:yarnSurfaceRenderer}),
+      yarnFace:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnFace,{surfaceRenderer:yarnSurfaceRenderer}),
+      needle:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.needle,{surfaceRenderer:yarnSurfaceRenderer}),
+      riftHole:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftHole,{surfaceRenderer:yarnSurfaceRenderer}),
+      riftPulse:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftPulse,{surfaceRenderer:yarnSurfaceRenderer}),
+      yarnProgress:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnProgress,{surfaceRenderer:yarnSurfaceRenderer}),
     });
     const vectorPlayers = Object.freeze(Object.fromEntries(Object.entries(vectorAssets).map(([name,asset])=>[name,asset.createPlayer()])));
     const vectorDrawCounts = Object.fromEntries(Object.keys(vectorAssets).map(name=>[name,0]));
@@ -3476,7 +3477,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       }:{}),
     };
     window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
-      for(const asset of Object.values(vectorAssets))asset.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
+      for(const asset of Object.values(vectorAssets))asset.dispose();yarnSurfaceRenderer.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
       Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
   } catch(error) {showFatal(error);}
   function showFatal(error) {
