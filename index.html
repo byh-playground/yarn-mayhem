@@ -2903,6 +2903,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
       if(hop.phase==='air'||hop.phase==='takeoff')return {name:'hop',at:hop.takeoffMs};
       return {name:'idle',at:0};
     }
+    function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
     function drawYarnActor(x,y,radius,expression,clip,startedAtMs,color,scaleX=1,scaleY=1,angle=0,actorKey=null,seedAngle=0){
       const player=vectorPlayers.yarnBody;
       player.setExpression(expression);setVectorPose(player,'shell',{rotation:angle});
