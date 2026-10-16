@@ -30,7 +30,7 @@ if (baselineHtml && fs.existsSync(baselineHtml)) {
     throw new Error('The legacy baseline needs its matching compiled-assets.mjs via YARN_TEST_BASELINE_ASSET_ROOT');
   servers.push(createGameServer({ htmlPath: baselineTestHtml, publicRoot: baselinePublicRoot }));
 }
-const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], requestFailures: [] };
+const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], consoleErrors: [], requestFailures: [] };
 const check = (name, ok, evidence) => {
   report.comparisons.push({ name, status: ok ? 'PASS' : 'FAIL', evidence });
   assert.ok(ok, name);
@@ -45,6 +45,7 @@ async function runScene(browser, server, tag, mobile) {
   await context.addInitScript(() => { globalThis.__YARN_MAYHEM_QA = true; });
   const page = await context.newPage();
   page.on('pageerror', error => report.errors.push(`${tag}: ${error.message}`));
+  page.on('console', message => { if (message.type() === 'error') report.consoleErrors.push(`${tag}: ${message.text()}`); });
   page.on('requestfailed', request => report.requestFailures.push({ tag, url: request.url(), error: request.failure()?.errorText }));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   try {
@@ -56,7 +57,24 @@ async function runScene(browser, server, tag, mobile) {
     throw new Error(`${error.message}; browser state: ${JSON.stringify(state)}`);
   }
   await page.waitForFunction(() => document.querySelector('#loading')?.hidden === true, null, { timeout: 30000 });
-  await page.locator('#mainButton').click();
+  await page.waitForTimeout(500);
+  const bootState = await page.evaluate(() => ({ loadingHidden: document.querySelector('#loading')?.hidden,
+    loadingDisplay: getComputedStyle(document.querySelector('#loading')).display,
+    error: document.querySelector('#error')?.textContent, ready: !!window.__YARN_MAYHEM,
+    phase: window.__YARN_MAYHEM?.snapshot().phase }));
+  if (!bootState.loadingHidden || bootState.error) {
+    await page.screenshot({ path: path.join(outputDir, `${tag}-boot-failure.png`) }).catch(() => {});
+    throw new Error(`${tag}: game boot did not remain ready: ${JSON.stringify(bootState)}`);
+  }
+  try { await page.locator('#mainButton').click({ timeout: 10000 }); }
+  catch (error) {
+    const state = await page.evaluate(() => ({ loadingHidden: document.querySelector('#loading')?.hidden,
+      loadingDisplay: getComputedStyle(document.querySelector('#loading')).display,
+      error: document.querySelector('#error')?.textContent, ready: !!window.__YARN_MAYHEM,
+      phase: window.__YARN_MAYHEM?.snapshot().phase }));
+    await page.screenshot({ path: path.join(outputDir, `${tag}-menu-click-failure.png`) }).catch(() => {});
+    throw new Error(`${error.message}; menu click state: ${JSON.stringify(state)}; console errors: ${JSON.stringify(report.consoleErrors)}`);
+  }
   await page.locator('#soloStart').click();
   await page.waitForFunction(() => __YARN_MAYHEM.snapshot().phase === 'PLAYING');
   const setup = await page.evaluate(() => {
