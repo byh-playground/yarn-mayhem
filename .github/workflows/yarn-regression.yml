@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/checkout@v6
         with:
-          ref: bd2bf959f39362211123e856b8ff71f67d6998ff
+          ref: 6feac219459206c9c159650b12d1a374371d1d5a
           path: baseline
       - uses: actions/setup-node@v4
         with:
@@ -20,7 +20,7 @@ jobs:
           cache: npm
       - name: Install current dependencies
         run: npm ci
-      - name: Install and build legacy visual baseline
+      - name: Install and build public v0.20.4 baseline
         working-directory: baseline
         run: |
           npm ci

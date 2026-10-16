@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.4**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.6**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.20.6 - Browser startup SVG compilation
+
+- Loads and SHA-256 verifies the six authored SVGs with the pinned GameKit 0.10.4 browser loader at startup, then reuses its cached compiled assets.
+- Keeps the authored yarn silhouette, winding paths, expressions, tier faces, deformation, and gameplay effects; the yarn shader is ordered with the SVG's own mesh layers.
+- Runs the shader pattern at a thickness scaled for small mobile actors and compares fixed-time PC and landscape-touch captures with the public v0.20.4 baseline.
 
 ## 0.20.4 - Restore yarn winding and runtime effects
 

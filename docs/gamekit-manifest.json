@@ -1,35 +1,16 @@
 {
-  "version": "0.6.1",
-  "distCommit": "a92e8e1e94302e903760bfe319b5b9380454e202",
-  "sourceCommit": "4150109c7732a734e155b6d1e2cd83c13c1f1d0c",
+  "version": "0.10.4",
+  "sourceCommit": "0abe586967704e193a5e85b6b0c598e58bbf193b",
+  "distCommit": "95d8676e3eaaa9f80aeed2e3361e258381511c77",
+  "officialManifestSha256": "64699fdd06eef0f94e874703cbb9f7e87c5f1ef067c68241b7dc17d9b172f625",
   "modules": [
-    {
-      "file": "interpolation.js",
-      "sha256": "64d1297162f07e78904954628a5c9595e1eddf576b8612a58f41ed594638c37c"
-    },
-    {
-      "file": "rendering.js",
-      "sha256": "c359b07969c67474bcdf6b1df481ec7a801029d9ba235bf928558c3b5933b4c2"
-    },
-    {
-      "file": "vector-assets.js",
-      "sha256": "464c6fdb7d79a961d103e256158b98a216042c733bd7634ab04073312a1e5c26"
-    },
-    {
-      "file": "input.js",
-      "sha256": "ae84399953c7e54c8d96408c97208f42b2246a8ac27ef5265053cb0beb306168"
-    },
-    {
-      "file": "simloop.js",
-      "sha256": "1be543dc7e15ef7c87043af98a1fb49a0a45a779098bfa085dc7509709f1ea9c"
-    },
-    {
-      "file": "transport.js",
-      "sha256": "3bded746222c0aa1769697442b579922d406e67d79e3dbf65df5580dd387c007"
-    },
-    {
-      "file": "audio.js",
-      "sha256": "7e3e16d34ce88124e6ba7699f16d23107a3e42ee93ea5a16691e856e5865c14a"
-    }
+    { "file": "rendering.js", "sha256": "5ec22f1b4c3689b11cd0d4c14acc017b94ce5c11afc859df399898645976e227" },
+    { "file": "vector-assets.js", "sha256": "16400cab82c41e6bf7f6457dd292955dc95e140d806cf5e4c353d8ca74568fbb" },
+    { "file": "vector-assets-loader.js", "sha256": "bdc951f4f6b912a9beea98c2d6056c437064a4e08f4602ede92a2ecbd47e47cf" },
+    { "file": "input.js", "sha256": "ae84399953c7e54c8d96408c97208f42b2246a8ac27ef5265053cb0beb306168" },
+    { "file": "simloop.js", "sha256": "f1d348b2f6a80b69c867b9bd45fc359f6d0b238885d85edfe0e9b73d03f043f4" },
+    { "file": "audio.js", "sha256": "7e3e16d34ce88124e6ba7699f16d23107a3e42ee93ea5a16691e856e5865c14a" },
+    { "file": "transport.js", "sha256": "3bded746222c0aa1769697442b579922d406e67d79e3dbf65df5580dd387c007" },
+    { "file": "interpolation.js", "sha256": "193c0e00bd60b89ea59a74be5badb898420ffbd350eb9cd3b7f6b56600d33a74" }
   ]
 }
