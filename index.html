@@ -276,7 +276,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
     const yarnSurfaceGeometry = ACTIVE_THEME_ASSETS.yarnBody.yarnSurface;
     const yarnSurfaceStyle = ACTIVE_THEME_ASSETS.yarnBody.metadata.styles.find(style => style.kind === 'yarn' && style.target === 'yarn-shell');
     if (!yarnSurfaceGeometry || !yarnSurfaceStyle) throw new Error('Compiled yarn surface geometry or SVG style is missing');
-    const yarnSurface = yarnSurfaceRenderer.createSurface({ ...yarnSurfaceGeometry, style: { ...yarnSurfaceStyle, fiber: true } });
+    const yarnSurface = yarnSurfaceRenderer.createSurface({ ...yarnSurfaceGeometry, style: { ...yarnSurfaceStyle, pattern: true, fiber: true } });
     const yarnSurfaceBare = yarnSurfaceRenderer.createSurface({ ...yarnSurfaceGeometry, style: { ...yarnSurfaceStyle, fiber: false } });
     let yarnSurfaceDrawCount = 0;
     const vectorAssets = Object.freeze({
