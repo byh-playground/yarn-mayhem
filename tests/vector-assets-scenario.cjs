@@ -55,6 +55,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.screenshot({ path: path.join(outputDir, `${tag}-load-failure.png`) }).catch(() => {});
     throw new Error(`${error.message}; browser state: ${JSON.stringify(state)}`);
   }
+  await page.waitForFunction(() => document.querySelector('#loading')?.hidden === true, null, { timeout: 30000 });
   await page.locator('#mainButton').click();
   await page.locator('#soloStart').click();
   await page.waitForFunction(() => __YARN_MAYHEM.snapshot().phase === 'PLAYING');
