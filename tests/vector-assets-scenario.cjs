@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { createGameServer } = require('./game-server.cjs');
 
-const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets-0204');
+const outputDir = path.resolve(process.env.YARN_TEST_OUTPUT || 'test-results/vector-assets');
 fs.mkdirSync(outputDir, { recursive: true });
 const baselineHtml = process.env.YARN_TEST_BASELINE_HTML ? path.resolve(process.env.YARN_TEST_BASELINE_HTML) : null;
 const servers = [createGameServer()];
@@ -21,13 +21,13 @@ if (baselineHtml && fs.existsSync(baselineHtml)) {
     if (!html.includes('qaRender:'))
       html = html.replace(stopHook, 'qaRender:()=>renderFrame(),'+stopHook);
   }
-  baselineTestHtml = path.join(outputDir, 'baseline-0.20.4.qa.html');
+  baselineTestHtml = path.join(outputDir, 'baseline-main.qa.html');
   fs.writeFileSync(baselineTestHtml, html);
   const baselinePublicRoot = process.env.YARN_TEST_BASELINE_ASSET_ROOT
     ? path.resolve(process.env.YARN_TEST_BASELINE_ASSET_ROOT)
     : null;
-  if (!baselinePublicRoot || !fs.existsSync(path.join(baselinePublicRoot, 'assets', 'active-theme', 'compiled-assets.mjs')))
-    throw new Error('The legacy baseline needs its matching compiled-assets.mjs via YARN_TEST_BASELINE_ASSET_ROOT');
+  if (!baselinePublicRoot || !['manifest.json', 'compiled-assets.mjs'].some(file => fs.existsSync(path.join(baselinePublicRoot, 'assets', 'active-theme', file))))
+    throw new Error('The base revision needs its built SVG manifest or compiled assets via YARN_TEST_BASELINE_ASSET_ROOT');
   servers.push(createGameServer({ htmlPath: baselineTestHtml, publicRoot: baselinePublicRoot }));
 }
 const report = { status: 'RUNNING', browser: null, comparisons: [], errors: [], consoleErrors: [], requestFailures: [] };
@@ -120,7 +120,7 @@ async function runScene(browser, server, tag, mobile) {
   await page.waitForTimeout(180);
   await page.evaluate(() => __YARN_MAYHEM.qaRender());
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await page.screenshot({ path: path.join(outputDir, `${tag}-normal-scale-0206.png`) });
+  await page.screenshot({ path: path.join(outputDir, `${tag}-normal-scale.png`) });
   if (measurements.stats?.assets?.some(asset => asset.name === 'yarnProgress')) {
     const previousPulseDraws = measurements.stats.totalDrawsByAsset.riftPulse;
     const pulse = await page.evaluate(() => {
@@ -136,7 +136,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.evaluate(() => __YARN_MAYHEM.qaRender());
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().totalDrawsByAsset.riftPulse > previous,
       previousPulseDraws, { timeout: 5000 });
-    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse-0205.png`) });
+    await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse.png`) });
     measurements.riftPulse = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
     await page.evaluate(() => {
       const q = __YARN_MAYHEM;
@@ -149,7 +149,7 @@ async function runScene(browser, server, tag, mobile) {
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().drawsByAsset.yarnProgress > previous,
       measurements.riftPulse.drawsByAsset.yarnProgress, { timeout: 5000 });
     measurements.progress = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
-    await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress-0205.png`) });
+    await page.screenshot({ path: path.join(outputDir, `${tag}-revive-progress.png`) });
   }
   await context.close();
   return { setup, normalScale, measurements };
@@ -165,8 +165,8 @@ async function runScene(browser, server, tag, mobile) {
     report.browser = browser.version();
     for (const mobile of [false, true]) {
       const tag = mobile ? 'landscape-touch' : 'edge-desktop';
-      const current = await runScene(browser, servers[0], `${tag}-runtime-0205`, mobile);
-      const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline-0200`, mobile) : null;
+      const current = await runScene(browser, servers[0], `${tag}-candidate`, mobile);
+      const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline`, mobile) : null;
       const stats = current.measurements.stats;
       const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
@@ -212,14 +212,14 @@ async function runScene(browser, server, tag, mobile) {
         retainedBytes < 4 * 1024 * 1024,
         { bytes: retainedBytes, assets, yarnSurface });
       report.comparisons.push({
-        name: baseline ? `${tag}: v0.20.4 baseline versus yarn surface capture` : `${tag}: yarn surface visual/performance capture`,
+        name: baseline ? `${tag}: PR base baseline versus yarn surface capture` : `${tag}: yarn surface visual/performance capture`,
         status: 'CAPTURED',
         evidence: {
-          baselineScreenshot: baseline ? `${tag}-baseline-0204.png` : null,
-          surfaceScreenshot: `${tag}-runtime-0205.png`,
-          normalScaleScreenshot: `${tag}-runtime-normal-scale-0206.png`,
-          pulseScreenshot: `${tag}-runtime-0205-rift-pulse-0205.png`,
-          progressScreenshot: `${tag}-runtime-0205-revive-progress-0205.png`,
+          baselineScreenshot: baseline ? `${tag}-baseline.png` : null,
+          surfaceScreenshot: `${tag}-candidate.png`,
+          normalScaleScreenshot: `${tag}-candidate-normal-scale.png`,
+          pulseScreenshot: `${tag}-candidate-rift-pulse.png`,
+          progressScreenshot: `${tag}-candidate-revive-progress.png`,
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
           normalScale: { mapSeed: current.normalScale.mapSeed, timeMs: current.normalScale.timeMs, actorCount: current.normalScale.enemies.length + 1 },
           baselineFps: baseline?.measurements.fps ?? null, surfaceFps: current.measurements.fps,
