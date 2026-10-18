@@ -1,3 +1,12 @@
+# 0.20.6 GameKit 0.14.3 fixed distribution pin
+
+Base: `main` `0f0ef43de185cab0da67c03430f3f2e5f3e0d212`. Update the runtime from GameKit v0.10.4 dist `95d8676e3eaaa9f80aeed2e3361e258381511c77` to v0.14.3 source `dd59a57fcf66409cef16632ffb433c0b760324fa`, dist `418e17c455db56d6ed073d82d115191d9dd8bf04`. The official dist manifest SHA-256 is `20244c2beeee33719f407a9baa92c55a4bd55a0e4eb9f094590bb0eed652296e`; `docs/gamekit-manifest.json`, `index.html`, build provenance checks and the third-party notice now agree. The project consumes eight pinned modules through `index.html`; GameKit is not a package/lockfile dependency.
+
+- API review: the game still uses the existing `createNostrDynamicRoom` transport contract (`subscribe`, `close`, roster and peer transports). The v0.14.3 RoomSession departure-ack fix is in the unimported rollback module. This game also does not import `pixel-physics.js` or persist its snapshots, so no incompatible pixel-physics data or stored game data is migrated or cleared.
+- `npm run build`: PASS; generated `_site/build.json` records the v0.14.3 dist pin, official manifest SHA-256 and all eight imported module hashes.
+- Microsoft Edge 155.0.4283.62 E2E: `npm run test:vector-assets` PASS (19 checks and 2 captures; no runtime/console/request failures); `npm run test:combat` PASS (20 checks); `npm test` PASS (21 checks, including solo controls, two-peer start/input, and peer state); `npm run test:mobile` PASS (203 checks, including room departure to solo); `npm run test:rift:rtc` PASS (17 checks, including host/guest connection, authoritative start/state, reload/rejoin and active-state restoration). No runtime, console or network failures in the passing reports.
+- The first `npm test` run exposed only a one-ULP enemy-angle difference (`2.2e-16` radians) under exact JSON equality. Its existing E2E comparison now rounds only Matter enemy angles to `1e-12` radians; player, shot, and all remaining enemy fields are still exact. The full scenario then passed.
+
 # 0.19.7 sync all active rifts to co-op guests
 
 Base: main `018c2d43b9506ed74c18243b87ab4be47d5d6c5c` (0.19.6). A focused stage40 RTC reproduction found that the host packed six active rifts at tick20 while the guest retained only IDs0–3 at that same tick. The host's `packWorld()` already included all rifts; `applyWorldFrame()` alone truncated guest input with `slice(0,4)`.
