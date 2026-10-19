@@ -251,7 +251,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@95d8676e3eaaa9f80aeed2e3361e258381511c77/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@418e17c455db56d6ed073d82d115191d9dd8bf04/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ Renderer2D, WebGLDevice, MeshRenderer, YarnSurfaceRenderer }, { createVectorAsset }, { createVectorAssetLoader },
@@ -457,7 +457,7 @@ html,body{overscroll-behavior:none}#app{height:min(100dvh,var(--visible-height,1
 
     let hintTimeout=0;
     const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
-    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'95d8676e3eaaa9f80aeed2e3361e258381511c77',gamekitVersion:'0.10.4',matterVersion:Matter.version||'0.20.0'};
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'418e17c455db56d6ed073d82d115191d9dd8bf04',gamekitVersion:'0.14.3',matterVersion:Matter.version||'0.20.0'};
     // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
     // The collision normal prevents catching the platform's corner as a side wall.
     const nativeDetectorCollisions = Matter.Detector.collisions;

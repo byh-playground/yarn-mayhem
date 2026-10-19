@@ -14,14 +14,21 @@ if (!htmlText.includes(gamekitBase) || !htmlText.includes("gamekitDist:'" + game
 for (const module of gamekit.modules) {
   if (!htmlText.includes("import(GAMEKIT_DIST + '" + module.file + "')")) throw new Error('Pinned GameKit module is not imported: ' + module.file);
 }
-if (gamekit.version !== '0.10.4' || gamekit.sourceCommit !== '0abe586967704e193a5e85b6b0c598e58bbf193b'
-    || gamekit.distCommit !== '95d8676e3eaaa9f80aeed2e3361e258381511c77'
-    || gamekit.officialManifestSha256 !== '64699fdd06eef0f94e874703cbb9f7e87c5f1ef067c68241b7dc17d9b172f625') {
-  throw new Error('Official GameKit 0.10.4 startup SVG loader pin changed');
-}
-const loaderModule = gamekit.modules.find(module => module.file === 'vector-assets-loader.js');
-if (!loaderModule || loaderModule.sha256 !== 'bdc951f4f6b912a9beea98c2d6056c437064a4e08f4602ede92a2ecbd47e47cf') {
-  throw new Error('Official browser SVG loader module pin changed');
+const expectedGamekitModules = [
+  { file: 'rendering.js', sha256: '021b11f83b49be3e94cfe0a67769dcd248b9463325b6dcc55ea4943a0ea6c18b' },
+  { file: 'vector-assets.js', sha256: '288eadf3830df2836f0b103dc513a906b5b9dbd58660885c18b2a0941d0e877a' },
+  { file: 'vector-assets-loader.js', sha256: '56042179b1b669d69d4791c5a1ad7bbd1927d8686fa4e9192504fb248c2170e2' },
+  { file: 'input.js', sha256: 'a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f' },
+  { file: 'simloop.js', sha256: 'c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8' },
+  { file: 'audio.js', sha256: 'f792c0b56b4829d20dfecb03f087bc435e377d9e772a7c5caa3611afef281d20' },
+  { file: 'transport.js', sha256: 'cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a' },
+  { file: 'interpolation.js', sha256: '061960f311ad57894914186baa01f6b257269637353056ac93f86d34265a4ef8' },
+];
+if (gamekit.version !== '0.14.3' || gamekit.sourceCommit !== 'dd59a57fcf66409cef16632ffb433c0b760324fa'
+    || gamekit.distCommit !== '418e17c455db56d6ed073d82d115191d9dd8bf04'
+    || gamekit.officialManifestSha256 !== '20244c2beeee33719f407a9baa92c55a4bd55a0e4eb9f094590bb0eed652296e'
+    || JSON.stringify(gamekit.modules) !== JSON.stringify(expectedGamekitModules)) {
+  throw new Error('Official GameKit 0.14.3 runtime module pin changed');
 }
 if (!htmlText.includes('createVectorAssetLoader({ maxEntries: 8 })') || !htmlText.includes('expectedSha256: item.sha256')
     || !htmlText.includes('includeSourcePaths: true') || htmlText.includes('compiled-assets.mjs')
@@ -72,6 +79,7 @@ const buildInfo = {
   gamekit: gamekit.distCommit,
   gamekitVersion: gamekit.version,
   gamekitSource: gamekit.sourceCommit,
+  gamekitManifestSha256: gamekit.officialManifestSha256,
   gamekitModules: gamekit.modules,
   vectorAssets: sourceManifest,
 };
