@@ -153,7 +153,7 @@ Defend against yarn enemies emerging from map-wide temporary rifts; needles figh
 
 ## 실행과 검증
 
-`index.html` 하나가 현행 소스이자 배포 게임입니다. 인터넷 연결이 필요하며 Matter.js와 GameKit을 고정 CDN 주소에서 로드합니다.
+`index.html`은 원본 실행 진입점이고 `src/main.js`, `src/visual/matrix.js`, `src/styles/main.css`, `assets/active-theme/`가 네이티브 브라우저 소스입니다. 배포 번들 생성 없이 같은 태그의 파일들을 함께 공개합니다. 인터넷 연결이 필요하며 Matter.js와 GameKit을 고정 CDN 주소에서 로드합니다.
 
 ```sh
 npm run dev
@@ -166,7 +166,7 @@ npm test
 
 이전 버전의 검증·환경 제한 기록은 [검증 이력](docs/verification.md)에 보관합니다.
 
-Windows Edge PR CI는 0.20.0 기준본과 같은 시드·시각의 PC 및 가로 터치 화면을 비교하고, PC/가로 모바일 전투·모바일 화면·실제 2인 RTC 흐름을 실행합니다. 브라우저 보고서와 스크린샷은 Actions 산출물로 남깁니다. main 병합 뒤 기존 Actions Pages가 같은 커밋의 HTML과 [빌드 정보](https://byh-playground.github.io/yarn-mayhem/build.json)를 배포합니다.
+Windows Edge 회귀 검사는 수동 `workflow_dispatch`로 실행하며 0.20.0 기준본과 같은 시드·시각의 PC 및 가로 터치 화면, PC/모바일 전투와 실제 2인 RTC 흐름을 확인합니다. 브라우저 보고서와 스크린샷은 Actions 산출물로 남깁니다. main 병합 뒤 Pages는 원본 HTML·ES 모듈·SVG를 내용 변경 없이 배포합니다. 빌드 정보 JSON 생성은 릴리즈·로컬 테스트용으로만 남깁니다.
 
 ## 출처와 변경
 
