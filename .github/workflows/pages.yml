@@ -1,4 +1,4 @@
-name: Verify and deploy Pages
+name: Verify source and deploy Pages
 on:
   pull_request:
   push:
@@ -15,7 +15,20 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - run: npm run build
+      - name: Syntax and source checks
+        run: |
+          node --check src/main.js
+          node --check src/visual/matrix.js
+          test -s assets/active-theme/manifest.json
+          git diff --check
+      - name: Publish original files without game build
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          cp -R src _site/src
+          cp -R assets _site/assets
+          touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/main'
         with:

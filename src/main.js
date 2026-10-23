@@ -1,0 +1,3241 @@
+import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
+
+(async function YarnMayhemBoot() {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const loading = $('loading');
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@418e17c455db56d6ed073d82d115191d9dd8bf04/';
+  try {
+    if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+    const [{ Renderer2D, WebGLDevice, MeshRenderer, YarnSurfaceRenderer }, { createVectorAsset }, { createVectorAssetLoader },
+      { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
+      { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
+      import(GAMEKIT_DIST + 'rendering.js'),
+      import(GAMEKIT_DIST + 'vector-assets.js'),
+      import(GAMEKIT_DIST + 'vector-assets-loader.js'),
+      import(GAMEKIT_DIST + 'input.js'),
+      import(GAMEKIT_DIST + 'simloop.js'),
+      import(GAMEKIT_DIST + 'audio.js'),
+      import(GAMEKIT_DIST + 'transport.js'),
+      import(GAMEKIT_DIST + 'interpolation.js'),
+    ]);
+    const sourceManifestResponse = await fetch(new URL('assets/active-theme/manifest.json', document.baseURI));
+    if (!sourceManifestResponse.ok) throw new Error('Authored SVG manifest failed to load: ' + sourceManifestResponse.status);
+    const sourceManifest = await sourceManifestResponse.json();
+    const loader = createVectorAssetLoader({ maxEntries: 8 });
+    const loadedAssets = await Promise.all(sourceManifest.assets.map(async item => [item.key, await loader.load(
+      new URL(item.path, document.baseURI).href,
+      { sourcePath: item.path, expectedSha256: item.sha256, maxBytes: 512 * 1024, curveSegments: 16, includeSourcePaths: true },
+    )]));
+    const ACTIVE_THEME_ASSETS = Object.freeze(Object.fromEntries(loadedAssets));
+    const Matter = globalThis.Matter;
+    const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
+    const canvas = $('gl');
+    const renderer = new Renderer2D(canvas, { batchVertices: 12288, antialias: true });
+    const device = new WebGLDevice(canvas, { alpha: true, antialias: true, depth: false, stencil: false });
+    const meshRenderer = new MeshRenderer(device, { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 });
+    const yarnSurfaceRenderer = new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 });
+    const yarnShaderSurfaces = ACTIVE_THEME_ASSETS.yarnBody.geometry.shaderSurfaces ?? [];
+    const yarnSurfaceStyle = ACTIVE_THEME_ASSETS.yarnBody.metadata.styles.find(style => style.kind === 'yarn' && style.target === 'yarn-shell');
+    if (yarnShaderSurfaces.length !== 1 || yarnSurfaceStyle?.backend !== 'shader') throw new Error('Authored yarn SVG did not compile to one GameKit shader surface');
+    const vectorAssets = Object.freeze({
+      yarnBody:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnBody,{surfaceRenderer:yarnSurfaceRenderer}),
+      yarnFace:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnFace,{surfaceRenderer:yarnSurfaceRenderer}),
+      needle:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.needle,{surfaceRenderer:yarnSurfaceRenderer}),
+      riftHole:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftHole,{surfaceRenderer:yarnSurfaceRenderer}),
+      riftPulse:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftPulse,{surfaceRenderer:yarnSurfaceRenderer}),
+      yarnProgress:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnProgress,{surfaceRenderer:yarnSurfaceRenderer}),
+    });
+    const vectorPlayers = Object.freeze(Object.fromEntries(Object.entries(vectorAssets).map(([name,asset])=>[name,asset.createPlayer()])));
+    const vectorDrawCounts = Object.fromEntries(Object.keys(vectorAssets).map(name=>[name,0]));
+    const vectorDrawTotals = Object.fromEntries(Object.keys(vectorAssets).map(name=>[name,0]));
+    const vectorActorDraws=Object.create(null);
+    const vectorFaceCommands=[];const vectorNeedleCommands=[];const enemyOverlayCommands=[];
+    function setVectorPose(player,part,pose={}){
+      player.setBasePose(part,{x:0,y:0,rotation:0,scaleX:1,scaleY:1,opacity:1,...pose});
+    }
+    function drawVector(name,{expression,clip='idle',startedAtMs=0,timeMs=state.timeMs,x=0,y=0,scaleX=1,scaleY=scaleX,
+      rotation=0,originX=100,originY=100,matrix,alpha=1,color=[1,1,1,1],forceColor=false,actorKey=null,flushMesh=true}={}){
+      const player=vectorPlayers[name];
+      if(expression)player.setExpression(expression);
+      player.play(clip,startedAtMs).seek(timeMs);
+      renderer.flush();
+      player.draw({projection:renderer.projection,matrix:matrix||vectorMatrixFor(x,y,scaleX,scaleY,rotation,originX,originY),alpha,color,forceColor});
+      if(flushMesh)meshRenderer.flush();
+      vectorDrawCounts[name]++;vectorDrawTotals[name]++;
+      if(actorKey){const draws=vectorActorDraws[actorKey]||(vectorActorDraws[actorKey]={});draws[name]=(draws[name]||0)+1;}
+      return player;
+    }
+    function drawYarnFace(x,y,radius,expression,bodyMatrix,whiteFlash=false,actorKey=null,flushMesh=true){
+      const player=vectorPlayers.yarnFace;
+      return drawVector('yarnFace',{expression,clip:'idle',startedAtMs:0,x,y,scaleX:radius/100,scaleY:radius/100,
+        originX:100,originY:100,matrix:bodyMatrix,alpha:1,color:[1,1,1,1],forceColor:whiteFlash,actorKey,flushMesh});
+    }
+    function effectTint(color){return [Math.min(1,color[0]/.78),Math.min(1,color[1]/.82),Math.min(1,color[2]/.71),Math.min(1,color[3]??1)];}
+    const actions = new ActionState();
+    const CONFIG = Object.freeze({
+      tickMs: 1000 / 30,
+      world: { width: 2280, height: 1590, groundY: 1410, stepHeight: 168, wallReveal:40 },
+      enemy: { maxTier: 10, aiRetargetMs: 270, counterAttackMs: 1350, chargeMs:300, attackMs:100, recoveryMs:220, waitMs:140, alertRange:720, commitGap:30, chaseSpeed:560, chaseTierStep:8, dashSpeed:1120, dashHoldMs:220, rangedTier:6,
+        bounce:{landMs:67,compressMs:100,tierCompressMs:4,speed:4.9,tierSpeed:.14},
+        split: { mergeLockMs: 1350, flightMs: 720, graceMs: 280, launchSpeed: 690, upSpeed: 510 },
+        spawn: { popSpeed: 790, openMs: 320, closeMs: 300, firstMs: 760, perHoleIntervalMs:1000, perHoleStageMultiplier:.9,
+          riftIntervalMs:2000, riftStageMultiplier:.9, riftLifetimeMs:3000,
+          maxConcurrent: 96 } },
+      player: { maxHp: 200, radius: 18, dashCharges: 2, rechargeMs: 830, dashSpeed: 830, dashHoldMs: 190, moveSpeed: 250,
+        jumpSpeed: 12.8, jumpBufferMs: 130, coyoteMs: 100, jumpCutRate: .50,
+        respawnMs: 5000, respawnHpRate: .5, respawnProtectionMs: 1500,
+        groundAccel: 3600, groundBrake: 4200, airAccel: 1350, airBrake: 900, wallDeadzone: 6 },
+      rolling:{friction:.45,staticFriction:.8,airDrag:.002},
+      feedback:{chainPauseMs:70,chainLegMs:90,trailMs:450,impactMs:180},
+      shot: { rateMs: 520, speed: 1060, radius: 3.5, impulse: 2.2, maxLive: 55 },
+      combat: { basePower:29,
+        echoDelayMs:300, echoDamageRate:.25, needleImpulse:720, flightMs:3000, pinMinSpeed:300, pinMs:1200, pinGap:18,
+        ricochetRange:420, ricochetTargets:3, controlCooldownMs:800, reboundSpeed:850, reboundMs:700, reboundDamageRate:.5, releaseFxMs:420 },
+      colors: {
+        t1: [0.69, 0.85, 0.61, 1], t2: [0.58, 0.80, 0.79, 1],
+        t3: [0.96, 0.72, 0.53, 1], t4: [0.78, 0.63, 0.86, 1],
+        t5: [0.92, 0.55, 0.64, 1], t6: [0.70, 0.68, 0.95, 1],
+        t7: [0.94, 0.58, 0.43, 1], t8: [0.49, 0.79, 0.94, 1],
+        t9: [0.77, 0.54, 0.79, 1], t10: [0.97, 0.79, 0.45, 1],
+      },
+    });
+    // Tier data is the SSOT for movement, attack, rewards and face. The physics
+    // radius follows sqrt(2) each generation: every merger doubles circle area.
+    const TIER_DEFS=Object.freeze([
+      {hp:21, xp:2, hop:11.9, range:0, face:'happy'},
+      {hp:48, xp:5, hop:12, range:385, face:'curious'},
+      {hp:108, xp:12, hop:12.3, range:410, face:'cheeky'},
+      {hp:225, xp:24, hop:12.2, range:490, face:'grumpy'},
+      {hp:480, xp:50, hop:12.5, range:620, face:'proud'},
+      {hp:920, xp:90, hop:12.5, range:680, face:'sleepy'},
+      {hp:1800, xp:160, hop:12.7, range:730, face:'ferocious'},
+      {hp:3400, xp:270, hop:13, range:820, face:'shocked'},
+      {hp:6500, xp:440, hop:13.2, range:910, face:'sly'},
+      {hp:12000, xp:700, hop:13.5, range:990, face:'royal'},
+    ].map((spec,index)=>Object.freeze({...spec,speed:CONFIG.enemy.chaseSpeed+index*CONFIG.enemy.chaseTierStep,tier:index+1,radius:18*(Math.SQRT2**index)})));
+    if(TIER_DEFS.length!==CONFIG.enemy.maxTier)throw new Error('tier definition mismatch');
+    const RADII=TIER_DEFS.map(t=>t.radius);
+    const enemyHP=TIER_DEFS.map(t=>t.hp);
+    const tierXP=TIER_DEFS.map(t=>t.xp);
+    const themeLabels = ['새벽 화원', '노을 바위숲', '별빛 실정원'];
+    const PALETTE = {
+      shadow: [0.06, 0.17, 0.19, .31], ground: [.22, .36, .32, 1],
+      soil: [.12, .29, .28, 1], edge: [.55, .81, .65, 1],
+      platform: [.25, .41, .40, 1], stitch: [.48, .69, .64, .80],
+      cream: [.99, .95, .83, 1], eyes: [.20, .28, .28, 1],
+      gold: [1, .85, .61, 1], shot: [1, .91, .72, 1], player: [.61, .91, .73, 1],
+      playerOutline: [.89, 1, .86, 1], muted: [.57, .72, .67, .5],
+    };
+    const soundCfg = {
+      volume: .70, maxVoices: 12,
+      categories: {
+        action:{volume:1,max:10,gapMs:0,priority:1},
+        ui:{volume:0.7,max:3,gapMs:0,priority:2},
+      },
+      sounds: {
+        shoot: {category: 'action', gapMs: 65, layers: [{kind:'tone',hz:880,end:300,ms:100,gain:.16,type:'triangle'}]},
+        echoPulse:{category:'action',gapMs:48,layers:[{kind:'noise',hz:2800,ms:115,gain:.2},{kind:'tone',hz:870,end:270,ms:160,gain:.16,type:'triangle'}]},
+        dash: {category: 'action', layers: [{kind:'tone',hz:240,end:640,ms:110,gain:.21,type:'triangle'}, {kind:'noise',hz:520,ms:65,gain:.09}]},
+        hit: {category: 'action', gapMs: 60, layers: [{kind:'tone',hz:230,end:110,ms:100,gain:.23,type:'sine'}, {kind:'noise',hz:580,ms:50,gain:.12}]},
+        wallPin:{category:'action',gapMs:48,layers:[{kind:'noise',hz:1700,ms:42,gain:.20},{kind:'tone',hz:210,end:65,ms:115,gain:.29,type:'sine'},{kind:'tone',hz:940,end:510,ms:75,gain:.10,type:'triangle'}]},
+        ...Object.fromEntries([1,2,3].map(step=>['ricochet'+step,{category:'action',gapMs:0,layers:[{kind:'noise',hz:2200+step*450,ms:28,gain:.16},{kind:'tone',hz:600+step*230,end:390+step*180,ms:80,gain:.22,type:'triangle'},{kind:'tone',hz:170,end:65,ms:65,gain:.18,type:'sine'}]}])),
+        merge: {category: 'action', gapMs: 70, layers: [{kind:'tone',hz:340,end:910,ms:180,gain:.23,type:'sine'}, {kind:'tone',hz:560,end:1050,ms:150,gain:.13,type:'triangle',delay:36}]},
+        jump: {category:'action',gapMs:75,layers:[{kind:'tone',hz:340,end:560,ms:90,gain:.12,type:'triangle'}]},
+        pop: {category:'action',gapMs:85,layers:[{kind:'tone',hz:180,end:470,ms:160,gain:.17,type:'triangle'},{kind:'noise',hz:900,ms:90,gain:.09}]},
+        kill: {category: 'action', gapMs: 60, layers: [{kind:'tone',hz:560,end:185,ms:180,gain:.17,type:'triangle'}]},
+        level: {category: 'ui', layers: [{kind:'tone',hz:440,end:760,ms:245,gain:.20,type:'sine'}]},
+        hurt: {category: 'action', gapMs: 200, layers: [{kind:'tone',hz:190,end:110,ms:130,gain:.20,type:'sawtooth'}]},
+        select: {category: 'ui', layers: [{kind:'tone',hz:460,end:660,ms:105,gain:.14,type:'sine'}]},
+      },
+    };
+    const audio = new AudioPlayer(soundCfg);
+    const sound = (id, strength = 1) => { if (!muted) audio.play(id, strength); };
+    let muted = false;
+    const state = {
+      phase:'MENU', tick:0, timeMs:0, stage:1, theme:1, kills:0, defeats:0, merges:0, splits:0,
+      xp:0, level:1, xpGoal:10, score:0, shotsFired:0,
+      stageKills:0, stageKillGoal:8, runId:0, mapStyle:null, mapSeed:0, stageMerges:0, stageSplits:0, player:null, enemies:[], shots:[],
+      particles:[], rings:[], absorptions:[], frays:[], spawnHoles:[], spawnSites:[], nextSpawnAtMs:Infinity, nextRiftAtMs:Infinity, nextSpawnHoleId:0, spawnAttempts:0,
+      surfaces:[], platforms:[], collisionWalls:[], oneWayByBody:new Map(), surfacesByBody:new Map(), contacts:new Map(), navGraph:new Map(), routeCache:new Map(), groundSurface:null, engine:null,
+      nextEnemyId:1, nextShotId:1, contactKeys:new Set(), terrainContacts:new Map(), reboundContacts:new Set(), needleEchoes:[], ricochetTrails:[], impactMarks:[],
+      toastUntil:0,
+      camera:{x:360,y:1200,zoom:1,shake:0}, players:new Map(), fxNet:[],
+    };
+    const newStats=()=>({
+      needlePower:CONFIG.combat.basePower,fireIntervalMs:CONFIG.shot.rateMs,needleEcho:false,
+      projectileImpulse:CONFIG.shot.impulse,needleRicochet:false,needleCarry:false,needleRebound:false,
+      dashMax:CONFIG.player.dashCharges,dashRechargeMs:CONFIG.player.rechargeMs,
+      dashSpeed:CONFIG.player.dashSpeed,dashHoldMs:CONFIG.player.dashHoldMs,moveSpeed:CONFIG.player.moveSpeed,maxHp:CONFIG.player.maxHp,
+    });
+    let effectSeed=0x1badcafe;
+    function effectRandom(){effectSeed=(Math.imul(effectSeed,1664525)+1013904223)>>>0;return effectSeed/4294967296;}
+    let randState = 0x6b456fed;
+    function seed(n) { randState = n >>> 0 || 1; }
+    function random() { randState = (Math.imul(randState,1664525)+1013904223)>>>0; return randState/4294967296; }
+    function seededSiteRandom(n){let value=n>>>0||1;return ()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296;};}
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
+    function normalize(x,y) { const d=Math.hypot(x,y);return d>1e-5?{x:x/d,y:y/d}:{x:1,y:0}; }
+    function velocity(body) { return Body.getVelocity(body); }
+    function worldVelocity(body) { const v=velocity(body);return {x:v.x*60,y:v.y*60}; }
+    function setWorldVelocity(body,vx,vy) { Body.setVelocity(body,{x:vx/60,y:vy/60}); }
+    let inputAdapter = null, loop = null, disposed=false, lastFrame=0, fps=60, lastHudFrame=-1;
+    let mobilePad = {pointerId:null,x:0,y:0};
+    let mobileDash = {pointerId:null,pressed:false};
+    let mobileJump = {pointerId:null,held:false,pressed:false};
+    let mobileAttack = {pointerId:null,down:false,pendingTap:false,axis:null,originX:0,originY:0};
+    let pointerAim = {x:0,y:0,seen:false,source:'mouse'};
+    let cameraSize = {w:0,h:0,dpr:1};
+    // Authoritative host simulation; guest consumes compact state frames.
+    const wire = new TextEncoder(), unwire = new TextDecoder();
+    const net={role:'solo',room:null,abort:null,code:null,connection:'offline',
+      peers:new Map(), peerControls:new Map(), inputSequence:0, lastStateTick:-1,
+      lastInputSignature:'', lastInputSendAt:-1e9, lastHelloMs:-1e9, remoteReady:false, remoteRunId:-1, joinEpoch:0, lastInputSeq:new Map(), parts:new Map(),
+      eventId:0, lastFxSeen:0, disconnectedAt:0, lastHostState:null};
+    const roomMaxPlayers=4;
+    const localId=()=>net.room?.localPlayerId??'solo';
+    // Session/transport owns roster information; all gameplay rules use only
+    // the players in the world. In solo the roster is a single 'solo' actor.
+    const sessionRoster=()=>state.players.size?[...state.players.keys()]:[localId()];
+    const idOfBody=body=>{for(const actor of state.players.values())if(actor.body===body)return actor;return null;};
+
+    let hintTimeout=0;
+    const inputSamples = Object.fromEntries(['jump','down','left','right','dash','fire'].map(k=>[k,{}]));
+    const metrics = {frames:0,drawCalls:0,vertices:0,stageClears:0,collisions:0,merges:0,splits:0,spawned:0,jumps:0,damage:0,shotsHit:0,gamekitDist:'418e17c455db56d6ed073d82d115191d9dd8bf04',gamekitVersion:'0.14.3',matterVersion:Matter.version||'0.20.0'};
+    // One-way collision filter runs BEFORE Matter creates active pairs / executes the solver.
+    // The collision normal prevents catching the platform's corner as a side wall.
+    const nativeDetectorCollisions = Matter.Detector.collisions;
+    function footOffset(body) { return body.plugin?.footOffset ?? body.circleRadius ?? 0; }
+    function halfWidth(body) { return body.plugin?.halfWidth ?? body.circleRadius ?? 0; }
+    function shouldResolveOneWay(actor,surface,collision=null) {
+      if(!actor||actor.isStatic||actor.plugin?.dropThrough)return false;
+      if(actor.label!=='player'&&actor.label!=='enemy')return false;
+      // Giant T9–10 yarn balls cannot balance on narrow one-way ledges.
+      // They cross those ledges and settle on the ground naturally instead.
+      if(actor.label==='enemy'&&halfWidth(actor)*2>surface.x2-surface.x1-16)return false;
+      const foot=actor.position.y+footOffset(actor),previous=actor.positionPrev.y+footOffset(actor);
+      const down=actor.position.y-actor.positionPrev.y;
+      if(collision && Math.abs(collision.normal.y)<.48)return false;
+      // A 5px tolerance is only for resting contact solver slop, NOT proximity-based grounding.
+      return down>=-.2 && previous<=surface.top+5 && foot>=surface.top-4 &&
+        foot<surface.top+Math.max(16,down+9) && actor.position.y<surface.top;
+    }
+    function shouldPinPlatformUnderside(actor,surface,collision){
+      // A needle flight alone may collide upward with the underside of a one-way platform.
+      const incoming=actor?.plugin?.controlVelocity;
+      if(actor?.label!=='enemy'||!incoming||incoming.y>=0)return false;
+      const a=collision.bodyA.parent||collision.bodyA;
+      const sign=actor===a?-1:1,nx=collision.normal.x*sign,ny=collision.normal.y*sign;
+      return ny<-.48 && actor.positionPrev.y>=surface.top+surface.thick &&
+        incoming.x*nx+incoming.y*ny>=CONFIG.combat.pinMinSpeed;
+    }
+    Matter.Detector.collisions=function yarnMayhemOneWayCollisions(detector){
+      const candidates=nativeDetectorCollisions(detector),surfaces=detector.oneWaySurfaces;
+      if(!surfaces?.size)return candidates;
+      let count=0;
+      for(const candidate of candidates){
+        const a=candidate.bodyA.parent||candidate.bodyA,b=candidate.bodyB.parent||candidate.bodyB;
+        const oneA=surfaces.get(a.id),oneB=surfaces.get(b.id);
+        if((!oneA&&!oneB) || (shouldResolveOneWay(oneA?b:a,oneA||oneB,candidate)||shouldPinPlatformUnderside(oneA?b:a,oneA||oneB,candidate)))candidates[count++]=candidate;
+      }
+      candidates.length=count;
+      return candidates;
+    };
+    // Derive support from REAL active contact pairs, not a speculative +/-9px Y band.
+    // Collision-generated wall direction is retained for the next fixed-step movement motor.
+    function updateContactState(){
+      const next=state.contacts;
+      next.clear();
+      for(const pair of state.engine.pairs?.list||[]){
+        if(!pair.isActive)continue;
+        const a=pair.bodyA.parent||pair.bodyA,b=pair.bodyB.parent||pair.bodyB;
+        for(const [actor,solid] of [[a,b],[b,a]]){
+          if(actor.label!=='player'&&actor.label!=='enemy')continue;
+          let entry=next.get(actor.id);
+          if(!entry){entry={support:null,wallLeft:false,wallRight:false};next.set(actor.id,entry);}
+          if(solid.label==='wall'){
+            if(solid.position.x<actor.position.x)entry.wallLeft=true;
+            else entry.wallRight=true;
+          }
+          const surface=state.surfacesByBody.get(solid.id);
+          if(!surface||surface.oneWay&&actor.plugin?.dropThrough)continue;
+          const foot=actor.position.y+footOffset(actor);
+          const normal=pair.collision?.normal;
+          if(normal && Math.abs(normal.y)<.5)continue;
+          if(Math.abs(foot-surface.top)<=9 && actor.position.y<surface.top){
+            if(!entry.support || surface.top<entry.support.top)entry.support=surface;
+          }
+        }
+      }
+    }
+    // === Static world: only bodies in Matter own physics. ===
+    function clearWorld() {
+      if (state.engine) {
+        Events.off(state.engine,'collisionStart',onMatterContact);
+        Events.off(state.engine,'collisionActive',onMatterContact);
+        Composite.clear(state.engine.world,false);
+        Engine.clear(state.engine);
+      }
+      state.terrainContacts.clear();state.reboundContacts.clear();state.needleEchoes=[];state.ricochetTrails=[];state.impactMarks=[];effectSeed=0x1badcafe;
+      state.engine=null;state.enemies=[];state.shots=[];state.particles=[];state.rings=[];
+      state.absorptions=[];state.frays=[];state.fxNet=[];state.spawnHoles=[];state.spawnSites=[];state.nextSpawnAtMs=Infinity;state.nextRiftAtMs=Infinity;state.nextSpawnHoleId=0;state.spawnAttempts=0;state.mapStyle=null;
+      $('toastLayer').replaceChildren();
+      state.surfaces=[];state.platforms=[];state.collisionWalls=[];state.oneWayByBody.clear();state.surfacesByBody.clear();
+      state.contacts.clear();state.navGraph.clear();state.routeCache.clear();state.groundSurface=null;state.contactKeys.clear();
+    }
+    // Traversable terrain: only level ground and FLAT, one-way ledges. No bowl / tall solid spawn walls.
+    function makeTerrain(x1,x2,top,thick=16,kind='platform') {
+      const body=Bodies.rectangle((x1+x2)/2,top+thick/2,x2-x1,thick,{
+        isStatic:true,friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,restitution:0,label:'terrain',
+        collisionFilter:{category:1,mask:0xffff},
+      });
+      const surface={id:state.surfaces.length,x1,x2,top,thick,body,kind,oneWay:kind==='platform'};
+      state.surfaces.push(surface);state.surfacesByBody.set(body.id,surface);
+      if(surface.oneWay){state.platforms.push(surface);state.oneWayByBody.set(body.id,surface);}
+      if(kind==='ground')state.groundSurface=surface;
+      Composite.add(state.engine.world,body);
+      return surface;
+    }
+    function platformOverlap(a,b){return Math.min(a.x2,b.x2)-Math.max(a.x1,b.x1);}
+    function buildPlatformGraph(){
+      state.navGraph.clear();
+      const surfaces=state.surfaces;
+      for(const a of surfaces)state.navGraph.set(a.id,[]);
+      for(let i=0;i<surfaces.length;i++)for(let j=i+1;j<surfaces.length;j++){
+        const a=surfaces[i],b=surfaces[j],delta=Math.abs(a.top-b.top),overlap=platformOverlap(a,b);
+        // All platforms can be reached with ONE unboosted tier-1 navigation jump (>= 168px rise).
+        const stair=delta<=CONFIG.world.stepHeight+4 && overlap>=125;
+        // Consecutive level ledges can also be crossed with a small horizontal jump.
+        const hop=delta<2 && overlap>=-90;
+        if(!stair&&!hop)continue;
+        state.navGraph.get(a.id).push(b.id);state.navGraph.get(b.id).push(a.id);
+      }
+    }
+    const MAP_ARCHETYPES=Object.freeze([
+      {name:'열린 짜임 계단',lanes:2,rows:3,widthMin:390,widthMax:520,drift:90},
+      {name:'쌍둥이 실탑',lanes:2,rows:3,widthMin:350,widthMax:480,drift:110},
+      {name:'떠있는 섬',lanes:3,rows:2,widthMin:300,widthMax:410,drift:70},
+      {name:'갈래 실정원',lanes:2,rows:3,widthMin:410,widthMax:570,drift:100},
+      {name:'열린 층층절벽',lanes:2,rows:2,widthMin:480,widthMax:650,drift:90},
+    ]);
+    function layoutSeed(stage){return (0x64ae21d9^Math.imul(stage,0x9e3779b9))>>>0;}
+    function createMap(stage){
+      const {width:W,height:H,groundY,stepHeight}=CONFIG.world;
+      const archetype=MAP_ARCHETYPES[(stage-1)%MAP_ARCHETYPES.length];
+      state.mapStyle=archetype.name;state.mapSeed=layoutSeed(stage);
+      // Ground is one unbroken corridor; the other ledges never trap the player.
+      makeTerrain(-100,W+100,groundY,180,'ground');
+      const laneCount=archetype.lanes;
+      let routes=Array.from({length:laneCount},(_,i)=>({x:W*(i+.5)/laneCount,width:(archetype.widthMin+archetype.widthMax)/2,top:groundY}));
+      for(let row=1;row<=archetype.rows;row++){
+        const next=[];
+        const generated=[];
+        for(let lane=0;lane<laneCount;lane++){
+          const prior=routes[lane];
+          // Each climbing route has its OWN elevation, producing staggered islands
+          // instead of the old uniform horizontal shelves.
+          const rise=Math.min(stepHeight,144+Math.round(random()*24));
+          const y=prior.top-rise;
+          const influence=(Math.sin(stage*.91+row*.77+lane*1.7)*.40+(random()-.5)*1.2)*archetype.drift;
+          const centre=clamp(prior.x+influence,110+archetype.widthMin/2,W-110-archetype.widthMin/2);
+          let width=Math.round(archetype.widthMin+random()*(archetype.widthMax-archetype.widthMin));
+          let x1=clamp(Math.round(centre-width/2),45,W-width-45),x2=x1+width;
+          // The player/enemy can jump up to every primary ledge without a special ability.
+          const previousL=prior.x-prior.width/2,previousR=prior.x+prior.width/2;
+          if(row>1 && Math.min(x2,previousR)-Math.max(x1,previousL)<155){
+            const safeCentre=clamp(prior.x,100+width/2,W-100-width/2);
+            x1=clamp(Math.round(safeCentre-width/2),45,W-width-45);x2=x1+width;
+          }
+          // Do not place overlapping ledges at an identical height.
+          const overlaps=generated.some(p=>Math.abs(p.top-y)<45&&Math.min(p.x2,x2)-Math.max(p.x1,x1)>36);
+          if(overlaps){
+            const prev=generated.at(-1);
+            if(prev && x1<prev.x2+28){x1=prev.x2+28;x2=x1+width;}
+            if(x2>W-45)continue;
+            if(row>1 && Math.min(x2,previousR)-Math.max(x1,previousL)<145)continue;
+          }
+          const entry=makeTerrain(x1,x2,y,16,'platform');
+          generated.push(entry);next[lane]={x:(x1+x2)/2,width,top:y};
+        }
+        // Missing lanes retain the last guaranteed branch, never generate disconnected routes.
+        routes=routes.map((prior,i)=>next[i]||prior);
+      }
+      const wallL=Bodies.rectangle(-55,H/2,110,H*2,{isStatic:true,friction:0,frictionStatic:0,restitution:0,label:'wall'});
+      const wallR=Bodies.rectangle(W+55,H/2,110,H*2,{isStatic:true,friction:0,frictionStatic:0,restitution:0,label:'wall'});
+      Composite.add(state.engine.world,[wallL,wallR]);state.collisionWalls=[wallL,wallR];
+      buildPlatformGraph();
+      // Mandatory directed navigation check: all ledges must be reachable from ground.
+      // Drop-through is always available, so all jump edges also work in reverse.
+      const seen=new Set([state.groundSurface.id]),stack=[state.groundSurface.id];
+      while(stack.length)for(const n of state.navGraph.get(stack.pop())||[])if(!seen.has(n)){seen.add(n);stack.push(n);}
+      state.reachableSurfaces=seen.size;
+      if(seen.size!==state.surfaces.length)throw new Error('절차적 맵의 발판 연결성 위반: '+seen.size+'/'+state.surfaces.length);
+      createSpawnSites();
+    }
+    function createSpawnSites(){
+      // Top and edge sites use collision surfaces. Background sites are deterministic visual anchors in clear air.
+      state.spawnSites=[];
+      const gap=220;
+      for(const surface of state.surfaces){
+        const left=Math.max(90,surface.x1+65),right=Math.min(CONFIG.world.width-90,surface.x2-65);
+        if(right<left)continue;
+        const n=Math.max(1,Math.floor((right-left)/gap)+1);
+        for(let i=0;i<n;i++){
+          const x=left+(right-left)*(i+.5)/n;
+          state.spawnSites.push({kind:'top',x,y:surface.top,surfaceId:surface.id,normalX:0,normalY:-1});
+        }
+      }
+      const wallSites=[];
+      for(const wall of [
+        {kind:'wall-left',x:0,normalX:1,normalY:0,surfaceId:state.surfaces.length},
+        {kind:'wall-right',x:CONFIG.world.width,normalX:-1,normalY:0,surfaceId:state.surfaces.length+1},
+      ]){
+        const spawnX=wall.x+wall.normalX*(RADII[0]+3);
+        for(let y=130;y<CONFIG.world.groundY-100;y+=145){
+          const blocked=state.platforms.some(surface=>{
+            const closestX=clamp(spawnX,surface.x1,surface.x2);
+            const closestY=clamp(y,surface.top,surface.top+surface.thick);
+            return Math.hypot(spawnX-closestX,y-closestY)<RADII[0]+4;
+          });
+          if(!blocked)wallSites.push({...wall,y});
+        }
+      }
+      state.spawnSites.push(...wallSites);
+      const backgroundSites=[],airRandom=seededSiteRandom(state.mapSeed^0x1f4a7c15);
+      const W=CONFIG.world.width,groundY=CONFIG.world.groundY,airMargin=90,airCount=32;
+      for(let attempt=0;attempt<airCount*30&&backgroundSites.length<airCount;attempt++){
+        const x=airMargin+airRandom()*(W-airMargin*2),y=100+airRandom()*(groundY-190);
+        if(y>=groundY-RADII[0]-16)continue;
+        const blocked=state.platforms.some(surface=>{
+          const closestX=clamp(x,surface.x1,surface.x2),closestY=clamp(y,surface.top,surface.top+surface.thick);
+          return Math.hypot(x-closestX,y-closestY)<RADII[0]+12;
+        });
+        if(blocked||backgroundSites.some(site=>Math.hypot(x-site.x,y-site.y)<155))continue;
+        backgroundSites.push({kind:'background',x,y,surfaceId:state.surfaces.length+2+backgroundSites.length,normalX:0,normalY:0});
+      }
+      state.spawnSites.push(...backgroundSites);
+      const cfg=CONFIG.enemy.spawn;
+      state.nextRiftAtMs=state.timeMs+Math.max(0,cfg.firstMs-cfg.openMs);
+      state.nextSpawnAtMs=state.timeMs+cfg.firstMs;
+    }
+    const RIFT_VIEW_INSET=64,RIFT_VIEW_PERIPHERY=.48,RIFT_UI_CLEARANCE=64;
+    const RIFT_PLAYER_CLEARANCE=200,RIFT_VIEW_MAX_AGE_MS=450;
+    const RIFT_OBSERVER_UI=['#stick','#jumpButton','#dashButton','#fireButton','#techOpen','#pause','#hint'];
+    function sanitizeSpawnObserverView(value){
+      if(landscape.blocked||!value||![value.x,value.y,value.hw,value.hh].every(Number.isFinite)||value.hw<120||value.hh<80||
+        value.hw>CONFIG.world.width*2||value.hh>CONFIG.world.height*2||value.hw<=RIFT_VIEW_INSET||value.hh<=RIFT_VIEW_INSET)return null;
+      if(value.b!==undefined&&(!Array.isArray(value.b)||value.b.length>RIFT_OBSERVER_UI.length))return null;
+      const blocked=[];
+      for(const rect of value.b||[]){
+        if(!Array.isArray(rect)||rect.length!==4||!rect.every(Number.isFinite)||rect[0]>rect[2]||rect[1]>rect[3]||
+          rect.some(n=>Math.abs(n)>10000))return null;
+        blocked.push(rect.map(n=>Math.round(n*2)/2));
+      }
+      const round=n=>Math.round(n*2)/2;
+      return {x:round(clamp(value.x,-200,CONFIG.world.width+200)),y:round(clamp(value.y,-200,CONFIG.world.height+200)),
+        hw:round(value.hw),hh:round(value.hh),b:blocked};
+    }
+    function captureSpawnObserverView(){
+      const {w,h}=cameraSize,z=state.camera.zoom,c=state.camera;
+      if(!(w>0&&h>0&&z>0&&Number.isFinite(c.x)&&Number.isFinite(c.y)))return null;
+      const pad=RIFT_UI_CLEARANCE*z,blocked=[];
+      for(const selector of RIFT_OBSERVER_UI){
+        const element=document.querySelector(selector);if(!element)continue;
+        const style=getComputedStyle(element),r=element.getBoundingClientRect();
+        if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.01||r.width<=0||r.height<=0)continue;
+        blocked.push([c.x+(r.left-pad-w/2)/z,c.y+(r.top-pad-h/2)/z,
+          c.x+(r.right+pad-w/2)/z,c.y+(r.bottom+pad-h/2)/z]);
+      }
+      return sanitizeSpawnObserverView({x:c.x,y:c.y,hw:w/(2*z),hh:h/(2*z),b:blocked});
+    }
+    function spawnSiteObserverScore(site,view){
+      if(!view)return null;
+      const reachX=view.hw-RIFT_VIEW_INSET,reachY=view.hh-RIFT_VIEW_INSET,dx=site.x-view.x,dy=site.y-view.y;
+      if(reachX<=0||reachY<=0||Math.abs(dx)>reachX||Math.abs(dy)>reachY)return null;
+      if(view.b.some(([left,top,right,bottom])=>site.x>=left&&site.x<=right&&site.y>=top&&site.y<=bottom))return null;
+      const periphery=Math.max(Math.abs(dx)/reachX,Math.abs(dy)/reachY);
+      return periphery>=RIFT_VIEW_PERIPHERY?periphery:null;
+    }
+    function spawnObserverViews(now=performance.now()){
+      const views=[],local=captureSpawnObserverView();
+      if(local)views.push({id:localId(),view:local});
+      if(net.role==='host')for(const [id,peer]of net.peerControls){
+        if(!state.players.has(id)||!peer.view||now-peer.updatedAt>RIFT_VIEW_MAX_AGE_MS)continue;
+        views.push({id,view:peer.view});
+      }
+      return views;
+    }
+    function createSpawnHole(dueAtMs,forcedSite=null){
+      if(!state.spawnSites.length)throw new Error('No valid spawn rift site');
+      const validSites=state.spawnSites.filter(site=>spawnSiteIsClear(site));
+      if(!validSites.length)return null;
+      const noOverlapSites=validSites.filter(site=>spawnSiteSafeFromPlayers(site,0));
+      let options;
+      if(forcedSite)options=noOverlapSites.includes(forcedSite)?[{site:forcedSite,viewers:0,periphery:0}]:[];
+      else{
+        const views=spawnObserverViews(),visibleSafe=validSites.map(site=>{
+          const visibility=views.map(({view})=>spawnSiteObserverScore(site,view)).filter(score=>score!==null);
+          return {site,viewers:visibility.length,periphery:visibility.length?Math.max(...visibility):0};
+        }).filter(item=>item.viewers&&spawnSiteSafeFromPlayers(item.site,RIFT_PLAYER_CLEARANCE));
+        const spaced=visibleSafe.filter(({site})=>state.spawnHoles.every(h=>Math.hypot(site.x-h.x,site.y-h.y)>=150));
+        options=spaced.length?spaced:visibleSafe;
+      }
+      if(!options.length)return null;
+      let best=null,bestScore=-Infinity;
+      for(let trial=0;trial<(forcedSite?1:20);trial++){
+        const option=options[Math.floor(random()*options.length)],site=option.site;
+        const spacing=state.spawnHoles.reduce((d,h)=>Math.min(d,Math.hypot(site.x-h.x,site.y-h.y)),100000);
+        const score=option.viewers*1000000+option.periphery*100+spacing+random()*150;
+        if(score>bestScore){best=site;bestScore=score;}
+      }
+      const cfg=CONFIG.enemy.spawn;
+      const hole={id:state.nextSpawnHoleId++,x:best.x,y:best.y,top:best.y,base:best.y,surfaceId:best.surfaceId,
+        surfaceKind:best.kind,normalX:best.normalX,normalY:best.normalY,width:86,
+        createdAtMs:dueAtMs,expiresAtMs:dueAtMs+cfg.riftLifetimeMs,
+        openingStartedAtMs:dueAtMs,nextAtMs:dueAtMs+cfg.openMs,openProgress:0,
+        lastPopAtMs:dueAtMs-cfg.perHoleIntervalMs,spawned:false,spawns:0};
+      state.spawnHoles.push(hole);
+      state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,hole.nextAtMs);
+      return hole;
+    }
+    function riftSpawnPosition(hole,radius=RADII[0]){
+      if(hole.surfaceKind==='background')return {x:hole.x,y:hole.y};
+      const clearance=radius+3;
+      return {x:hole.x+hole.normalX*clearance,y:hole.y+hole.normalY*clearance};
+    }
+    function spawnSiteIsClear(site,radius=RADII[0]){
+      const hole={x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY};
+      const pos=riftSpawnPosition(hole,radius),W=CONFIG.world.width,groundY=CONFIG.world.groundY;
+      if(pos.x<radius+1||pos.x>W-radius-1||pos.y<radius+1||pos.y>groundY-radius-1)return false;
+      if(state.platforms.some(surface=>{
+        const closestX=clamp(pos.x,surface.x1,surface.x2),closestY=clamp(pos.y,surface.top,surface.top+surface.thick);
+        return Math.hypot(pos.x-closestX,pos.y-closestY)<radius+3;
+      }))return false;
+      return true;
+    }
+    function spawnSiteSafeFromPlayers(site,buffer=80){
+      const pos=riftSpawnPosition({x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY});
+      const minGap=CONFIG.player.radius+RADII[0]+buffer;
+      return [...state.players.values()].filter(player=>player.hp>0).every(player=>
+        Math.hypot(pos.x-player.body.position.x,pos.y-player.body.position.y)>=minGap);
+    }
+    function stageKillTarget(stage){return 8+Math.max(0,stage-1)*4;}
+    function stageComplete(){
+      return state.stageKills>=state.stageKillGoal && state.spawnHoles.length===0 && state.enemies.length===0;
+    }
+    // `stage` is combat stage, not player XP level; clamp below one step because simulation runs on fixed ticks.
+    function perHoleSpawnIntervalMs(){
+      const cfg=CONFIG.enemy.spawn,stage=Math.max(1,Math.floor(state.stage));
+      return Math.max(CONFIG.tickMs,cfg.perHoleIntervalMs*Math.pow(cfg.perHoleStageMultiplier,stage-1));
+    }
+    function riftCreationIntervalMs(){
+      const cfg=CONFIG.enemy.spawn,stage=Math.max(1,Math.floor(state.stage));
+      return Math.max(CONFIG.tickMs,cfg.riftIntervalMs*Math.pow(cfg.riftStageMultiplier,stage-1));
+    }
+    function maxRiftLifetimeTicks(){
+      // A rift can emit at most once per fixed tick during its configured lifetime.
+      return Math.ceil(CONFIG.enemy.spawn.riftLifetimeMs/CONFIG.tickMs);
+    }
+    function skipMissedRiftSpawns(hole,now,interval){
+      if(!Number.isFinite(hole.nextAtMs)||hole.nextAtMs>now)return;
+      const missedIntervals=Math.floor((now-hole.nextAtMs)/interval)+1;
+      hole.nextAtMs+=missedIntervals*interval;
+    }
+    function riftPhase(hole,now=state.timeMs){
+      const cfg=CONFIG.enemy.spawn,age=now-hole.createdAtMs;
+      if(now>=hole.expiresAtMs)return 'removed';
+      if(age<cfg.openMs)return 'opening';
+      if(now>=hole.expiresAtMs-cfg.closeMs)return 'closing';
+      return 'open';
+    }
+    function riftImpulseDirection(hole){
+      const quarter=Math.PI/4;
+      let min=-Math.PI/2-quarter,max=-Math.PI/2+quarter;
+      if(hole.surfaceKind==='wall-left'){min=-Math.PI/2+1e-4;max=-Math.PI/2+quarter;}
+      if(hole.surfaceKind==='wall-right'){min=-Math.PI/2-quarter;max=-Math.PI/2-1e-4;}
+      const angle=min+random()*(max-min);
+      return {x:Math.cos(angle),y:Math.sin(angle)};
+    }
+    function emitFromRift(hole,now,cfg){
+      const pos=riftSpawnPosition(hole);
+      const enemy=createEnemy(1,pos.x,pos.y,{fromHole:true});
+      const dir=riftImpulseDirection(hole),speed=(cfg.popSpeed/60)*(.91+random()*.16);
+      Body.setVelocity(enemy.body,{x:dir.x*speed,y:dir.y*speed});
+      hole.lastPopAtMs=now;hole.nextAtMs=now+perHoleSpawnIntervalMs();hole.spawned=true;hole.spawns++;
+      state.spawnAttempts++;metrics.spawned++;
+      const fxX=hole.x+hole.normalX*18,fxY=hole.y+hole.normalY*18;
+      if(hole.surfaceKind==='background')spawnBurst(fxX,fxY,6,120,[.56,.76,.63,1]);
+      else{spawnBurst(fxX,fxY,12,160,[.86,.90,.68,1]);ring(fxX,fxY,36,340,PALETTE.gold);}
+      sound('pop',.64);
+    }
+    function updateSpawnHoles(){
+      const now=state.timeMs,cfg=CONFIG.enemy.spawn;
+      state.spawnHoles=state.spawnHoles.filter(h=>now<h.expiresAtMs);
+      if(state.stageKills>=state.stageKillGoal)state.nextRiftAtMs=Infinity;
+      if(state.stageKills<state.stageKillGoal&&now>=state.nextRiftAtMs){
+        // One rift per fixed step prevents overdue intervals from creating catch-up bursts.
+        createSpawnHole(now);
+        state.nextRiftAtMs=now+riftCreationIntervalMs();
+      }
+      const interval=perHoleSpawnIntervalMs();
+      const ready=state.spawnHoles.filter(h=>h.nextAtMs<=now&&riftPhase(h,now)!=='closing')
+        .sort((a,b)=>a.nextAtMs-b.nextAtMs||a.id-b.id);
+      // At most one rift is created per fixed step and each lives 3s, so this list is itself bounded
+      // (about 91 at 30 TPS); service every due rift without another gameplay rate cap.
+      let index=0;
+      for(const hole of ready){
+        if(state.enemies.length>=cfg.maxConcurrent){
+          // Discard due emissions while full, advancing each rift on its own cadence so clearing a
+          // slot resumes the ordinary schedule instead of releasing a stored burst.
+          for(const pending of ready.slice(index))skipMissedRiftSpawns(pending,now,interval);
+          break;
+        }
+        emitFromRift(hole,now,cfg);
+        index++;
+      }
+      for(const hole of state.spawnHoles){
+        hole.openProgress=clamp((now-hole.openingStartedAtMs)/cfg.openMs,0,1);
+      }
+      const nextHoleAt=Math.min(...state.spawnHoles.filter(h=>riftPhase(h,now)!=='closing').map(h=>h.nextAtMs));
+      state.nextSpawnAtMs=Number.isFinite(nextHoleAt)?nextHoleAt:Infinity;
+      if(state.stageKills>=state.stageKillGoal&&!state.spawnHoles.some(h=>riftPhase(h,now)!=='closing'))state.nextSpawnAtMs=Infinity;
+    }
+    function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
+      const actorStats=deriveTechStats(progress);
+      const body=Bodies.circle(x,y,CONFIG.player.radius,{
+        label:'player',friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,
+        frictionAir:CONFIG.rolling.airDrag,restitution:0,density:.002,
+        collisionFilter:{category:2,mask:1|2|4},
+      });
+      Composite.add(state.engine.world,body);
+      body.plugin.dropThrough=false;
+      return {id,body,stats:actorStats,progress,hp:actorStats.maxHp,maxHp:actorStats.maxHp,dash:{charges:actorStats.dashMax,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},
+        hitInvulnerableUntil:0,face:1,contactUntilMs:0,
+        coyoteLeftMs:0,jumpBufferLeftMs:0,jumpCutPending:false,
+        lastShotDir:{x:1,y:0},deathUntilMs:0,deathApplied:false,spectating:false,needleNextMs:0,
+      };
+    }
+    function createEnemy(tier,x,y,extra={}) {
+      const radius=RADII[tier-1];
+      const body=Bodies.circle(x,y,radius,{
+        label:'enemy',friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,frictionAir:CONFIG.rolling.airDrag,restitution:.12,density:.0014,
+        collisionFilter:{category:4,mask:1|2|4},
+      });
+      const baseHp=enemyHP[tier-1]*(1+(state.stage-1)*.065);
+      const obj={id:state.nextEnemyId++,tier,body,hp:baseHp,maxHp:baseHp,
+        alive:true,spawnAtMs:state.timeMs,fromHole:!!extra.fromHole,
+        popUntilMs:extra.fromHole?state.timeMs+380:0,
+        mergedAtMs:extra.merged?state.timeMs:0,
+        killCredit:extra.killCredit!==false, // one scored death per surviving fusion lineage
+        fromSplit:!!extra.fromSplit,splitOrigin:extra.splitOrigin??null,
+        noMergeUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.mergeLockMs:0,
+        splitFlightUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.flightMs:0,
+        damageGraceUntilMs:extra.fromSplit?state.timeMs+CONFIG.enemy.split.graceMs:0,
+        thinkLeftMs:random()*160,goalId:null,goalKind:'none',attackLeftMs:CONFIG.enemy.waitMs,
+        locomotion:{phase:'air',untilMs:0,landedMs:0,takeoffMs:0},stuckMs:0,previousX:x,
+        stats:{dashMax:CONFIG.player.dashCharges,dashRechargeMs:CONFIG.player.rechargeMs,dashSpeed:CONFIG.enemy.dashSpeed,dashHoldMs:CONFIG.enemy.dashHoldMs},
+        dash:{charges:CONFIG.player.dashCharges,rechargeLeftMs:0,untilMs:0,lastAt:-1e5},attack:null,
+        navFrom:null,dropFromTop:null,hopTarget:null,
+        visualSeed:random()*Math.PI*2,hitFlashUntil:0,recentHitUntilMs:0,
+        control:null,controlConstraint:null,controlCooldownUntilMs:0,impulseUntilMs:0,
+        controlReleaseUntilMs:0,controlReleaseDx:1,controlReleaseDy:0,
+      };
+      body.plugin.enemyId=obj.id;body.plugin.dropThrough=false;
+      state.enemies.push(obj);
+      Composite.add(state.engine.world,body);
+      return obj;
+    }
+    function initStage(stage,preview=false,rosterIds=sessionRoster()) {
+      const prior=state.players?new Map(state.players):new Map();
+      clearWorld();state.stage=stage;state.theme=((stage-1)%3)+1;
+      $('app').className='theme-'+state.theme;
+      seed(0x875fcdd ^ (stage*25643));
+      state.nextEnemyId=1;
+      state.engine=Engine.create({positionIterations:8,velocityIterations:8,constraintIterations:3,enableSleeping:false});
+      state.engine.gravity.y=1.17;state.engine.gravity.scale=.001;
+      state.engine.detector.oneWaySurfaces=state.oneWayByBody;
+      createMap(stage);
+      state.players=new Map();
+      const roster=[...new Set(rosterIds)];
+      if(roster.length<1||roster.length>roomMaxPlayers)throw new Error('invalid stage roster');
+      for(const [i,id] of roster.entries()){
+        const old=prior.get(id),p=createPlayer(315+(i%4)*57,CONFIG.world.groundY-64,id,old?.progress??(id===localId()?localProgress:emptyProgress()));
+        if(old){
+          // A fallen teammate always returns to play at the next stage.
+          // Same between-stage restoration for every participant (1..4).
+          p.hp=stage>1&&!preview?(old.hp<=0?Math.ceil(p.maxHp*CONFIG.player.respawnHpRate):Math.min(p.maxHp,old.hp+24)):old.hp;
+          p.spectating=p.hp<=0;p.deathUntilMs=p.hp<=0?state.timeMs+CONFIG.player.respawnMs:0;
+        }
+        state.players.set(id,p);
+      }
+      // state.player is a LOCAL CAMERA/HUD view of one of the world actors;
+      // it is never used to decide world spawning, enemy AI or clear rules.
+      state.player=state.players.get(localId())??[...state.players.values()][0];
+      // Stage transitions start with the player already on screen (no slow camera fly-in).
+      state.camera.x=state.player.body.position.x;
+      state.camera.y=state.player.body.position.y-40;state.camera.shake=0;
+      state.stageKills=0;state.stageKillGoal=stageKillTarget(stage);state.stageMerges=0;state.stageSplits=0;
+      state.nextSpawnAtMs=state.timeMs+CONFIG.enemy.spawn.firstMs;
+      state.contactKeys.clear();state.shots=[];
+      mobileDash.pressed=false;mobileDash.pointerId=null;
+      mobilePad.x=0;mobilePad.y=0;mobilePad.pointerId=null;
+      mobileJump.pressed=false;mobileJump.held=false;
+      mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;
+
+      actions.releaseAll();actions.consume();
+      Events.on(state.engine,'beforeSolve',captureControlVelocities);
+      Events.on(state.engine,'collisionStart',onMatterContact);
+      Events.on(state.engine,'collisionActive',onMatterContact);
+      // New rifts use the configured map-wide cadence and live for three seconds; kill goal stops further creation.
+      if(!preview){
+        stageToast('STAGE '+String(stage).padStart(2,'0'),'실구멍을 봉쇄하세요',1400);
+      }
+      updateHUD(true);
+    }
+    // === Merging is authoritative, pair-based and performed only after Matter update. ===
+    function captureControlVelocities(){
+      // beforeSolve runs after force integration and before either collision callback/solver.
+      for(const e of state.enemies){
+        const v=velocity(e.body);
+        e.body.plugin.controlVelocity=e.control?.mode==='flying'?{x:v.x*60,y:v.y*60}:null;
+      }
+    }
+    function onMatterContact(event) {
+      for (const pair of event.pairs) {
+        const a=pair.bodyA.parent||pair.bodyA,b=pair.bodyB.parent||pair.bodyB;
+        // Callbacks collect only; constraint/world mutation happens after Engine.update.
+        for(const [actor,terrain] of [[a,b],[b,a]]){
+          if(actor.label!=='enemy'||!terrain.isStatic||!['wall','terrain'].includes(terrain.label))continue;
+          const incoming=actor.plugin.controlVelocity;if(!incoming)continue;
+          // Matter's normal points B -> A. Project pre-solver relative velocity INTO the surface.
+          const sign=actor===a?-1:1,nx=pair.collision.normal.x*sign,ny=pair.collision.normal.y*sign;
+          const tv=velocity(terrain),speed=(incoming.x-tv.x*60)*nx+(incoming.y-tv.y*60)*ny;
+          if(speed<CONFIG.combat.pinMinSpeed)continue;
+          const id=actor.plugin.enemyId,previous=state.terrainContacts.get(id);
+          if(!previous||speed>previous.speed||(speed===previous.speed&&terrain.id<previous.terrainId)){
+            // Supports may lie inside the terrain before positional resolution. Project onto its impact face.
+            // Underside manifold supports can select a distant platform corner.
+            // Project the impact actor onto the face so the needle keeps its normal axis.
+            const support=state.oneWayByBody.has(terrain.id)&&ny<-.48?actor.position:pair.collision.supports[0];
+            const face=Math.min(...terrain.vertices.map(v=>v.x*nx+v.y*ny));
+            const depth=support.x*nx+support.y*ny-face;
+            state.terrainContacts.set(id,{terrainId:terrain.id,nx,ny,speed,x:support.x-nx*depth,y:support.y-ny*depth});
+          }
+        }
+        if(a.label==='enemy'&&b.label==='enemy') {
+          const ia=a.plugin.enemyId, ib=b.plugin.enemyId;
+          if(ia!=null&&ib!=null){const key=ia<ib?ia+':'+ib:ib+':'+ia;state.contactKeys.add(key);state.reboundContacts.add(key);}
+        }
+        if((a.label==='player'&&b.label==='enemy')||(b.label==='player'&&a.label==='enemy')) {
+          const other=a.label==='enemy'?a:b, victim=a.label==='player'?a:b;
+          const enemy=state.enemies.find(e=>e.alive&&e.id===other.plugin.enemyId);
+          if(enemy)playerContact(enemy,idOfBody(victim));
+        }
+      }
+    }
+    function playerContact(enemy,player=state.player) {
+      if(!player||player.hp<=0)return;
+      // The telegraphed launched dash and its follow-through own collision damage.
+      if(enemy.control||!['dash','attack'].includes(enemy.attack?.phase)||state.timeMs>=enemy.attack.untilMs)return;
+      const damage=8+enemy.tier*2;
+      if(state.timeMs<player.hitInvulnerableUntil)return;
+      hurtPlayer(damage,enemy.body.position,player);
+    }
+    function removeEnemy(enemy) {
+      if(!enemy.alive)return;
+      releaseEnemyControl(enemy,false);
+      enemy.alive=false;
+      Composite.remove(state.engine.world,enemy.body);
+      const index=state.enemies.indexOf(enemy);
+      if(index>=0)state.enemies.splice(index,1);
+    }
+    function handleMergeContacts() {
+      // Same-tier physical touch evolves immediately, within this Matter physics tick.
+      // The new authoritative body already has full size and full HP, while suction renders independently.
+      const enemyMap=new Map(state.enemies.map(e=>[e.id,e]));
+      const reserved=new Set();
+      const candidates=[...state.contactKeys].sort((a,b)=>{
+        const [a0,a1]=a.split(':').map(Number),[b0,b1]=b.split(':').map(Number);
+        return a0-b0||a1-b1;
+      });
+      for(const key of candidates){
+        const [ia,ib]=key.split(':').map(Number);
+        const a=enemyMap.get(ia),b=enemyMap.get(ib);
+        if(!a?.alive||!b?.alive||a.tier!==b.tier||a.tier>=CONFIG.enemy.maxTier||reserved.has(ia)||reserved.has(ib))continue;
+        // Split fragments fly apart and cannot instantly undo the split.
+        if(!mergeAvailable(a)||!mergeAvailable(b))continue;
+        reserved.add(ia);reserved.add(ib);
+        const ap=a.body.position,bp=b.body.position;
+        const ax=ap.x,ay=ap.y,bx=bp.x,by=bp.y;
+        const tier=a.tier+1,newR=RADII[tier-1];
+        // A new generation must fit between the outer walls and above ground.
+        const x=clamp((ax+bx)*.5,newR+12,CONFIG.world.width-newR-12);
+        const y=clamp((ay+by)*.5,newR+12,CONFIG.world.groundY-newR-6);
+        const va=velocity(a.body),vb=velocity(b.body);
+        removeEnemy(a);removeEnemy(b);
+        const merged=createEnemy(tier,x,y,{merged:true,killCredit:a.killCredit||b.killCredit});
+        for(const shot of state.shots){
+          if(!shot.ricochet)continue;
+          if(shot.hitIds.has('e'+a.id)||shot.hitIds.has('e'+b.id))shot.hitIds.add('e'+merged.id);
+          if(shot.ricochet.targetId===a.id||shot.ricochet.targetId===b.id)shot.ricochet.targetId=merged.id;
+        }
+        Body.setVelocity(merged.body,{x:(va.x+vb.x)*.5,y:(va.y+vb.y)*.5-1.2});
+        state.absorptions.push({x,y,ax,ay,bx,by,fromTier:tier-1,tier,r:RADII[tier-2],
+          ageMs:0,durationMs:260,seed:(a.visualSeed+b.visualSeed)*.5});
+        if(state.absorptions.length>16)state.absorptions.shift();
+        state.merges++;state.stageMerges++;metrics.merges++;
+        emitCombatEvent('merge',x,y,{tier,ax,ay,bx,by,r:RADII[tier-2]});
+        spawnBurst(x,y,10+tier*3,130,CONFIG.colors['t'+tier]);
+        ring(x,y,RADII[tier-1]*2.35,310,PALETTE.gold);
+        floatText('흡수! T'+tier,x,y-RADII[tier-1]-14,'merge');
+        state.camera.shake=Math.max(state.camera.shake,tier*1.2);
+        sound('merge',clamp(.65+tier*.08,.3,1));
+      }
+      state.contactKeys.clear();
+    }
+    // === Enemy AI: low HP overrides combat and searches for same-tier partners. ===
+    function mergeAvailable(e){return e.alive&&!e.control&&state.timeMs>=e.noMergeUntilMs&&!['charge','dash','attack'].includes(e.attack?.phase);}
+    function pickPartner(e) {
+      let best=null,bestSq=Infinity;
+      for(const other of state.enemies) {
+        if(other===e||other.tier!==e.tier||!mergeAvailable(e)||!mergeAvailable(other))continue;
+        const dx=other.body.position.x-e.body.position.x,dy=other.body.position.y-e.body.position.y;
+        const ds=dx*dx+dy*dy;
+        if(ds<bestSq){bestSq=ds;best=other;}
+      }
+      return best;
+    }
+    function segmentAabb(x1,y1,x2,y2,left,top,right,bottom) {
+      const dx=x2-x1,dy=y2-y1;let t0=0,t1=1;
+      for(const [p,q] of [[-dx,x1-left],[dx,right-x1],[-dy,y1-top],[dy,bottom-y1]]) {
+        if(Math.abs(p)<1e-8){if(q<0)return null;}else{
+          const r=q/p;
+          if(p<0){if(r>t1)return null;t0=Math.max(t0,r);}
+          else{if(r<t0)return null;t1=Math.min(t1,r);}
+        }
+      }
+      return t0;
+    }
+    function terrainRayHit(a,b,pad=0,ignoreOneWay=false) {
+      let best=Infinity,bestSurface=null;
+      for(const p of state.surfaces) {
+        if(ignoreOneWay&&p.oneWay)continue;
+        const t=segmentAabb(a.x,a.y,b.x,b.y,p.x1-pad,p.top-pad,p.x2+pad,p.top+p.thick+pad);
+        if(t!==null && t<best){best=t;bestSurface=p;}
+      }
+      return {fraction:best,surface:bestSurface};
+    }
+    function standingSurface(entity){
+      if(entity?.body?.plugin?.dropThrough)return null;
+      return state.contacts.get(entity.body.id)?.support||null;
+    }
+    function isGrounded(entity){return standingSurface(entity)!==null;}
+    function surfaceBelow(body){
+      const foot=body.position.y+footOffset(body),x=body.position.x,hw=halfWidth(body);
+      let result=null,dy=Infinity;
+      for(const s of state.surfaces){
+        if(x+hw*.65<s.x1||x-hw*.65>s.x2)continue;
+        const d=s.top-foot;
+        if(d>=-6&&d<dy){dy=d;result=s;}
+      }
+      return result||state.groundSurface;
+    }
+    function firstNavStep(from,to){
+      if(!from||!to||from.id===to.id)return null;
+      const key=from.id+':'+to.id;
+      if(state.routeCache.has(key))return state.surfaces[state.routeCache.get(key)]||null;
+      const parents=new Map([[from.id,null]]),q=[from.id];
+      for(let at=0;at<q.length;at++){
+        const id=q[at];if(id===to.id)break;
+        for(const neighbor of state.navGraph.get(id)||[]){
+          if(parents.has(neighbor))continue;
+          parents.set(neighbor,id);q.push(neighbor);
+        }
+      }
+      if(!parents.has(to.id))return null;
+      let candidate=to.id;
+      while(parents.get(candidate)!==from.id && parents.get(candidate)!==null)candidate=parents.get(candidate);
+      state.routeCache.set(key,candidate);
+      return state.surfaces[candidate];
+    }
+    function navigationLandingX(body,targetBody){
+      return targetBody.position.x+(body.position.x<=targetBody.position.x?-1:1)*(halfWidth(body)+(targetBody.circleRadius||0)+48);
+    }
+    function routeIntent(enemy,target){
+      const body=enemy.body,standing=standingSurface(enemy);
+      // Keep the takeoff surface while airborne. Update it only on an actual landing.
+      if(standing)enemy.navFrom=standing.id;
+      const from=state.surfaces[enemy.navFrom]||surfaceBelow(body);
+      const targetBody=target.body||{position:target,circleRadius:0,plugin:{}};
+      const destination=(target.body?standingSurface(target):null)||surfaceBelow(targetBody);
+      const next=firstNavStep(from,destination);
+      if(enemy.hopTarget!==null && enemy.hopTarget!==undefined && !standing){
+        const hop=state.surfaces[enemy.hopTarget];
+        if(hop){const margin=halfWidth(body)+8,left=hop.x1+margin,right=hop.x2-margin;
+          const landingX=hop.top<from.top?navigationLandingX(body,targetBody):targetBody.position.x;
+          return {x:left<right?clamp(landingX,left,right):(hop.x1+hop.x2)/2,
+            y:hop.top,jump:false,drop:false};}
+      }
+      if(standing)enemy.hopTarget=null;
+      if(!next)return {x:targetBody.position.x,y:targetBody.position.y,jump:false,drop:false};
+      const overlapL=Math.max(from.x1,next.x1),overlapR=Math.min(from.x2,next.x2);
+      const radius=halfWidth(body),pad=Math.min(57,radius+16);
+      const ascending=next.top<from.top-3,descending=next.top>from.top+3;
+      let waypointX;
+      if(overlapR>overlapL+pad*2){
+        waypointX=clamp(ascending?navigationLandingX(body,targetBody):targetBody.position.x,overlapL+pad,overlapR-pad);
+      }else if(next.x1>=from.x2){waypointX=from.x2-pad;}
+      else if(next.x2<=from.x1){waypointX=from.x1+pad;}
+      else waypointX=clamp(targetBody.position.x,Math.min(overlapL,overlapR),Math.max(overlapL,overlapR));
+      const aligned=Math.abs(body.position.x-waypointX)<Math.max(27,radius*.5);
+      return {x:waypointX,y:next.top,ascending,descending,
+        jump:ascending&&aligned||Math.abs(next.top-from.top)<2&&aligned&&overlapR<overlapL,
+        nextId:next.id,drop:descending&&aligned&&!!standing?.oneWay,
+        fromTop:from.top};
+    }
+    function suspendEnemyHop(e){e.locomotion.phase='suspended';e.locomotion.untilMs=0;}
+    function updateEnemyHop(e,intent,ground,vx,targetPoint){
+      const m=e.locomotion,now=state.timeMs,cfg=CONFIG.enemy.bounce;
+      // Existing contact support owns landing; the Matter body owns the entire flight.
+      if(!ground){
+        // Rolling polygon contacts may blink off for a tick. Keep preparation through
+        // a small contact bounce, but launch only once an actual support returns.
+        if(['land','compress'].includes(m.phase)&&Math.abs(e.body.velocity.y)<2.5)return;
+        if(m.phase!=='takeoff'||now>=m.untilMs){m.phase='air';m.untilMs=0;}return;
+      }
+      if(['air','takeoff','suspended'].includes(m.phase)){
+        m.phase='land';m.untilMs=now+cfg.landMs;m.landedMs=now;return;
+      }
+      if(now<m.untilMs)return;
+      if(m.phase==='land'){m.phase='compress';m.untilMs=now+cfg.compressMs+(e.tier-1)*cfg.tierCompressMs;return;}
+      const navigationJump=intent.jump||(targetPoint.y<e.body.position.y-64&&Math.abs(intent.x-e.body.position.x)<55)||e.stuckMs>540;
+      const speed=navigationJump?TIER_DEFS[e.tier-1].hop:cfg.speed+(e.tier-1)*cfg.tierSpeed;
+      Body.setVelocity(e.body,{x:vx,y:-speed});
+      e.hopTarget=navigationJump?(intent.nextId??null):null;e.stuckMs=0;
+      m.phase='takeoff';m.takeoffMs=now;m.untilMs=now+CONFIG.tickMs;
+    }
+    function updateEnemyAI(dtMs){
+      const living=[...state.players.values()].filter(p=>p.hp>0);
+      if(!living.length)return;
+      const now=state.timeMs;
+      for(const e of state.enemies){
+        e.attackLeftMs=Math.max(0,e.attackLeftMs-dtMs);
+        processDashRecharge(dtMs,e);
+        e.thinkLeftMs-=dtMs;
+        const b=e.body,pos=b.position;
+        // Choose a living target; dead bodies must never lure monsters.
+        let attacked=living[0],nearest=distance(pos,attacked.body.position);
+        for(let i=1;i<living.length;i++){const d=distance(pos,living[i].body.position);if(d<nearest){nearest=d;attacked=living[i];}}
+        const p=attacked.body.position,dp=nearest;
+        if(e.control||now<e.impulseUntilMs||now<e.popUntilMs||now<e.splitFlightUntilMs){suspendEnemyHop(e);e.attack=null;e.dash.untilMs=0;continue;}
+        if(e.attack){suspendEnemyHop(e);if(updateEnemyAttack(e,dtMs))continue;}
+        if(e.thinkLeftMs<=0){
+          e.thinkLeftMs=CONFIG.enemy.aiRetargetMs+random()*90;
+          const partner=e.tier<CONFIG.enemy.maxTier?pickPartner(e):null;
+          const panic=e.hp/e.maxHp<=.5;
+          const attackRange=Math.max(385,TIER_DEFS[e.tier-1].range);
+          const underAttack=now<e.recentHitUntilMs && dp<attackRange;
+          // Nearby enemies pressure the player; distant or panicked enemies seek fusion.
+          if(partner && (panic||(!underAttack&&dp>CONFIG.enemy.alertRange))){
+            e.goalKind='merge';e.goalId=partner.id;
+          }else if(underAttack||dp<=CONFIG.enemy.alertRange||!partner||e.tier===CONFIG.enemy.maxTier){
+            e.goalKind='attack';e.goalId=0;
+          }else{e.goalKind='wander';e.goalId=null;}
+        }
+        let target=null;
+        if(e.goalKind==='merge'){
+          const partner=state.enemies.find(other=>other.id===e.goalId&&other.alive&&other.tier===e.tier);
+          if(partner)target=partner;
+          else{e.goalKind='wander';e.thinkLeftMs=0;}
+        } else if(e.goalKind==='attack')target=attacked;
+        const fallback={x:pos.x+Math.sin(now*.001+e.visualSeed)*90,y:pos.y};
+        const targetPoint=target?.body?.position||fallback;
+        const intent=target?routeIntent(e,target):{x:fallback.x,y:fallback.y,jump:false,drop:false};
+        const dx=intent.x-pos.x,dy=intent.y-pos.y;
+        // Dropping is opt-in and local to the platform currently being left.
+        if(intent.drop && e.dropFromTop===null)e.dropFromTop=intent.fromTop;
+        if(e.dropFromTop!==null && pos.y+footOffset(b)>e.dropFromTop+footOffset(b)*.75)e.dropFromTop=null;
+        b.plugin.dropThrough=e.dropFromTop!==null;
+        const ground=isGrounded(e),v=velocity(b);
+        const speed=TIER_DEFS[e.tier-1].speed/60;
+        const desiredX=Math.abs(dx)<9?0:Math.sign(dx)*speed;
+        const response=ground?.18:.105;
+        let newVx=v.x+(desiredX-v.x)*response;
+        const limit=state.contacts.get(b.id);
+        if(limit?.wallLeft&&newVx<0)newVx=0;
+        if(limit?.wallRight&&newVx>0)newVx=0;
+        setRollingVelocity(e,newVx,v.y);
+        const moved=Math.abs(pos.x-e.previousX);
+        if(moved<.6&&Math.abs(dx)>35)e.stuckMs+=dtMs;
+        else e.stuckMs=Math.max(0,e.stuckMs-dtMs*1.8);
+        e.previousX=pos.x;
+        if(e.hopTarget===null&&e.goalKind==='attack'&&e.attackLeftMs<=0&&(enemyCanEngage(e,p)||(e.tier>=CONFIG.enemy.rangedTier&&dp<TIER_DEFS[e.tier-1].range)))enemyAttack(e,p);
+        if(e.attack)suspendEnemyHop(e);
+        else updateEnemyHop(e,intent,ground,newVx,targetPoint);
+      }
+    }
+    function fireFan(e,dir,count,spread,speed,damage,kind){
+      const target=Math.atan2(dir.y,dir.x);
+      for(let i=0;i<count;i++){
+        const angle=target+(i-(count-1)/2)*spread;
+        enemyProjectile(e,{x:Math.cos(angle),y:Math.sin(angle)},speed,damage,kind);
+      }
+    }
+    function enemyAttack(e,playerPoint){
+      if(!e.dash.charges||e.attack)return;
+      const target=[...state.players.values()].filter(p=>p.hp>0).sort((a,b)=>distance(a.body.position,playerPoint)-distance(b.body.position,playerPoint))[0];
+      if(!target)return;
+      const dir=normalize(playerPoint.x-e.body.position.x,playerPoint.y-e.body.position.y);
+      e.attack={phase:'charge',untilMs:state.timeMs+CONFIG.enemy.chargeMs,targetId:target.id,dx:dir.x,dy:dir.y,kind:e.tier>=CONFIG.enemy.rangedTier?'ranged':'dash'};
+    }
+    function updateEnemyAttack(e,dtMs){
+      const a=e.attack;if(!a)return false;
+      const now=state.timeMs,v=velocity(e.body);
+      if(a.phase==='charge'){
+        const target=state.players.get(a.targetId);
+        if(!target||target.hp<=0){e.attack=null;return false;}
+        // Track the chosen living target while charging; lock at the launch boundary.
+        const dir=normalize(target.body.position.x-e.body.position.x,target.body.position.y-e.body.position.y);
+        a.dx=dir.x;a.dy=dir.y;
+        setRollingVelocity(e,0,v.y);
+        if(now>=a.untilMs){
+          if(!dash(Math.abs(a.dx)<.2?(target.body.position.x>=e.body.position.x?1:-1):a.dx,e)){
+            a.phase='recover';a.untilMs=now+CONFIG.enemy.recoveryMs;
+          }else{
+            a.phase='dash';a.untilMs=e.dash.untilMs;
+
+          }
+        }
+      }else if(a.phase==='dash'&&now>=a.untilMs){
+        a.phase='attack';a.untilMs=now+CONFIG.enemy.attackMs;
+        setRollingVelocity(e,0,v.y);
+        if(a.kind==='ranged')fireFan(e,{x:a.dx,y:a.dy},e.tier>=9?3:1,.12,480,8+e.tier,'needle');
+      }else if(a.phase==='attack'){
+        setRollingVelocity(e,0,v.y);
+        if(now>=a.untilMs){a.phase='recover';a.untilMs=now+CONFIG.enemy.recoveryMs;}
+      }
+      else if(a.phase==='recover'){
+        setRollingVelocity(e,v.x*.72,v.y);
+        if(now>=a.untilMs){e.attack=null;e.attackLeftMs=CONFIG.enemy.waitMs;}
+      }
+      return true;
+    }
+
+    function enemyProjectile(e,dir,speed,damage,kind) {
+      const p=e.body.position,r=e.body.circleRadius;
+      state.shots.push({id:state.nextShotId++,owner:'enemy',ownerId:e.id,x:p.x+dir.x*(r+8),y:p.y+dir.y*(r+8),
+        vx:dir.x*speed,vy:dir.y*speed,remainingMs:2100,damage,impulse:0,radius:6,kind});
+      if(state.shots.length>140)state.shots.shift();
+    }
+    function chooseAutoTarget(player=state.player) {
+      let best=null,bestScore=Infinity;
+      const p=player.body.position;
+      for(const e of state.enemies){
+        if(!e.alive)continue;
+        const ds=distance(p,e.body.position);
+        if(ds>900)continue;
+        const blocked=terrainRayHit(p,e.body.position,1,true);
+        const score=ds+(blocked.surface&&blocked.fraction<.95?1100:0)+(e.tier-1)*15;
+        if(score<bestScore){best=e;bestScore=score;}
+      }
+      return best;
+    }
+    function getAimDirection(player=state.player) {
+      const pos=player.body.position;
+      if(mobileAttack.down && mobileAttack.axis){player.lastShotDir=mobileAttack.axis;return mobileAttack.axis;}
+      if(pointerAim.seen && pointerAim.source!=='virtual') {
+        const out={};renderer.screenToWorldInto(pointerAim.x,pointerAim.y,out);
+        const diff=normalize(out.x-pos.x,out.y-pos.y);
+        player.lastShotDir=diff;return diff;
+      }
+      const best=chooseAutoTarget(player);
+      if(best){const n=normalize(best.body.position.x-pos.x,best.body.position.y-pos.y);player.lastShotDir=n;return n;}
+      return player.lastShotDir;
+    }
+    const CHAIN_COLORS=[PALETTE.gold,[.55,.95,1,1],[1,.65,.42,1]];
+    function presentImpact(x,y,payload){
+      const step=clamp(payload.step||0,0,3),c=step?CHAIN_COLORS[step-1]:PALETTE.gold;
+      const radius=clamp((payload.radius||18)*.5+12,22,40);
+      state.impactMarks.push({x,y,dx:payload.dx,dy:payload.dy,radius,targetId:payload.targetId,step,ageMs:0});
+      if(state.impactMarks.length>36)state.impactMarks.shift();
+      ring(x,y,radius,150,c);spawnBurst(x,y,step?7:5,135,c);
+      floatText('-'+Math.round(payload.amount)+(step?' · '+step+'연쇄':''),x,y-24);
+      const listener=state.player?.body?.position||state.camera;
+      const gain=clamp(1-distance({x,y},listener)/1050,0,1);
+      state.camera.shake=Math.max(state.camera.shake,.8*gain);
+      if(!step&&gain>.03)sound('hit',.8*gain);
+    }
+    function drawImpactMarks(){
+      for(const m of state.impactMarks){
+        if(!worldVisible(m.x,m.y,70))continue;
+        const t=m.ageMs/CONFIG.feedback.impactMs,fade=1-t,c=m.step?CHAIN_COLORS[m.step-1]:PALETTE.gold;
+        const turn=Math.atan2(m.dy||0,m.dx||1),reach=m.radius*(.35+.65*t);
+        for(let j=0;j<4;j++){
+          const a=turn+j*Math.PI/2,dx=Math.cos(a),dy=Math.sin(a);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,5*fade,[.08,.20,.22,.9*fade]);
+          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,2.4*fade,[c[0],c[1],c[2],fade]);
+        }
+        if(t<.4)renderer.ellipse(m.x,m.y,4*(1-t),4*(1-t),[1,.97,.8,fade],8);
+      }
+    }
+    // Presentation only: authority and guests call this once per combat event.
+    function presentControlEvent(kind,x,y,payload={}){
+      if(!Number.isFinite(x)||!Number.isFinite(y))return;
+      const tier=clamp(Math.round(payload.tier||1),1,10),color=CONFIG.colors['t'+tier];
+      const dir=normalize(Number.isFinite(payload.dx)?payload.dx:1,Number.isFinite(payload.dy)?payload.dy:0);
+      const listener=state.player?.body?.position||state.camera;
+      const attenuation=clamp(1-distance({x,y},listener)/1050,0,1);
+      if(kind==='ricochet'){
+        const step=clamp(Math.round(payload.step||1),1,3);
+        if(Array.isArray(payload.path)&&payload.path.length<=4&&payload.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))){
+          state.ricochetTrails.push({path:payload.path.slice(-2).map(p=>[...p]),step,ttl:CONFIG.feedback.trailMs});
+          if(state.ricochetTrails.length>24)state.ricochetTrails.shift();
+        }
+        if(attenuation>.03)sound('ricochet'+step,.68*attenuation);
+      }else if(kind==='wallPin'||kind==='reboundImpact'){
+        const pin=kind==='wallPin';
+        const impactX=pin&&Number.isFinite(payload.anchorX)?payload.anchorX:x;
+        const impactY=pin&&Number.isFinite(payload.anchorY)?payload.anchorY:y;
+        ring(impactX,impactY,clamp(payload.radius||RADII[tier-1]*.85,24,110),pin?260:190,PALETTE.gold);
+        ring(impactX,impactY,clamp((payload.radius||RADII[tier-1])*.52,15,65),150,PALETTE.cream);
+        // Stitches peel away from the impact, then fall under VFX-only gravity.
+        for(let i=0;i<12;i++){
+          const phase=i*2.399,tangent=(i%2?1:-1)*(50+i*6),back=55+(i%4)*27;
+          const ttl=210+(i%5)*45;
+          state.particles.push({x:impactX+Math.cos(phase)*5,y:impactY+Math.sin(phase)*9,
+            vx:-dir.x*back-dir.y*tangent,vy:-dir.y*back+dir.x*tangent-45,
+            ttl,maxTtl:ttl,size:1.4+(i%3)*.7,color:i%3?color:PALETTE.cream});
+        }
+        if(state.particles.length>220)state.particles.splice(0,state.particles.length-220);
+        state.camera.shake=Math.max(state.camera.shake,(pin?6.8:3.6)*attenuation);
+        if(attenuation>.03)sound(pin?'wallPin':'hit',(.35+tier*.025)*attenuation);
+      }else if(kind==='controlRelease'){
+        // A tiny unravelling glint accompanies the longer falling strand on the actor.
+        spawnBurst(x-dir.x*12,y-dir.y*12,4,48,PALETTE.cream);
+      }else if(kind==='needleEcho'){
+        ring(x,y,clamp(payload.radius||44,18,170),240,[.65,1,.90,.65]);
+        spawnBurst(x,y,6,80,[.74,1,.87,.75]);
+        if(attenuation>.03)sound('echoPulse',.24*attenuation);
+      }
+    }
+    function emitCombatEvent(kind,x,y,payload={}){
+      const event={id:++net.eventId,kind,x:Math.round(x),y:Math.round(y),payload};
+      state.fxNet.push(event);if(state.fxNet.length>45)state.fxNet.shift();
+    }
+    function needleShot(player,dir){
+      if(state.shots.filter(shot=>shot.owner==='player').length>=CONFIG.shot.maxLive)return false;
+      const aim=normalize(dir.x,dir.y),pos=player.body.position,r=CONFIG.player.radius+10;
+      state.shots.push({id:state.nextShotId++,owner:'player',ownerId:player.id,
+        x:pos.x+aim.x*r,y:pos.y+aim.y*r,vx:aim.x*CONFIG.shot.speed,vy:aim.y*CONFIG.shot.speed,
+        radius:CONFIG.shot.radius,remainingMs:1450,damage:player.stats.needlePower,
+        impulse:player.stats.projectileImpulse,carry:player.stats.needleCarry,kind:'needle',hitIds:new Set(),
+        ricochet:player.stats.needleRicochet?{hits:0,targetId:null,rangeLeft:CONFIG.combat.ricochetRange,path:[[pos.x+aim.x*r,pos.y+aim.y*r]],resumeAtMs:0,legSpeed:CONFIG.shot.speed}:null});
+      state.shotsFired++;
+      spawnBurst(pos.x+aim.x*32,pos.y+aim.y*32,3,85,PALETTE.gold);
+      ring(pos.x+aim.x*28,pos.y+aim.y*28,13,110,PALETTE.gold);
+      emitCombatEvent('needle',pos.x,pos.y,{dx:aim.x,dy:aim.y,playerId:player.id});
+      sound('shoot',.5);return true;
+    }
+    function hitActor(target,hit,owner=null){
+      if(!target||target.hp<=0||target===owner)return false;
+      return hurtPlayer(hit.damage,{x:hit.x,y:hit.y},target,175);
+    }
+    function processAttack(controls,player){
+      if(!player||player.hp<=0)return;
+      if((controls.firePressed||controls.fireHeld)&&state.timeMs>=player.needleNextMs){
+        if(needleShot(player,controls.aim))player.needleNextMs=state.timeMs+player.stats.fireIntervalMs;
+      }
+    }
+    function segmentCircle(start,end,center,radius) {
+      const dx=end.x-start.x,dy=end.y-start.y;
+      const fx=start.x-center.x,fy=start.y-center.y;
+      const a=dx*dx+dy*dy;
+      const c=fx*fx+fy*fy-radius*radius;
+      if(c<=0)return 0;
+      if(a<1e-8)return null;
+      const b=2*(fx*dx+fy*dy),disc=b*b-4*a*c;
+      if(disc<0)return null;
+      const t=(-b-Math.sqrt(disc))/(2*a);
+      return t>=0&&t<=1?t:null;
+    }
+    // One authoritative flight path for solo and host. References are IDs, not bodies.
+    function ricochetTarget(shot){
+      let best=null,bestDistance=Infinity;
+      const limit=Math.min(CONFIG.combat.ricochetRange,shot.ricochet.rangeLeft);
+      for(const e of state.enemies){
+        if(!e.alive||state.timeMs<e.damageGraceUntilMs||shot.hitIds.has('e'+e.id))continue;
+        const d=distance(shot,e.body.position);
+        if(d>limit)continue;
+        if(d<bestDistance||(d===bestDistance&&e.id<best.id)){best=e;bestDistance=d;}
+      }
+      return best;
+    }
+    function steerRicochet(shot){
+      const chain=shot.ricochet;
+      let target=state.enemies.find(e=>e.id===chain.targetId&&e.alive&&!shot.hitIds.has('e'+e.id)&&state.timeMs>=e.damageGraceUntilMs);
+      if(!target||distance(shot,target.body.position)>chain.rangeLeft+target.body.circleRadius)target=ricochetTarget(shot);
+      if(!target)return false;
+      chain.targetId=target.id;
+      const dir=normalize(target.body.position.x-shot.x,target.body.position.y-shot.y);
+      shot.vx=dir.x*chain.legSpeed;shot.vy=dir.y*chain.legSpeed;
+      return true;
+    }
+    function updateShots(dtMs){
+      for(let i=state.shots.length-1;i>=0;i--){
+        const shot=state.shots[i];shot.remainingMs-=dtMs;
+        if(shot.remainingMs<=0){state.shots.splice(i,1);continue;}
+        if(!shot.hitIds)shot.hitIds=new Set();
+        if(shot.ricochet&&state.timeMs<shot.ricochet.resumeAtMs)continue;
+        let leftMs=dtMs,exhausted=false;
+        // At most three contacts; recompute the swept segment after each real bend.
+        while(leftMs>1e-6&&!exhausted){
+          const chain=shot.ricochet;
+          if(chain&&chain.targetId!==null&&!steerRicochet(shot)){exhausted=true;break;}
+          const speed=Math.hypot(shot.vx,shot.vy);
+          const travelMs=chain?.hits?Math.min(leftMs,chain.rangeLeft/Math.max(speed,1)*1000):leftMs;
+          const start={x:shot.x,y:shot.y},end={x:start.x+shot.vx*travelMs/1000,y:start.y+shot.vy*travelMs/1000};
+          const targets=[];
+          // Preserve physical friendly fire and one-way-platform pass-through.
+          for(const enemy of state.enemies){
+            if(!enemy.alive||state.timeMs<enemy.damageGraceUntilMs||shot.hitIds.has('e'+enemy.id)||
+              (shot.owner==='enemy'&&shot.ownerId===enemy.id))continue;
+            const t=segmentCircle(start,end,enemy.body.position,enemy.body.circleRadius+shot.radius*.6);
+            if(t!==null)targets.push({t,target:enemy,key:'e'+enemy.id});
+          }
+          for(const player of state.players.values()){
+            if(player.hp<=0||player.id===shot.ownerId||shot.hitIds.has('p'+player.id))continue;
+            const t=segmentCircle(start,end,player.body.position,CONFIG.player.radius+shot.radius*.6);
+            if(t!==null)targets.push({t,target:player,key:'p'+player.id});
+          }
+          targets.sort((a,b)=>a.t-b.t||(a.target.tier&&b.target.tier?a.target.id-b.target.id:a.key<b.key?-1:a.key>b.key?1:0));
+          const match=targets[0],fraction=match?.t??1;
+          shot.x=start.x+(end.x-start.x)*fraction;shot.y=start.y+(end.y-start.y)*fraction;
+          if(chain?.hits)chain.rangeLeft=Math.max(0,chain.rangeLeft-speed*travelMs*fraction/1000);
+          leftMs-=travelMs*fraction;
+          if(!match){exhausted=leftMs>1e-6||!!(chain?.hits&&chain.rangeLeft<=1e-6);break;}
+          shot.hitIds.add(match.key);
+          if(match.target.tier){
+            let next=null;
+            if(chain){
+              chain.hits++;chain.path.push([shot.x,shot.y]);chain.rangeLeft=CONFIG.combat.ricochetRange;
+              if(chain.hits<CONFIG.combat.ricochetTargets)next=ricochetTarget(shot);
+            }
+            // The first surviving impact owns the impulse; the needle continues independently.
+            hitEnemy(match.target,shot);
+            if(match.target.alive)shot.carry=false;
+            if(chain){
+              const payload={tier:match.target.tier,ownerId:shot.ownerId,shotId:shot.id,step:chain.hits,path:chain.path.map(p=>[...p])};
+              presentControlEvent('ricochet',shot.x,shot.y,payload);emitCombatEvent('ricochet',shot.x,shot.y,payload);
+              chain.targetId=next?.id??null;
+              if(next){
+                chain.resumeAtMs=state.timeMs+CONFIG.feedback.chainPauseMs;
+                const gap=Math.max(0,distance(shot,next.body.position)-next.body.circleRadius-shot.radius*.6);
+                chain.legSpeed=Math.min(CONFIG.shot.speed,Math.max(300,gap*1000/CONFIG.feedback.chainLegMs));
+                leftMs=0;
+              }
+            }
+            exhausted=!next;
+          }else{
+            hitActor(match.target,{damage:shot.damage,x:shot.x,y:shot.y},state.players.get(shot.ownerId));
+            exhausted=true;
+          }
+        }
+        if(exhausted||shot.x<0||shot.x>CONFIG.world.width||shot.y<0||shot.y>CONFIG.world.height)state.shots.splice(i,1);
+      }
+    }
+    function hitEnemy(e,shot) {
+      if(!e?.alive||state.timeMs<e.damageGraceUntilMs)return false;
+      const impulseFactor=shot.impulse/(1+Math.sqrt(e.body.mass)*.34);
+      const v=velocity(e.body),n=normalize(shot.vx,shot.vy);
+      if(!e.control)Body.setVelocity(e.body,{x:v.x+n.x*impulseFactor,y:v.y+n.y*impulseFactor-.45});
+      const hpBefore=e.hp;
+      e.hp=Math.max(0,e.hp-shot.damage);e.hitFlashUntil=state.timeMs+115;
+      // A direct hit provokes a brief defensive response; losing half HP
+      // still favors emergency fusion whenever a same-tier partner exists.
+      e.recentHitUntilMs=state.timeMs+CONFIG.enemy.counterAttackMs;
+      const impact={tier:e.tier,amount:Math.min(shot.damage,hpBefore),targetId:e.id,ownerId:shot.ownerId,
+        radius:e.body.circleRadius,step:shot.ricochet?.hits||0,dx:n.x,dy:n.y};
+      emitCombatEvent('hit',shot.x,shot.y,impact);presentImpact(shot.x,shot.y,impact);
+      e.thinkLeftMs=0;metrics.shotsHit++;metrics.damage+=shot.damage;
+      if(e.hp<=0){
+        const children=killEnemy(e);
+        if(shot.kind==='needle'&&state.players.get(shot.ownerId)?.stats.needleEcho&&children?.length){
+          for(const child of children)state.needleEchoes.push({targetId:child.id,atMs:state.timeMs+CONFIG.combat.echoDelayMs,
+            damage:shot.damage*CONFIG.combat.echoDamageRate,ownerId:shot.ownerId,dx:n.x,dy:n.y});
+        }
+      }else if(shot.kind==='needle'&&shot.owner==='player'&&state.players.get(shot.ownerId)?.stats.needleRebound&&e.control?.mode==='pinned')reboundEnemy(e,shot);
+      else if(shot.kind==='needle'&&shot.owner==='player'&&shot.carry)launchNeedledEnemy(e,shot);
+      return true;
+    }
+    // Control is a single mutually exclusive authority state. Its Matter constraint
+    // is owned by the enemy and never serialized or inherited by split children.
+    function controlEvent(kind,e,payload={}){
+      const {x,y}=e.body.position;
+      const data={tier:e.tier,radius:e.body.circleRadius,...payload};
+      presentControlEvent(kind,x,y,data);emitCombatEvent(kind,x,y,data);
+    }
+    function releaseEnemyControl(e,present=true){
+      const c=e.control;if(!c)return;
+      if(e.controlConstraint){Composite.remove(state.engine.world,e.controlConstraint);e.controlConstraint=null;}
+      e.control=null;e.controlCooldownUntilMs=state.timeMs+CONFIG.combat.controlCooldownMs;
+      e.thinkLeftMs=0;e.body.plugin.dropThrough=false;
+      if(present){
+        const dx=c.mode==='pinned'?c.normalX:c.dx,dy=c.mode==='pinned'?c.normalY:c.dy;
+        e.controlReleaseUntilMs=state.timeMs+CONFIG.combat.releaseFxMs;e.controlReleaseDx=dx;e.controlReleaseDy=dy;
+        if(c.mode==='pinned')Body.setVelocity(e.body,{x:0,y:.5});
+        controlEvent('controlRelease',e,{dx,dy});
+      }
+    }
+    function launchNeedledEnemy(e,shot){
+      if(!e.alive||e.control||state.timeMs<e.controlCooldownUntilMs)return false;
+      const n=normalize(shot.vx,shot.vy),pos=e.body.position;
+      e.control={mode:'flying',ownerId:shot.ownerId,dx:n.x,dy:n.y,startedMs:state.timeMs,
+        untilMs:state.timeMs+CONFIG.combat.flightMs,originX:pos.x,originY:pos.y,anchorX:0,anchorY:0,normalX:0,normalY:0};
+      e.attack=null;e.dash.untilMs=0;e.goalId=null;e.goalKind='none';e.body.plugin.dropThrough=false;
+      const v=velocity(e.body);
+      setWorldVelocity(e.body,v.x*60+n.x*CONFIG.combat.needleImpulse,v.y*60+n.y*CONFIG.combat.needleImpulse);
+      return true;
+    }
+    function pinEnemy(e,contact){
+      const c=e.control;if(c?.mode!=='flying')return;
+      c.mode='pinned';c.startedMs=state.timeMs;c.untilMs=state.timeMs+CONFIG.combat.pinMs;
+      c.normalX=contact.nx;c.normalY=contact.ny;c.anchorX=contact.x;c.anchorY=contact.y;
+      // Leave a short exposed shaft between yarn and terrain, in the authoritative pose.
+      // Never deepen an overlap with another body while moving away from the impact face.
+      const origin={...e.body.position},obstacles=Composite.allBodies(state.engine.world).filter(b=>b!==e.body&&b.id!==contact.terrainId);
+      const overlaps=new Map(Matter.Query.collides(e.body,obstacles).map(hit=>[hit.bodyA===e.body?hit.bodyB.id:hit.bodyA.id,hit.depth]));
+      let gap=CONFIG.combat.pinGap;
+      while(gap>=1){
+        Body.setPosition(e.body,{x:origin.x-contact.nx*gap,y:origin.y-contact.ny*gap});
+        const blocked=Matter.Query.collides(e.body,obstacles).some(hit=>hit.depth>(overlaps.get(hit.bodyA===e.body?hit.bodyB.id:hit.bodyA.id)||0)+.1);
+        if(!blocked)break;
+        gap*=.5;
+      }
+      if(gap<1)Body.setPosition(e.body,origin);
+      Body.setVelocity(e.body,{x:0,y:0});Body.setAngularVelocity(e.body,0);
+      e.controlConstraint=Constraint.create({bodyA:e.body,pointB:{...e.body.position},length:0,stiffness:1,damping:1});
+      Composite.add(state.engine.world,e.controlConstraint);
+      controlEvent('wallPin',e,{dx:c.normalX,dy:c.normalY,anchorX:c.anchorX,anchorY:c.anchorY});
+    }
+    function reboundEnemy(e,shot){
+      const old=e.control;if(old?.mode!=='pinned')return false;
+      const dx=-old.normalX,dy=-old.normalY,origin={...e.body.position};
+      releaseEnemyControl(e);
+      e.control={mode:'rebound',ownerId:shot.ownerId,dx,dy,startedMs:state.timeMs,
+        untilMs:state.timeMs+CONFIG.combat.reboundMs,originX:origin.x,originY:origin.y,
+        anchorX:old.anchorX,anchorY:old.anchorY,normalX:old.normalX,normalY:old.normalY,damage:shot.damage*CONFIG.combat.reboundDamageRate};
+      setWorldVelocity(e.body,dx*CONFIG.combat.reboundSpeed,dy*CONFIG.combat.reboundSpeed);
+      return true;
+    }
+    function updateEnemyControl(dtMs){
+      for(const e of state.enemies){
+        const c=e.control;if(!c)continue;
+        if(state.timeMs>=c.untilMs){releaseEnemyControl(e);continue;}
+        if(c.mode==='pinned')Body.setAngularVelocity(e.body,0);
+      }
+    }
+    function resolveControlContacts(){
+      if(!state.terrainContacts.size&&!state.reboundContacts.size)return;
+      const enemies=new Map(state.enemies.map(e=>[e.id,e]));
+      for(const [id,contact] of state.terrainContacts){const e=enemies.get(id);if(e?.alive)pinEnemy(e,contact);}
+      for(const key of state.reboundContacts){
+        const [ia,ib]=key.split(':').map(Number),a=enemies.get(ia),b=enemies.get(ib);
+        if(!a?.alive||!b?.alive)continue;
+        for(const [e,target] of [[a,b],[b,a]]){
+          const c=e.control;if(c?.mode!=='rebound'||!target.alive)continue;
+          const shot={kind:'rebound',ownerId:c.ownerId,x:target.body.position.x,y:target.body.position.y,
+            vx:c.dx*CONFIG.combat.reboundSpeed,vy:c.dy*CONFIG.combat.reboundSpeed,damage:c.damage,impulse:6};
+          releaseEnemyControl(e,false);
+          // The same contact must not immediately fuse away the collision damage.
+          // Briefly preserve the separating impact on both bodies before ordinary AI resumes.
+          const protectedUntil=state.timeMs+CONFIG.combat.launchProtectionMs;
+          e.noMergeUntilMs=Math.max(e.noMergeUntilMs,protectedUntil);
+          target.noMergeUntilMs=Math.max(target.noMergeUntilMs,protectedUntil);
+          e.impulseUntilMs=protectedUntil;
+          const v=velocity(e.body);Body.setVelocity(e.body,{x:v.x*.2,y:v.y});
+          // Contact consumes the rebound once, including protected split fragments.
+          if(hitEnemy(target,shot))target.impulseUntilMs=protectedUntil;
+          controlEvent('reboundImpact',e,{dx:c.dx,dy:c.dy});
+        }
+      }
+      state.terrainContacts.clear();state.reboundContacts.clear();
+    }
+    function updateNeedleEchoes(){
+      if(!state.needleEchoes.length)return;
+      const enemies=new Map(state.enemies.map(e=>[e.id,e]));
+      const pending=[];
+      for(const echo of state.needleEchoes){
+        if(state.timeMs<echo.atMs){pending.push(echo);continue;}
+        const e=enemies.get(echo.targetId);if(!e?.alive)continue;
+        const {x,y}=e.body.position;
+        hitEnemy(e,{kind:'echo',ownerId:echo.ownerId,x,y,vx:echo.dx,vy:echo.dy,damage:echo.damage,impulse:0});
+        presentControlEvent('needleEcho',x,y,{tier:e.tier});emitCombatEvent('needleEcho',x,y,{tier:e.tier});
+      }
+      state.needleEchoes=pending;
+    }
+    function splitEnemy(parent,position,parentVelocity){
+      if(parent.tier<=1)return;
+      const childTier=parent.tier-1,r=RADII[childTier-1],cfg=CONFIG.enemy.split;
+      const offset=r*1.13+18,worldWidth=CONFIG.world.width;
+      // Keep FULL centre-to-centre separation even when a parent dies beside
+      // an outer wall. Naively clamping each child creates overlapping bodies.
+      const centerX=clamp(position.x,r+12+offset,worldWidth-r-12-offset);
+      const children=[];
+      for(const side of [-1,1]){
+        const x=centerX+side*offset;
+        // Shift slightly above the parent's centre; children start apart with
+        // outward velocity, rather than overlapping and immediately re-fusing.
+        const y=clamp(position.y-Math.min(58,r*.2),r+8,CONFIG.world.groundY-r-7);
+        const child=createEnemy(childTier,x,y,{fromSplit:true,splitOrigin:parent.id,killCredit:false});
+        const horizontal=cfg.launchSpeed*(1+.035*childTier)/60;
+        const vertical=cfg.upSpeed*(1+.015*childTier)/60;
+        Body.setVelocity(child.body,{x:side*horizontal+parentVelocity.x*.12,
+          y:-vertical+Math.min(0,parentVelocity.y*.12)});
+        child.goalId=null;child.goalKind='wander';child.thinkLeftMs=0;
+        children.push(child);
+      }
+      state.frays.push({x:position.x,y:position.y,r:parent.body.circleRadius,
+        tier:childTier,ageMs:0,durationMs:410});
+      if(state.frays.length>18)state.frays.shift();
+      state.splits++;state.stageSplits++;metrics.splits++;
+      emitCombatEvent('split',position.x,position.y,{tier:childTier,ratio:parent.body.circleRadius});
+      spawnBurst(position.x,position.y,Math.min(24,10+parent.tier),225,CONFIG.colors['t'+childTier]);
+      ring(position.x,position.y,parent.body.circleRadius*1.8,350,CONFIG.colors['t'+childTier]);
+      floatText('분열!  T'+childTier+' ×2',position.x,position.y-parent.body.circleRadius*.45,'merge');
+      sound('pop',1);
+      return children;
+    }
+    function killEnemy(e) {
+      if(!e.alive)return;
+      const pos={x:e.body.position.x,y:e.body.position.y};
+      const v=velocity(e.body);
+      state.defeats++; // Every physical death. Split fragments do not re-credit a lineage.
+      if(e.killCredit){
+        state.kills++;state.stageKills++;state.score+=tierXP[e.tier-1]*75;
+        if(state.stageKills>=state.stageKillGoal)state.nextRiftAtMs=Infinity;
+        addExperience(tierXP[e.tier-1]);
+      }
+      spawnBurst(pos.x,pos.y,Math.min(28,13+e.tier*2),155,CONFIG.colors['t'+e.tier]);
+      ring(pos.x,pos.y,e.body.circleRadius*2.1,440,CONFIG.colors['t'+e.tier]);
+      sound('kill',.65);emitCombatEvent('kill',pos.x,pos.y,{tier:e.tier});
+      removeEnemy(e);
+      return splitEnemy(e,pos,v);
+    }
+    function hurtPlayer(damage,point,p=state.player,protectionMs=630) {
+      if(!p||p.hp<=0||!Number.isFinite(damage)||damage<=0)return false;
+      if(state.phase!=='PLAYING'||state.timeMs<p.hitInvulnerableUntil)return false;
+      const inflicted=Math.min(p.hp,damage);
+      p.hp=Math.max(0,p.hp-inflicted);
+      p.hitInvulnerableUntil=state.timeMs+protectionMs;
+      const n=normalize(p.body.position.x-point.x,p.body.position.y-point.y);
+      const v=velocity(p.body);
+      Body.setVelocity(p.body,{x:v.x+n.x*2.9,y:v.y+n.y*3.0-1.2});
+      floatText('-'+Math.ceil(inflicted),p.body.position.x,p.body.position.y-24,'hurt');
+      state.camera.shake=Math.max(state.camera.shake,5);
+      spawnBurst(p.body.position.x,p.body.position.y,13,130,[1,.61,.59,1]);
+      sound('hurt');
+      if(p.hp===0 && !p.spectating){
+        p.spectating=true;
+        // Every downed player has the SAME recovery window; if nobody is
+        // alive, the universal team-wipe rule ends the run first.
+        p.deathUntilMs=state.timeMs+CONFIG.player.respawnMs;
+        emitCombatEvent('playerDeath',p.body.position.x,p.body.position.y,{playerId:p.id});
+        ring(p.body.position.x,p.body.position.y,45,410,[1,.51,.50,.85]);
+        spawnBurst(p.body.position.x,p.body.position.y,19,165,[1,.71,.65,1]);
+        if(p.id===localId())updateHUD(true);
+      }
+      return true;
+    }
+    function settlePlayerDeaths(){
+      // Defer changing Matter bodies until AFTER Engine.update/collision callbacks.
+      for(const p of state.players.values()){
+        if(p.hp<=0 && !p.deathApplied){
+          p.body.collisionFilter.mask=0;
+          Body.setVelocity(p.body,{x:0,y:0});
+          Body.setStatic(p.body,true);
+          p.deathApplied=true;
+        }
+      }
+      if([...state.players.values()].every(p=>p.hp<=0)){
+        state.phase='DEAD';showFinish(false);updateDeathNotice();updateHUD(true);
+        return true;
+      }
+      for(const p of state.players.values()){
+        if(p.hp>0||!p.deathUntilMs||state.timeMs<p.deathUntilMs)continue;
+        respawnPlayer(p);
+      }
+      updateDeathNotice();return false;
+    }
+    function respawnPlayer(p){
+      // Exactly one host-authoritative revive. Spectators cannot collide or attack.
+      const index=[...state.players.keys()].indexOf(p.id);
+      const spawnX=clamp(315+Math.max(0,index)*57,35,CONFIG.world.width-35);
+      const spawnY=CONFIG.world.groundY-90;
+      if(p.deathApplied)Body.setStatic(p.body,false);
+      p.body.collisionFilter.mask=1|2|4;
+      Body.setPosition(p.body,{x:spawnX,y:spawnY});
+      Body.setVelocity(p.body,{x:0,y:0});
+      p.body.plugin.dropThrough=false;
+      p.hp=Math.max(1,Math.ceil(p.maxHp*CONFIG.player.respawnHpRate));
+      p.spectating=false;p.deathApplied=false;p.deathUntilMs=0;
+      p.dash.charges=p.stats.dashMax;p.dash.rechargeLeftMs=0;p.dash.untilMs=0;
+      p.jumpBufferLeftMs=0;p.coyoteLeftMs=0;
+      p.hitInvulnerableUntil=state.timeMs+CONFIG.player.respawnProtectionMs;
+      emitCombatEvent('playerRevive',spawnX,spawnY,{playerId:p.id});
+      ring(spawnX,spawnY,42,380,PALETTE.player);
+      spawnBurst(spawnX,spawnY,15,135,PALETTE.player);
+      if(p.id===localId()){stageToast('부활!','잠시 피격 보호가 적용됩니다',1050);updateHUD(true);}
+    }
+    function updateDeathNotice(){
+      const p=state.player,n=$('deathNotice');
+      if(!p||p.hp>0||state.phase!=='PLAYING'){n.hidden=true;return;}
+      n.hidden=false;
+      const seconds=Math.max(0,Math.ceil((p.deathUntilMs-state.timeMs)/1000));
+      const next=seconds>0?'동료를 관전하는 중 · '+seconds+'초 후 부활':'부활 준비 중…';
+      if($('deathNoticeText').textContent!==next)$('deathNoticeText').textContent=next;
+    }
+    // === BOUNKO-style permanent-per-run tech-tree. No modal/pause on level-up. ===
+    const TECH_NODES=Object.freeze([
+      {id:'needlePower',branch:'바늘',name:'굵은 바늘',symbol:'➤',cost:1,requires:[],max:1,desc:'모든 바늘 피해 +30% · 첫 명중과 연쇄에 동일 적용'},
+      {id:'needleTempo',branch:'바늘',name:'가벼운 실감개',symbol:'◷',cost:1,requires:['needlePower'],max:1,desc:'바늘 발사 간격 −15% · 유지 연사에도 적용'},
+      {id:'needleEcho',branch:'바늘',name:'풀림 메아리',symbol:'✧',cost:1,requires:['needleTempo'],max:1,desc:'바늘 처치로 분열한 두 조각에 0.3초 뒤 그 바늘 피해의 25% · 재귀 없음'},
+      {id:'needleCarry',branch:'제어',name:'밀어꿰기',symbol:'➤',cost:1,requires:[],max:1,desc:'첫 생존 적에게 피격 방향 임펄스 · 빠른 지형 충돌 시 1.2초 고정'},
+      {id:'needleThread',branch:'제어',name:'튕겨꿰기',symbol:'↯',cost:1,requires:['needleCarry'],max:1,desc:'바늘이 420px 안의 서로 다른 적 최대 3체로 튕김 · 첫 생존 적의 날아감과 독립된 연쇄'},
+      {id:'needleRebound',branch:'제어',name:'회수절단',symbol:'⋙',cost:1,requires:['needleThread'],max:1,desc:'고정 적에 바늘 재명중 시 회수·튕김 → 첫 적에 50% 충돌 피해'},
+      {id:'dashCapacity',branch:'기동',name:'발걸음 예비',symbol:'▰',cost:1,requires:[],max:3,desc:'최대 대시 +1'},
+      {id:'dashRecharge',branch:'기동',name:'빠른 숨고르기',symbol:'◉',cost:1,requires:[],max:5,desc:'대시 충전 간격 −12%'},
+      {id:'speed',branch:'기동',name:'민첩한 발걸음',symbol:'↗',cost:1,requires:['dashRecharge'],max:4,desc:'걷기 속도 +10%'},
+      {id:'hp',branch:'생존',name:'튼튼한 실',symbol:'♥',cost:1,requires:[],max:6,desc:'최대 체력 +25, 현재 체력 +25'},
+    ]);
+    const TECH_INDEX=new Map(TECH_NODES.map(node=>[node.id,node]));
+    const emptyProgress=()=>({earnedPoints:0,upgrades:Object.create(null)});
+    const techSpends=progress=>Object.entries(progress.upgrades).reduce((n,[id,level])=>n+TECH_INDEX.get(id).cost*level,0);
+    const techPoints=p=>p?p.progress.earnedPoints-techSpends(p.progress):0;
+    function validateProgress(value){
+      if(!value||typeof value!=='object'||Array.isArray(value)||!Number.isSafeInteger(value.earnedPoints)||value.earnedPoints<0||
+        !value.upgrades||typeof value.upgrades!=='object'||Array.isArray(value.upgrades)||Object.keys(value).some(k=>!['earnedPoints','upgrades'].includes(k)))return null;
+      const progress=emptyProgress();progress.earnedPoints=value.earnedPoints;
+      for(const [id,level] of Object.entries(value.upgrades)){
+        const node=TECH_INDEX.get(id);
+        if(!node||!Number.isInteger(level)||level<0||level>node.max)return null;
+        if(level)progress.upgrades[id]=level;
+      }
+      for(const id of Object.keys(progress.upgrades))if(!TECH_INDEX.get(id).requires.every(key=>progress.upgrades[key]>0))return null;
+      return techSpends(progress)<=progress.earnedPoints?progress:null;
+    }
+    const PROGRESS_KEY='yarn-mayhem.progress';
+    let progressStorageNotice='',progressMigrationNotice='',savedProgressText='';
+    function loadLocalProgress(){
+      try{
+        const text=globalThis.localStorage?.getItem(PROGRESS_KEY);
+        if(!text)return emptyProgress();
+        const value=JSON.parse(text),aliases={blade1:'needlePower',bladeLaunch:'needleTempo',bladeEcho:'needleEcho'};
+        let migrated=0;
+        if(value?.upgrades&&typeof value.upgrades==='object')for(const [old,id] of Object.entries(aliases)){
+          if(!(old in value.upgrades))continue;
+          const level=value.upgrades[old];if(!Number.isInteger(level)||level<0||level>1)throw new Error('invalid retired investment');
+          value.upgrades[id]=Math.max(value.upgrades[id]||0,level);delete value.upgrades[old];migrated+=level;
+        }
+        const progress=validateProgress(value);
+        if(!progress)throw new Error('invalid progression');
+        savedProgressText=JSON.stringify(progress);
+        if(migrated){
+          progressMigrationNotice='검술 투자 '+migrated+'개를 바늘 기술로 전환했습니다. 획득 포인트와 다른 투자는 유지됩니다.';
+          try{globalThis.localStorage.setItem(PROGRESS_KEY,savedProgressText);}catch{savedProgressText='';progressStorageNotice='전환한 투자를 기기에 저장하지 못했습니다 · 현재 플레이에는 유지';}
+        }
+        return progress;
+      }catch{progressStorageNotice='저장된 성장을 불러오지 못했습니다';return emptyProgress();}
+    }
+    let localProgress=loadLocalProgress();
+    function saveLocalProgress(player){
+      if(player.id!==localId())return;
+      localProgress=player.progress;
+      const text=JSON.stringify(localProgress);if(text===savedProgressText)return;
+      try{
+        if(!globalThis.localStorage)throw new Error('storage unavailable');
+        globalThis.localStorage.setItem(PROGRESS_KEY,text);savedProgressText=text;progressStorageNotice='';
+      }catch{progressStorageNotice='이 기기에 저장하지 못했습니다 · 현재 플레이에는 유지';}
+    }
+    function deriveTechStats(progress){
+      const st=newStats(),n=k=>progress.upgrades[k]||0;
+      st.needlePower*=1+n('needlePower')*.3;st.fireIntervalMs*=1-n('needleTempo')*.15;st.needleEcho=n('needleEcho')>0;
+      st.needleCarry=n('needleCarry')>0;st.needleRicochet=n('needleThread')>0;st.needleRebound=n('needleRebound')>0;
+      st.dashMax+=n('dashCapacity');
+      st.dashRechargeMs=Math.max(320,st.dashRechargeMs*(1-n('dashRecharge')*.12));
+      st.moveSpeed*=1+n('speed')*.1;
+      st.maxHp+=n('hp')*25;
+      return st;
+    }
+    function buyTech(player,id){
+      const node=TECH_INDEX.get(id);if(!node||!player||!player.progress)return false;
+      const level=player.progress.upgrades[id]||0;
+      if(level>=node.max||techPoints(player)<node.cost||!node.requires.every(k=>player.progress.upgrades[k]>0))return false;
+      const oldStats=player.stats;
+      player.progress.upgrades[id]=level+1;player.stats=deriveTechStats(player.progress);
+      player.maxHp=player.stats.maxHp;player.hp=clamp(player.hp+player.stats.maxHp-oldStats.maxHp,0,player.maxHp);
+      player.dash.charges=clamp(player.dash.charges+player.stats.dashMax-oldStats.dashMax,0,player.stats.dashMax);
+      saveLocalProgress(player);
+      sound('select',.65);
+      if(player.id===localId()){updateTechUI();updateHUD(true);}
+      return true;
+    }
+    function addExperience(amount) {
+      state.xp+=amount;
+      while(state.xp>=state.xpGoal){state.xp-=state.xpGoal;state.level++;state.xpGoal=Math.round(8+state.level*5);
+        for(const player of state.players.values()){
+          player.progress.earnedPoints=Math.min(Number.MAX_SAFE_INTEGER,player.progress.earnedPoints+1);saveLocalProgress(player);
+        }
+        sound('level',.65);state.camera.shake=Math.max(state.camera.shake,1.5);
+      }
+    }
+    const techView={selected:'needlePower',returnFocus:null,returnRoute:'',inert:[]};
+    function techStatus(node){
+      const p=state.player,level=p?.progress.upgrades[node.id]||0;
+      const ready=node.requires.every(id=>p?.progress.upgrades[id]>0);
+      return {level,ready,owned:level>=node.max,available:!!p&&ready&&level<node.max&&techPoints(p)>=node.cost};
+    }
+    function selectTech(id,route=true){
+      if(!TECH_INDEX.has(id))return;
+      techView.selected=id;renderTechTree();updateTechUI();
+      if(route)$('techPanel').dataset.pane='detail';
+      if(route)history.replaceState(null,'','#/tech/'+id);
+    }
+    function renderTechTree(){
+      const branch=TECH_INDEX.get(techView.selected).branch,root=$('techCards');root.replaceChildren();
+      for(const button of $('techTabs').children)button.setAttribute('aria-pressed',String(button.dataset.branch===branch));
+      const nodes=TECH_NODES.filter(node=>node.branch===branch);
+      const path=document.createElement('div');path.className='tech-path';
+      for(const node of nodes){
+          const id=node.id,b=document.createElement('button');b.type='button';b.className='tech-node';b.id='tech_'+id;b.dataset.linked=String(node.requires.length>0);
+          const symbol=document.createElement('span');symbol.className='symbol';symbol.textContent=node.symbol;symbol.setAttribute('aria-hidden','true');
+          const title=document.createElement('strong');title.textContent=node.name;
+          const status=document.createElement('small');status.className='node-state';b.append(symbol,title,status);
+          b.onclick=()=>{selectTech(id);($('techDetailBack').getClientRects().length?$('techDetailBack'):$('tech_'+id)).focus({preventScroll:true});};path.append(b);
+      }
+      root.append(path);
+    }
+    function updateTechUI(){
+      const p=state.player;
+      $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(progressStorageNotice?' · '+progressStorageNotice:'');
+      $('techOpen').textContent='스탯 '+techPoints(p);
+      $('techOpen').classList.toggle('ready',techPoints(p)>0);
+      for(const node of TECH_NODES){
+        const button=$('tech_'+node.id);if(!button)continue;
+        const st=techStatus(node),label=st.owned?'✓ 완료':!st.ready?'잠김':st.available?'＋ 투자 가능':'포인트 부족';
+        button.dataset.state=st.owned?'owned':!st.ready?'locked':st.available?'available':'waiting';
+        button.dataset.ready=String(st.ready);button.setAttribute('aria-pressed',String(node.id===techView.selected));
+        button.querySelector('.node-state').textContent=label+' · '+st.level+'/'+node.max;
+        button.setAttribute('aria-label',node.name+', '+label+', '+st.level+'/'+node.max+', 상세 보기');
+      }
+      const node=TECH_INDEX.get(techView.selected),st=techStatus(node);
+      $('techDetailTitle').textContent=node.symbol+' '+node.name;
+      $('techLevel').textContent=node.branch+' · 투자 '+st.level+'/'+node.max+' · 1회 '+node.cost+'점';
+      $('techDescription').textContent=node.desc;
+      const req=$('techRequirements');
+      // Keep condition controls stable while frequent HUD refreshes update the point count.
+      if(req.dataset.node!==node.id){req.replaceChildren();req.dataset.node=node.id;
+        for(const id of node.requires){const button=document.createElement('button');button.type='button';button.dataset.id=id;button.onclick=()=>{selectTech(id);($('techDetailBack').getClientRects().length?$('techDetailBack'):$('tech_'+id))?.focus({preventScroll:true});};req.append(button);}
+      }
+      for(const button of req.children)button.textContent=(p?.progress.upgrades[button.dataset.id]>0?'✓ 습득: ':'선행 필요: ')+TECH_INDEX.get(button.dataset.id).name;
+      $('techReason').textContent=st.owned?'최대 단계에 도달했습니다.':!st.ready?'위 선행 기술을 먼저 습득하세요.':!p?'모험을 준비하는 중입니다.':techPoints(p)<node.cost?'레벨을 올리면 1점을 얻습니다.':node.requires.length?'선행 조건 충족 · 선택한 기술에 투자합니다.':'선행 조건 없음 · 선택한 기술에 투자합니다.';
+      $('techBuy').disabled=!st.available;
+      $('techBuy').textContent=st.owned?'✓ 습득 완료':!st.ready?'선행 기술 필요':!st.available?node.cost+'점 필요':'투자하기 · '+node.cost+'점';
+    }
+    function setTechOpen(open,restoreFocus=true){
+      const wasOpen=!$('techPanel').hidden;
+      if(open&&!wasOpen){techView.returnFocus=document.activeElement;techView.returnRoute=state.phase==='MENU'&&menuScreen!=='home'?'#/'+menuScreen:'';
+        techView.inert=[...$('app').children].filter(el=>!['techPanel','techBackdrop'].includes(el.id)).map(el=>[el,el.inert]);
+        for(const [el]of techView.inert)el.inert=true;
+        session.releaseInput();
+      }
+      $('techPanel').hidden=$('techBackdrop').hidden=!open;
+      for(const id of ['techOpen','techMenuOpen'])$(id).setAttribute('aria-expanded',String(open));
+      if(open){updateTechUI();if(!wasOpen)$('techClose').focus({preventScroll:true});}
+      else if(wasOpen){for(const [el,inert]of techView.inert)el.inert=inert;techView.inert=[];
+        if(restoreFocus)(techView.returnFocus?.isConnected?techView.returnFocus:canvas).focus({preventScroll:true});
+      }
+    }
+    function openTech(){navigateMenu('tech');}
+    function closeTech(){navigateMenu(techView.returnRoute.replace(/^#\//,''),true);}
+    function initTechUI(){
+      for(const branch of [...new Set(TECH_NODES.map(node=>node.branch))]){
+        const button=document.createElement('button');button.type='button';button.className='tech-tab';button.dataset.branch=branch;
+        button.textContent=TECH_NODES.find(node=>node.branch===branch).symbol+' '+branch;
+        button.onclick=()=>{selectTech(TECH_NODES.find(node=>node.branch===branch).id);$('techPanel').dataset.pane='list';};$('techTabs').append(button);
+      }
+      renderTechTree();
+      $('techOpen').onclick=$('techMenuOpen').onclick=openTech;
+      $('techClose').onclick=closeTech;$('techBackdrop').onclick=closeTech;
+      $('techDetailBack').onclick=()=>{$('techPanel').dataset.pane='list';$('tech_'+techView.selected)?.focus({preventScroll:true});};
+      $('techBuy').onclick=()=>submitWorldAction({kind:'tech',id:techView.selected});
+      document.addEventListener('keydown',event=>{
+        if(event.code!=='KeyT'||event.repeat||event.ctrlKey||event.altKey||event.metaKey)return;
+        if(['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+        if(!['PLAYING','PAUSE','CLEAR','MENU','DEAD'].includes(state.phase))return;
+        event.preventDefault();$('techPanel').hidden?openTech():closeTech();
+      });
+      updateTechUI();
+    }
+    // === 1~4-player host-authoritative co-op. GameKit DynamicRoom owns Nostr signaling
+    // and WebRTC transport; only the host executes Matter.js and merging. ===
+    const NEUTRAL_INPUT=Object.freeze({x:0,active:false,jumpPressed:false,jumpHeld:false,downHeld:false,
+      dashPressed:false,firePressed:false,fireHeld:false,aim:{x:1,y:0}});
+    const neutralControls=()=>NEUTRAL_INPUT;
+    function resetPeerEdges(id){
+      const state=net.peerControls.get(id);if(!state)return;
+      const c=state.controls;
+      state.controls={...c,jumpPressed:false,dashPressed:false,firePressed:false};
+    }
+    function sendPacket(transport,payload){
+      if(!transport||transport.state!=='open')return false;
+      const json=JSON.stringify(payload);
+      if(json.length>60000)throw new RangeError('network frame exceeds 60k chars');
+      if(wire.encode(json).byteLength<=12000)return transport.send(wire.encode(json));
+      const id=++net.inputSequence,partLen=4200,n=Math.ceil(json.length/partLen);
+      if(n>16)throw new RangeError('too many network fragments');
+      for(let k=0;k<n;k++)if(!transport.send(wire.encode(JSON.stringify({t:'chunk',id,k,n,s:json.slice(k*partLen,(k+1)*partLen)}))))return false;
+      return true;
+    }
+    function sendHost(payload){
+      if(net.role!=='join'||!net.room)return false;
+      return sendPacket(net.room.transports.get(net.room.coordinatorId),payload);
+    }
+    function roomMessage(text){$('roomStatus').textContent=text;}
+    function refreshRoomUI(){
+      const count=net.role==='solo'?1:net.room?.players.length??1;
+      $('roomControls').querySelector('label').textContent=net.role==='solo'?'방 코드 · 만들 때는 비워도 됩니다':'방 코드 · 친구에게 공유하세요';
+      $('networkPill').hidden=net.role==='solo';
+      $('networkPill').textContent=net.role==='solo'?'':(net.role==='host'?'방장 ':'참가자 ')+count+'/4 · '+(net.code??'----')+' · 나가기';
+      if(net.room)$('roomCode').value=net.room.room;
+      if(net.role==='join'){
+        $('mainButton').disabled=true;
+        $('mainButton').textContent=net.remoteReady?'방장과 함께 플레이 중':'방장 동기화 대기 중';
+      }else {$('mainButton').disabled=false;}
+      if(state.phase==='MENU')renderMainMenu();
+      if($('leaveRoom'))$('leaveRoom').hidden=net.role==='solo';
+      if($('copyRoom'))$('copyRoom').hidden=net.role==='solo';
+    }
+    function netRosterInfo(){return {epoch:net.room?.epoch??0,players:net.room?.players??[],hostId:net.room?.coordinatorId??null};}
+    function validRicochet(chain){
+      return chain===null||(chain&&Number.isInteger(chain.hits)&&chain.hits>=0&&chain.hits<=3&&
+        (chain.targetId===null||Number.isSafeInteger(chain.targetId))&&Number.isFinite(chain.resumeAtMs)&&chain.resumeAtMs>=0&&Number.isFinite(chain.legSpeed)&&chain.legSpeed>0&&chain.legSpeed<=CONFIG.shot.speed&&Number.isFinite(chain.rangeLeft)&&chain.rangeLeft>=0&&chain.rangeLeft<=CONFIG.combat.ricochetRange&&
+        Array.isArray(chain.path)&&chain.path.length===chain.hits+1&&chain.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)));
+    }
+    function packWorld(){
+      const p=number=>Math.round((Number.isFinite(number)?number:0)*10)/10;
+      return {
+        t:'frame',runId:state.runId,tick:state.tick,ms:p(state.timeMs),phase:state.phase,stage:state.stage,
+        stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,kills:state.kills,defeats:state.defeats,
+        nextRiftAtMs:Number.isFinite(state.nextRiftAtMs)?p(state.nextRiftAtMs):null,nextSpawnHoleId:state.nextSpawnHoleId,
+        nextSpawnAtMs:Number.isFinite(state.nextSpawnAtMs)?p(state.nextSpawnAtMs):null,
+        merges:state.merges,splits:state.splits,score:state.score,xp:state.xp,level:state.level,xpGoal:state.xpGoal,
+        players:[...state.players.values()].map(a=>[a.id,p(a.body.position.x),p(a.body.position.y),p(a.body.velocity.x),p(a.body.velocity.y),
+          p(a.hp),p(a.maxHp),a.face,a.dash.charges,p(a.dash.rechargeLeftMs),a.progress.earnedPoints,a.progress.upgrades,
+          p(a.lastShotDir.x),p(a.lastShotDir.y),a.hitInvulnerableUntil,a.dash.untilMs,p(a.deathUntilMs),a.body.angle]),
+        enemies:state.enemies.map(e=>[e.id,e.tier,p(e.body.position.x),p(e.body.position.y),e.body.angle,p(e.hp),p(e.maxHp),p(e.hitFlashUntil),e.killCredit?1:0,
+          e.control?[e.control.mode,e.control.ownerId,p(e.control.dx),p(e.control.dy),p(e.control.startedMs),p(e.control.untilMs),
+            p(e.control.originX),p(e.control.originY),p(e.control.anchorX),p(e.control.anchorY),e.control.normalX,e.control.normalY]:null,
+          p(e.controlCooldownUntilMs),p(e.impulseUntilMs),p(e.controlReleaseUntilMs),p(e.controlReleaseDx),p(e.controlReleaseDy),e.attack?[e.attack.phase,p(e.attack.untilMs),e.attack.targetId,p(e.attack.dx),p(e.attack.dy),e.attack.kind]:null,
+          [e.locomotion.phase,p(e.locomotion.untilMs),p(e.locomotion.landedMs),p(e.locomotion.takeoffMs)]]),
+        shots:state.shots.map(sh=>[sh.id,sh.owner==='enemy'?0:1,sh.ownerId??null,sh.x,sh.y,sh.vx,sh.vy,sh.damage,sh.radius,sh.kind,sh.remainingMs,sh.impulse??0,!!sh.carry,[...(sh.hitIds||[])],sh.ricochet?{...sh.ricochet,path:sh.ricochet.path.map(a=>[...a])}:null]),
+        holes:state.spawnHoles.map(h=>[h.id,p(h.x),p(h.y),h.surfaceKind,h.surfaceId,h.normalX,h.normalY,p(h.openProgress),p(h.nextAtMs),
+          p(h.lastPopAtMs),h.spawned?1:0,h.spawns,p(h.createdAtMs),p(h.expiresAtMs)]),
+        fx:state.fxNet.slice(-18),
+      };
+    }
+    function sendFrame(peerId){
+      if(net.role!=='host')return;
+      const transport=net.room?.transports.get(peerId);
+      if(transport?.state!=='open')return;
+      sendPacket(transport,packWorld());
+    }
+    function broadcastFrame(){if(net.role!=='host')return;for(const id of net.room?.players||[]){if(id!==localId())sendFrame(id);}}
+    function sendWelcome(peerId){
+      const transport=net.room?.transports.get(peerId);
+      if(!transport||!state.players.has(peerId))return;
+        sendPacket(transport,{t:'welcome',version:'0.19.2',roster:netRosterInfo(),frame:packWorld()});
+    }
+    function announceRoster(){
+      for(const peerId of net.room?.players||[])if(peerId!==localId())sendWelcome(peerId);
+      if(net.role==='host'&&net.room)roomMessage('방 '+net.room.room+' · '+net.room.players.length+'/4명 · 플레이 중 참가 가능');
+      refreshRoomUI();
+    }
+    function addRemotePlayer(id,progress=emptyProgress()){
+      if(state.players.has(id))return state.players.get(id);
+      const index=state.players.size,p=createPlayer(315+(index%4)*57,CONFIG.world.groundY-64,id,progress);
+      state.players.set(id,p);return p;
+    }
+    function removeRemotePlayer(id){
+      const actor=state.players.get(id);
+      if(actor){Composite.remove(state.engine.world,actor.body);state.players.delete(id);}
+      net.peerControls.delete(id);net.peers.get(id)?.();net.peers.delete(id);
+    }
+    // Presentation consumes canonical phase state for both local authority
+    // and remote viewers. The only presentation distinction is who may press
+    // authoritative Next/Restart, never how a death or clear is calculated.
+    function presentWorldPhase(phase){
+      if(phase==='PLAYING'){
+        if($('techPanel').hidden)history.replaceState(null,'',location.pathname+location.search);
+        $('modal').hidden=true;$('hud').hidden=false;$('dashHud').hidden=false;$('hint').hidden=false;
+        $('deathNotice').hidden=true;
+      }else if(phase==='CLEAR')renderStageClear();
+      else if(phase==='DEAD')showFinish(false);
+    }
+    function decodePlayerFrame(values){
+      if(!Array.isArray(values)||values.length!==18)return null;
+      const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle]=values;
+      if(typeof id!=='string'||!id.length||id.length>128||
+        ![x,y,vx,vy,hp,maxHp,face,charges,recharge,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle].every(Number.isFinite)||
+        hp<0||hp>maxHp||deathUntil<0||!Number.isInteger(charges)||charges<0)return null;
+      const progress=validateProgress({earnedPoints,upgrades});if(!progress)return null;
+      const stats=deriveTechStats(progress);if(maxHp!==stats.maxHp||charges>stats.dashMax)return null;
+      return {values,progress,stats};
+    }
+    function applyWorldFrame(frame){
+      if(net.role!=='join'||!net.remoteReady)return;
+      if(!frame||!Number.isSafeInteger(frame.tick)||!Number.isSafeInteger(frame.runId)||frame.runId<0||frame.runId<net.remoteRunId||
+        !Number.isSafeInteger(frame.stage)||frame.stage<1||frame.stage>100000||!Number.isSafeInteger(frame.nextSpawnHoleId)||frame.nextSpawnHoleId<0)return;
+      if(!Array.isArray(frame.players)||!frame.players.length||frame.players.length>roomMaxPlayers||!Array.isArray(frame.enemies)||frame.enemies.length>160||!Array.isArray(frame.shots)||frame.shots.length>160)return;
+      const players=frame.players.map(decodePlayerFrame);
+      if(players.some(p=>!p)||new Set(players.map(p=>p.values[0])).size!==players.length||!players.some(p=>p.values[0]===localId()))return;
+      const newRun=frame.runId!==net.remoteRunId;
+      if(!newRun&&frame.tick<=net.lastStateTick)return;
+      if(newRun){net.remoteRunId=frame.runId;net.lastStateTick=-1;net.lastFxSeen=0;}
+      if(newRun||frame.stage!==state.stage||!state.engine){
+        state.timeMs=frame.ms;
+        initStage(frame.stage,true,frame.players.map(values=>values[0]));
+        if(newRun)net.lastFxSeen=0;
+      }
+      const previousPhase=state.phase;
+      net.lastStateTick=frame.tick;state.runId=frame.runId;state.tick=frame.tick;state.timeMs=frame.ms;
+      state.stageKills=frame.stageKills;state.stageKillGoal=frame.stageKillGoal;
+      if(frame.nextRiftAtMs===null)state.nextRiftAtMs=Infinity;
+      else if(Number.isFinite(frame.nextRiftAtMs))state.nextRiftAtMs=frame.nextRiftAtMs;
+      if(frame.nextSpawnAtMs===null)state.nextSpawnAtMs=Infinity;
+      else if(Number.isFinite(frame.nextSpawnAtMs))state.nextSpawnAtMs=frame.nextSpawnAtMs;
+      state.kills=frame.kills;state.defeats=frame.defeats;state.merges=frame.merges;state.splits=frame.splits;
+      state.score=frame.score;state.level=frame.level;state.xp=frame.xp;state.xpGoal=frame.xpGoal;
+      const alive=new Set();
+      for(const {values,progress,stats} of players){
+        const [id,x,y,vx,vy,hp,maxHp,face,charges,recharge,earnedPoints,upgrades,ax,ay,hurtUntil,dashUntil,deathUntil,rollAngle]=values;
+        const actor=addRemotePlayer(id,progress);alive.add(id);
+        // No revision cache: recreated actors always restore canonical progression and derived stats.
+        actor.progress=progress;actor.stats=stats;
+        Body.setPosition(actor.body,{x:clamp(x,-100,CONFIG.world.width+100),y:clamp(y,-100,CONFIG.world.height+200)});
+        Body.setVelocity(actor.body,{x:clamp(vx,-50,50),y:clamp(vy,-50,50)});
+        Body.setAngle(actor.body,rollAngle);
+        actor.face=face<0?-1:1;actor.dash.charges=charges;actor.dash.rechargeLeftMs=recharge;
+        actor.lastShotDir=normalize(ax,ay);
+        actor.hitInvulnerableUntil=hurtUntil;actor.dash.untilMs=dashUntil;
+        actor.hp=hp;actor.maxHp=maxHp;
+        actor.spectating=hp<=0;actor.deathUntilMs=deathUntil;
+        if(id===localId()){state.player=actor;saveLocalProgress(actor);}
+      }
+      for(const id of [...state.players.keys()])if(!alive.has(id))removeRemotePlayer(id);
+      const mobIds=new Set(),oldEnemies=new Map(state.enemies.map(e=>[e.id,e]));
+      for(const data of frame.enemies){
+        if(!Array.isArray(data)||data.length!==17||!Number.isFinite(data[2])||!Number.isFinite(data[3]))continue;
+        const [id,tier,x,y,angle,hp,maxHp,flash,credit,control,cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy,attack,locomotion]=data;
+        if(![cooldown,impulseUntil,releaseUntil,releaseDx,releaseDy].every(Number.isFinite))continue;
+        if(!Array.isArray(locomotion)||locomotion.length!==4||!['air','land','compress','takeoff','suspended'].includes(locomotion[0])||!locomotion.slice(1).every(n=>Number.isFinite(n)&&n>=0))continue;
+        if(attack!==null&&(!Array.isArray(attack)||attack.length!==6||!['charge','dash','attack','recover'].includes(attack[0])||!['dash','ranged'].includes(attack[5])||typeof attack[2]!=='string'||![attack[1],attack[3],attack[4]].every(Number.isFinite)))continue;
+        if(control!==null&&(!Array.isArray(control)||control.length!==12||!['flying','pinned','rebound'].includes(control[0])||
+          typeof control[1]!=='string'||control[1].length>128||!control.slice(2).every(Number.isFinite)))continue;
+        if(!Number.isSafeInteger(id)||!Number.isInteger(tier)||tier<1||tier>10||!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0||hp<0||hp>maxHp||!Number.isFinite(angle)||!Number.isFinite(flash))continue;
+        let enemy=oldEnemies.get(id);
+        if(enemy&&enemy.tier!==tier){removeEnemy(enemy);enemy=null;}
+        if(!enemy){enemy=createEnemy(tier,x,y,{killCredit:!!credit});enemy.id=id;enemy.body.plugin.enemyId=id;}
+        Body.setPosition(enemy.body,{x,y});Body.setAngle(enemy.body,angle);enemy.hp=hp;enemy.maxHp=maxHp;enemy.hitFlashUntil=flash;
+        enemy.control=control?{mode:control[0],ownerId:control[1],dx:control[2],dy:control[3],startedMs:control[4],untilMs:control[5],
+          originX:control[6],originY:control[7],anchorX:control[8],anchorY:control[9],normalX:control[10],normalY:control[11]}:null;
+        enemy.attack=attack?{phase:attack[0],untilMs:attack[1],targetId:attack[2],dx:attack[3],dy:attack[4],kind:attack[5]}:null;
+        enemy.locomotion={phase:locomotion[0],untilMs:locomotion[1],landedMs:locomotion[2],takeoffMs:locomotion[3]};
+        enemy.controlCooldownUntilMs=cooldown;enemy.impulseUntilMs=impulseUntil;
+        enemy.controlReleaseUntilMs=releaseUntil;enemy.controlReleaseDx=releaseDx;enemy.controlReleaseDy=releaseDy;
+        mobIds.add(id);
+      }
+      for(const e of [...state.enemies])if(!mobIds.has(e.id))removeEnemy(e);
+      state.shots=frame.shots.filter(a=>Array.isArray(a)&&a.length===15&&[a[3],a[4],a[5],a[6],a[7],a[8],a[10],a[11]].every(Number.isFinite)&&Array.isArray(a[13])&&a[13].length<=160&&a[13].every(id=>typeof id==='string')&&validRicochet(a[14])).map(a=>({id:a[0],owner:a[1]?'player':'enemy',ownerId:a[2],x:a[3],y:a[4],vx:a[5],vy:a[6],damage:a[7],radius:a[8],kind:a[9],remainingMs:a[10],impulse:a[11],carry:a[12]===true,hitIds:new Set(a[13]),ricochet:a[14]?{...a[14],path:a[14].path.map(p=>[...p])}:null}));
+      const syncedHoles=[],maxSyncedHoles=maxRiftLifetimeTicks();
+      for(const data of Array.isArray(frame.holes)?frame.holes.slice(0,maxSyncedHoles):[]){
+        if(!Array.isArray(data)||data.length!==14)continue;
+        const [id,x,y,surfaceKind,surfaceId,normalX,normalY,open,nextAtMs,lastPopAtMs,spawned,spawns,createdAtMs,expiresAtMs]=data;
+        const matchesSite=state.spawnSites.some(site=>site.kind===surfaceKind&&site.surfaceId===surfaceId&&
+          Math.abs(site.x-x)<.11&&Math.abs(site.y-y)<.11&&site.normalX===normalX&&site.normalY===normalY);
+        if(!Number.isSafeInteger(id)||id<0||![x,y,normalX,normalY,open,nextAtMs,lastPopAtMs,createdAtMs,expiresAtMs].every(Number.isFinite)||
+          !matchesSite||open<0||open>1||![0,1].includes(spawned)||!Number.isInteger(spawns)||spawns<0||spawns>maxRiftLifetimeTicks()||
+          expiresAtMs<=frame.ms||createdAtMs>frame.ms||expiresAtMs-createdAtMs>CONFIG.enemy.spawn.riftLifetimeMs+1)continue;
+        syncedHoles.push({id,x,y,top:y,base:y,surfaceKind,surfaceId,normalX,normalY,width:86,openProgress:open,
+          openingStartedAtMs:createdAtMs,nextAtMs,lastPopAtMs,spawned:spawned===1,spawns,createdAtMs,expiresAtMs});
+      }
+      state.spawnHoles=syncedHoles;
+      state.nextSpawnHoleId=Math.max(frame.nextSpawnHoleId,syncedHoles.reduce((next,h)=>Math.max(next,h.id+1),0));
+      // One-shot VFX is marked by monotonically increasing authority IDs: no duplicates on snapshots.
+      for(const event of frame.fx||[]){
+        if(!event||!Number.isSafeInteger(event.id)||event.id<=net.lastFxSeen)continue;
+        net.lastFxSeen=event.id;
+        if(['wallPin','controlRelease','reboundImpact','needleEcho','ricochet'].includes(event.kind))presentControlEvent(event.kind,event.x,event.y,event.payload||{});
+        if(event.kind==='needle')ring(event.x,event.y,18,180,PALETTE.gold);
+        if(event.kind==='hit')presentImpact(event.x,event.y,event.payload);
+        if(event.kind==='kill')spawnBurst(event.x,event.y,14,140,CONFIG.colors['t'+clamp(event.payload?.tier||1,1,10)]);
+        if(event.kind==='split'){state.frays.push({x:event.x,y:event.y,r:event.payload?.ratio||50,tier:event.payload?.tier||1,ageMs:0,durationMs:410});}
+        if(event.kind==='merge'){
+          ring(event.x,event.y,42,310,PALETTE.gold);spawnBurst(event.x,event.y,18,120,PALETTE.gold);
+          const m=event.payload;
+          if([m.ax,m.ay,m.bx,m.by,m.r,m.tier].every(Number.isFinite)&&m.tier>=2&&m.tier<=10){
+            state.absorptions.push({x:event.x,y:event.y,ax:m.ax,ay:m.ay,bx:m.bx,by:m.by,
+              r:m.r,tier:m.tier,fromTier:m.tier-1,ageMs:0,durationMs:260,seed:0});
+          }
+        }
+        if(event.kind==='playerDeath'){ring(event.x,event.y,45,410,[1,.51,.50,.85]);spawnBurst(event.x,event.y,15,125,[1,.71,.65,1]);}
+        if(event.kind==='playerRevive'){ring(event.x,event.y,42,380,PALETTE.player);spawnBurst(event.x,event.y,15,135,PALETTE.player);}
+      }
+      state.phase=frame.phase;
+      if(previousPhase!==state.phase||newRun){
+        presentWorldPhase(state.phase);
+        // On first online admission the join form still owns keyboard focus.
+        // Return input to the game surface once canonical PLAYING is received.
+        if(state.phase==='PLAYING'&&$('techPanel').hidden&&
+           (!document.activeElement||document.activeElement.closest?.('#roomControls')||document.activeElement===document.body)){
+          canvas.focus({preventScroll:true});
+        }
+      }
+      capturePresentation();
+      updateHUD(true);updateDeathNotice();return true;
+    }
+    function handleRoomMessage(peerId,payload){
+      if(!payload||typeof payload!=='object'||typeof payload.t!=='string')return;
+      if(payload.t==='chunk'){
+        if(!Number.isInteger(payload.n)||payload.n<1||payload.n>16||!Number.isInteger(payload.k)||payload.k<0||payload.k>=payload.n||typeof payload.s!=='string'||payload.s.length>4300)return;
+        const key=peerId+':'+payload.id;
+        for(const [k,v]of net.parts)if(performance.now()-v.started>3000)net.parts.delete(k);
+        if(net.parts.size>=8&&!net.parts.has(key))return;
+        const entry=net.parts.get(key)??{n:payload.n,parts:Array(payload.n).fill(null),started:performance.now()};
+        if(entry.n!==payload.n)return;entry.parts[payload.k]=payload.s;net.parts.set(key,entry);
+        if(entry.parts.every(part=>typeof part==='string')){
+          net.parts.delete(key);try{handleRoomMessage(peerId,JSON.parse(entry.parts.join('')));}catch{}
+        }return;
+      }
+      if(net.role==='host'){
+        if(!net.room?.players.includes(peerId))return;
+        if(payload.t==='hello'){
+          if(!state.players.has(peerId)){
+            const progress=validateProgress(payload.progress);if(!progress)return;
+            addRemotePlayer(peerId,progress);announceRoster();
+          }else sendWelcome(peerId);
+          return;
+        }
+        if(!state.players.has(peerId))return;
+        if(payload.t==='input'){
+          if(!Number.isSafeInteger(payload.seq)||!Number.isFinite(payload.x))return;
+          const previous=net.peerControls.get(peerId)??{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9,view:null};
+          if(payload.seq<=previous.seq)return;
+          const view=payload.view===undefined?previous.view:sanitizeSpawnObserverView(payload.view);
+          if(payload.cancel===true){net.peerControls.set(peerId,{seq:payload.seq,controls:NEUTRAL_INPUT,updatedAt:performance.now(),view});return;}
+          const old=previous.controls||NEUTRAL_INPUT;
+          const aim=normalize(Number(payload.ax)||0,Number(payload.ay)||0);
+          const controls={x:clamp(payload.x,-1,1),active:Math.abs(payload.x)>.18,
+            jumpPressed:!!payload.jp||old.jumpPressed,jumpHeld:!!payload.jh,downHeld:!!payload.dn,
+            dashPressed:!!payload.dp||old.dashPressed,firePressed:!!payload.fp||old.firePressed,
+            fireHeld:!!payload.fh,aim};
+          net.peerControls.set(peerId,{seq:payload.seq,controls,updatedAt:performance.now(),view});
+        }else if(payload.t==='action'){
+          applyWorldAction(peerId,payload.action);
+        }
+      }else if(net.role==='join'&&peerId===net.room?.coordinatorId){
+        if(payload.t==='welcome'){
+          if(payload.version!=='0.19.2'||!payload.roster?.players?.includes(localId())||!payload.frame?.players?.some(p=>p[0]===localId())){roomMessage('참가 버전/정원 확인 실패');return;}
+          const {epoch,players,hostId}=payload.roster;
+          if(players.length>roomMaxPlayers||hostId!==net.room.coordinatorId)return;
+          try{net.room.setRoster({epoch,players,coordinatorId:hostId});}catch(e){roomMessage('명단 동기화 실패: '+e.message);return;}
+          const firstAdmission=!net.remoteReady;
+          net.remoteReady=true;
+          if(firstAdmission){net.lastStateTick=-1;net.remoteRunId=-1;net.lastFxSeen=payload.frame?.fx?.at(-1)?.id??0;}
+          const applied=applyWorldFrame(payload.frame);
+          if(firstAdmission&&!applied){net.remoteReady=false;net.connection='connected';roomMessage('유효한 세계 상태를 기다리는 중…');return;}
+          net.connection='playing';roomMessage('접속 성공 · '+players.length+'/4명 · 함께 플레이 중');
+          refreshRoomUI();
+        }else if(payload.t==='frame')applyWorldFrame(payload);
+      }
+    }
+    function attachRoomPeer(id,transport){
+      if(net.peers.has(id)||!transport)return;
+      net.peers.set(id,transport.subscribe(bytes=>{
+        if(bytes.length>16384)return;
+        try{handleRoomMessage(id,JSON.parse(unwire.decode(bytes)));}catch(error){console.warn('discard invalid game packet',error);}
+      }));
+    }
+    function hostPeerConnected(peerId,transport){
+      attachRoomPeer(peerId,transport);
+      if(!net.room?.players.includes(peerId)){
+        if(net.room.players.length>=roomMaxPlayers){net.room.disconnect(peerId);return;}
+        const players=[...net.room.players,peerId].sort();
+        net.room.setRoster({players,epoch:net.room.epoch+1,coordinatorId:localId()});
+      }
+      // Admit only after a validated progression hello; never publish an empty guest actor.
+      net.peerControls.set(peerId,{seq:-1,controls:NEUTRAL_INPUT,updatedAt:-1e9,view:null});
+      announceRoster();
+    }
+    function roomEvent(event){
+      if(event.type==='peer-connected'){
+        if(net.role==='host')hostPeerConnected(event.peerId,event.transport);
+        else{attachRoomPeer(event.peerId,event.transport);sendHost({t:'hello',progress:localProgress});}
+      }else if(event.type==='peer-disconnected'){
+        net.peers.get(event.peerId)?.();net.peers.delete(event.peerId);
+        if(net.role==='host'){
+          removeRemotePlayer(event.peerId);
+          if(net.room.players.includes(event.peerId)){
+            net.room.setRoster({players:net.room.players.filter(id=>id!==event.peerId),epoch:net.room.epoch+1,coordinatorId:localId()});
+            announceRoster();
+          }
+        }else if(event.peerId===net.room?.coordinatorId){net.remoteReady=false;roomMessage('방장 연결이 끊겼습니다. 재연결을 기다립니다.');}
+      }else if(['peer-failed','signal-error'].includes(event.type))roomMessage('연결 상태: '+event.type+' · '+(event.reason||''));
+    }
+    async function leaveRoom(){
+      const wasGuest=net.role==='join';
+      const localActor=state.player;
+      net.unsubscribe?.();net.unsubscribe=null;
+      for(const off of net.peers.values())off();
+      net.peers.clear();net.peerControls.clear();net.parts.clear();
+      // Close the room before aborting its discovery signal so peers observe a
+      // graceful departure rather than an immediately cancelled signaling scope.
+      net.room?.close();net.room=null;
+      net.abort?.abort();net.abort=null;
+      net.code=null;net.role='solo';net.remoteReady=false;
+      net.connection='offline';net.lastStateTick=-1;net.remoteRunId=-1;
+      net.lastInputSignature='';net.lastInputSendAt=-1e9;
+      for(const [id,actor] of [...state.players]){
+        state.players.delete(id);
+        if(actor!==localActor)Composite.remove(state.engine.world,actor.body);
+      }
+      if(localActor){localActor.id='solo';state.players.set('solo',localActor);}
+      if(wasGuest){
+        // The guest never owned authoritative AI, portal timers or contact history.
+        // Starting fresh avoids promoting a partially replicated presentation world.
+        startNewRun();
+        roomMessage('방에서 나왔습니다 · 새로운 혼자 플레이 시작');
+      }else roomMessage('혼자 플레이 중 · 새 방을 만들거나 참가할 수 있습니다.');
+      refreshRoomUI();
+    }
+    async function enterRoom(role){
+      if(net.role!=='solo')await leaveRoom();
+      const code=$('roomCode').value.trim();
+      if(role==='join'&&!/^\d{4}$/.test(code)){roomMessage('참가할 4자리 코드를 입력하세요.');return;}
+      if(code&&!/^\d{4}$/.test(code)){roomMessage('방 코드는 숫자 4자리입니다.');return;}
+      $('hostRoom').disabled=true;$('joinRoom').disabled=true;
+      roomMessage(role==='host'?'방을 만들고 있습니다…':'방장에게 연결 중…');
+      net.abort=new AbortController();
+      try{
+        const room=await createNostrDynamicRoom({role,room:code||undefined,namespace:'bloom-yarn-mayhem-v0192',
+          maxPlayers:roomMaxPlayers,maxPendingPeers:4,signal:net.abort.signal});
+        net.room=room;net.role=role;net.code=room.room;net.connection='connected';
+        net.unsubscribe=room.subscribe(roomEvent);
+        if(role==='host'){
+          const p=state.players.get('solo');if(p){state.players.delete('solo');p.id=localId();state.players.set(p.id,p);}
+          roomMessage('방 '+room.room+' · '+room.players.length+'/4명 · 코드 공유 후 시작하세요.');
+        }else{
+          net.remoteReady=false;roomMessage('연결 완료 · 방장의 세계 동기화 중…');
+        }
+        for(const [id,transport]of room.transports){
+          if(role==='host')hostPeerConnected(id,transport);
+          else{attachRoomPeer(id,transport);sendHost({t:'hello',progress:localProgress});}
+        }
+        refreshRoomUI();
+      }catch(error){
+        roomMessage('연결 실패: '+(error?.message||error));
+        net.abort?.abort();net.abort=null;
+      }finally{$('hostRoom').disabled=false;$('joinRoom').disabled=false;}
+    }
+    function applyWorldAction(actorId,action){
+      if(!action||typeof action!=='object'||typeof action.kind!=='string')return false;
+      if(action.kind==='tech'){
+        if(typeof action.id!=='string'||action.id.length>50)return false;
+        return buyTech(state.players.get(actorId),action.id);
+      }
+      // Only the world/session coordinator may advance or reset the run.
+      if(actorId!==localId())return false;
+      if(action.kind==='start-run'){
+        startNewRun();return true;
+      }
+      if(action.kind==='next-stage'&&state.phase==='CLEAR'){
+        startStage(state.stage+1);return true;
+      }
+      return false;
+    }
+    function submitWorldAction(action){
+      if(net.role==='join')return sendHost({t:'action',action});
+      return applyWorldAction(localId(),action);
+    }
+    function initRoomUI(){
+      $('hostRoom').onclick=()=>void enterRoom('host');
+      $('joinRoom').onclick=()=>void enterRoom('join');
+      const leave=document.createElement('button');leave.type='button';leave.id='leaveRoom';leave.textContent='방 나가기';
+      leave.onclick=()=>void leaveRoom();$('roomControls').append(leave);
+      const copy=document.createElement('button');copy.type='button';copy.id='copyRoom';copy.textContent='코드 복사';
+      copy.onclick=()=>{if(net.code)navigator.clipboard?.writeText(net.code).catch(()=>{});};
+      $('roomControls').append(copy);
+      $('networkPill').onclick=()=>{
+        if(net.role==='solo')return;
+        if(globalThis.confirm?.('온라인 방에서 나가겠습니까?'))void leaveRoom();
+      };
+      refreshRoomUI();
+    }
+    function pollGuestInput(){
+      if(net.role!=='join')return;
+      const collected=consumeControls();
+      const input=state.player?.hp<=0||landscape.blocked?neutralControls():collected;
+      if(!net.room)return;
+      if(!net.remoteReady){const now=performance.now();if(now-net.lastHelloMs>1200){sendHost({t:'hello',progress:localProgress});net.lastHelloMs=now;}return;}
+      const dir=getAimDirection(state.player);
+      const data={t:'input',seq:++net.inputSequence,x:Math.round(input.x*100)/100,
+        jp:input.jumpPressed?1:0,jh:input.jumpHeld?1:0,dn:input.downHeld?1:0,dp:input.dashPressed?1:0,
+        fp:input.firePressed?1:0,fh:input.fireHeld?1:0,ax:Math.round(dir.x*1000)/1000,ay:Math.round(dir.y*1000)/1000,
+        view:captureSpawnObserverView()};
+      const {view,...stableInput}=data;
+      const signature=JSON.stringify({...stableInput,seq:0});
+      const now=performance.now();
+      if(signature!==net.lastInputSignature||now-net.lastInputSendAt>=175){
+        sendHost(data);net.lastInputSendAt=now;net.lastInputSignature=signature;
+      }
+    }
+
+    function cancelGameplayInput(){
+      const captures=[[$('stick'),mobilePad.pointerId],[$('jumpButton'),mobileJump.pointerId],[$('dashButton'),mobileDash.pointerId],[$('fireButton'),mobileAttack.pointerId]];
+      actions.releaseAll();actions.consume();
+      mobilePad={pointerId:null,x:0,y:0};mobileJump={pointerId:null,held:false,pressed:false};mobileDash={pointerId:null,pressed:false};
+      mobileAttack={pointerId:null,down:false,pendingTap:false,axis:null,originX:0,originY:0};pointerAim.seen=false;
+      $('stickKnob').style.transform='translate(0px, 0px)';for(const [el,id]of captures){el.classList.remove('active');if(id!==null&&el.hasPointerCapture(id))try{el.releasePointerCapture(id)}catch{}}
+      if(net.role==='join'&&net.remoteReady){net.lastInputSignature='';sendHost({t:'input',seq:++net.inputSequence,cancel:true,x:0,view:captureSpawnObserverView()});}
+    }
+    const landscape={blocked:false,returnFocus:null,
+      sync(){
+        const touch=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&innerWidth<1100),blocked=touch&&innerHeight>innerWidth;
+        $('app').style.setProperty('--visible-height',(window.visualViewport?.height||innerHeight)+'px');
+        $('app').dataset.touch=String(touch);$('app').dataset.portrait=String(blocked);
+        $('rotationGuide').inert=false;$('techPanel').inert=blocked;
+        if(blocked)cancelGameplayInput();$('rotationGuide').hidden=!blocked;
+        if(blocked!==this.blocked){cancelGameplayInput();this.blocked=blocked;if(blocked){if(state.phase==='PLAYING'&&net.role==='solo')showPause();this.returnFocus=document.activeElement;$('landscapeBtn').focus({preventScroll:true})}else if(this.returnFocus?.isConnected)this.returnFocus.focus({preventScroll:true});}
+      },
+      async request(){
+        const button=$('landscapeBtn');button.disabled=true;cancelGameplayInput();
+        try{if(document.fullscreenEnabled&&!document.fullscreenElement)try{await $('app').requestFullscreen({navigationUI:'hide'})}catch{}
+          if(typeof screen.orientation?.lock!=='function')throw Error('unsupported');await screen.orientation.lock('landscape');$('rotationStatus').textContent='기기를 가로로 돌려 주세요.';
+        }catch{$('rotationStatus').textContent='자동 전환을 지원하지 않아요. 회전 잠금을 해제하고 기기를 가로로 돌려 주세요.'}
+        finally{button.disabled=false;this.sync();}
+      },
+      bind(){this.sync();window.visualViewport?.addEventListener('resize',()=>{cancelGameplayInput();this.sync()});$('landscapeBtn').onclick=()=>this.request();for(const name of ['resize','orientationchange'])window.addEventListener(name,()=>{cancelGameplayInput();this.sync()});screen.orientation?.addEventListener('change',()=>{cancelGameplayInput();this.sync()});document.addEventListener('fullscreenchange',()=>{cancelGameplayInput();this.sync()});window.addEventListener('blur',cancelGameplayInput);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelGameplayInput()});}
+    };
+    // === fixed simulation and 2D side-view controls ===
+    function consumeControls() {
+      for(const [key,out] of Object.entries(inputSamples))actions.sampleInto(key,out);
+      const x=clamp(Number(inputSamples.right.held)-Number(inputSamples.left.held)+mobilePad.x,-1,1);
+      const active=Math.abs(x)>.18;
+      const jumpPressed=inputSamples.jump.pressed||mobileJump.pressed;
+      const jumpHeld=inputSamples.jump.held||mobileJump.held;
+      const downHeld=inputSamples.down.held||mobilePad.y>.52;
+      const dashPressed=inputSamples.dash.pressed||mobileDash.pressed;
+      const firePressed=inputSamples.fire.pressed||mobileAttack.pendingTap;
+      const fireHeld=inputSamples.fire.held||inputSamples.fire.pressed||mobileAttack.down;
+      mobileDash.pressed=false;mobileJump.pressed=false;mobileAttack.pendingTap=false;
+      actions.consume();
+      return {x,active,jumpPressed,jumpHeld,downHeld,dashPressed,fireHeld,firePressed};
+    }
+    function setRollingVelocity(actor,vx,vy){
+      const b=actor.body;
+      Body.setVelocity(b,{x:vx,y:vy});
+      // A grounded motor drives the actual finite-inertia circle at no-slip rim speed.
+      // Airborne spin and all contact impulses remain owned by Matter.
+      if(isGrounded(actor)&&actor.control?.mode!=='pinned')Body.setAngularVelocity(b,vx/b.circleRadius);
+    }
+    function enemyApproachRange(e){
+      return e.body.circleRadius+CONFIG.player.radius+CONFIG.enemy.commitGap;
+    }
+    function enemyCanEngage(e,point){
+      const dx=point.x-e.body.position.x,dy=point.y-e.body.position.y;
+      return Math.abs(dx)<enemyApproachRange(e)&&Math.abs(dy)<e.body.circleRadius+CONFIG.player.radius+35;
+    }
+    function processDashRecharge(dtMs,p=state.player) {
+      const stats=p.stats;
+      if(p.dash.charges>=stats.dashMax){p.dash.rechargeLeftMs=0;return;}
+      p.dash.rechargeLeftMs-=dtMs;
+      while(p.dash.rechargeLeftMs<=0 && p.dash.charges<stats.dashMax){
+        p.dash.charges++;
+        if(p.dash.charges<stats.dashMax)p.dash.rechargeLeftMs+=stats.dashRechargeMs;
+        else p.dash.rechargeLeftMs=0;
+      }
+    }
+    function dash(directionX,p=state.player) {
+      const stats=p.stats,now=state.timeMs;
+      if(!p.dash.charges||now-p.dash.lastAt<125||Math.abs(directionX)<.20)return false;
+      const n=Math.sign(directionX),v=velocity(p.body);
+      const contact=state.contacts.get(p.body.id);
+      if(n<0&&(contact?.wallLeft||p.body.position.x-halfWidth(p.body)<CONFIG.player.wallDeadzone))return false;
+      if(n>0&&(contact?.wallRight||p.body.position.x+halfWidth(p.body)>CONFIG.world.width-CONFIG.player.wallDeadzone))return false;
+      const forward=Math.max(0,v.x*n);
+      const startSpeed=Math.min(22,stats.dashSpeed/60+forward*.19);
+      // Dash has no Y boost, and never overrides gravity or jump velocity.
+      setRollingVelocity(p,n*startSpeed,v.y);
+      p.dash.charges--;
+      if(p.dash.charges===stats.dashMax-1)p.dash.rechargeLeftMs=stats.dashRechargeMs;
+      p.dash.untilMs=now+stats.dashHoldMs;
+      p.face=n;
+      p.dash.lastAt=now;
+      if(p.body.label==='player')state.camera.shake=Math.max(state.camera.shake,2.2);
+      spawnBurst(p.body.position.x,p.body.position.y,8,115,PALETTE.player);
+      ring(p.body.position.x,p.body.position.y,44,270,PALETTE.player);
+      if(p.body.label==='player')sound('dash',.83);
+      return true;
+    }
+    function movePlayer(controls,dtMs,p=state.player) {
+      if(p.hp<=0)return;
+      const stats=p.stats,config=CONFIG.player,b=p.body;
+      b.plugin.dropThrough=controls.downHeld;
+      const grounded=isGrounded(p);
+      p.coyoteLeftMs=grounded?config.coyoteMs:Math.max(0,p.coyoteLeftMs-dtMs);
+      p.jumpBufferLeftMs=controls.jumpPressed?config.jumpBufferMs:Math.max(0,p.jumpBufferLeftMs-dtMs);
+      if(grounded)p.jumpCutPending=false;
+      if(!controls.downHeld&&p.jumpBufferLeftMs>0&&p.coyoteLeftMs>0){
+        const v=velocity(b);
+        Body.setVelocity(b,{x:v.x,y:-config.jumpSpeed});
+        p.coyoteLeftMs=0;p.jumpBufferLeftMs=0;p.jumpCutPending=true;
+        metrics.jumps++;sound('jump',.65);
+        spawnBurst(b.position.x,b.position.y+config.radius,5,80,PALETTE.player);
+      }
+      if(!controls.jumpHeld&&p.jumpCutPending){
+        const v=velocity(b);
+        if(v.y< -2)Body.setVelocity(b,{x:v.x,y:v.y*config.jumpCutRate});
+        p.jumpCutPending=false;
+      }
+      if(controls.active)p.face=Math.sign(controls.x);
+      if(controls.dashPressed)dash(controls.active?controls.x:p.face,p);
+      if(state.timeMs>=p.dash.untilMs){
+        // Motor only controls X; gravity, jump, impact and vertical solver own Y.
+        // Wall contact clips only the component INTO the wall, not tangential movement.
+        const old=worldVelocity(b),target=controls.active?controls.x*stats.moveSpeed:0;
+        const rate=controls.active?(grounded?config.groundAccel:config.airAccel):
+          (grounded?config.groundBrake:config.airBrake);
+        const change=rate*dtMs/1000;
+        let next=old.x+clamp(target-old.x,-change,change);
+        const contacts=state.contacts.get(b.id);
+        if((contacts?.wallLeft||b.position.x-halfWidth(b)<config.wallDeadzone)&&next<0)next=0;
+        if((contacts?.wallRight||b.position.x+halfWidth(b)>CONFIG.world.width-config.wallDeadzone)&&next>0)next=0;
+        if(Math.abs(next)<.3)next=0;
+        setRollingVelocity(p,next/60,old.y/60);
+      }
+      if(b.position.y>CONFIG.world.height+200){
+        Body.setPosition(b,{x:clamp(b.position.x,30,CONFIG.world.width-30),y:CONFIG.world.groundY-160});
+        setWorldVelocity(b,0,0);hurtPlayer(24,{x:b.position.x,y:b.position.y+100},p);
+      }
+    }
+    function stageToast(main,sub,duration=1100) {
+      const el=$('stageToast');el.replaceChildren();
+      el.append(document.createTextNode(main));
+      const small=document.createElement('small');small.textContent=sub;el.append(small);
+      el.classList.add('show');
+      state.toastUntil=state.timeMs+duration;
+    }
+    function ring(x,y,radius,duration,color){
+      state.rings.push({x,y,radius,ageMs:0,duration,color});
+      if(state.rings.length>35)state.rings.shift();
+    }
+    function spawnBurst(x,y,count,speed,color) {
+      for(let i=0;i<count;i++){
+        const a=effectRandom()*Math.PI*2,v=(.2+effectRandom()*.8)*speed,ttl=250+effectRandom()*420;
+        if(state.particles.length>220)state.particles.shift();
+        state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-20,ttl,maxTtl:ttl,size:1.3+effectRandom()*2.7,color});
+      }
+    }
+    function floatText(text,x,y,kind='damage') {
+      if(!worldVisible(x,y,80))return;
+      const out={};renderer.worldToScreenInto(x,y,out);
+      const el=document.createElement('div');el.className='float';el.textContent=text;
+      el.style.left=out.x+'px';el.style.top=out.y+'px';
+      if(kind==='merge')el.style.color='#fff1a7';
+      if(kind==='hurt')el.style.color='#ffafb0';
+      $('toastLayer').append(el);
+      setTimeout(()=>el.remove(),890);
+    }
+    function updateVfx(dtMs) {
+      for(let i=state.impactMarks.length-1;i>=0;i--){const m=state.impactMarks[i];m.ageMs+=dtMs;if(m.ageMs>=CONFIG.feedback.impactMs)state.impactMarks.splice(i,1);}
+      for(let i=state.absorptions.length-1;i>=0;i--){
+        const a=state.absorptions[i];a.ageMs+=dtMs;
+        if(a.ageMs>=a.durationMs)state.absorptions.splice(i,1);
+      }
+      for(let i=state.frays.length-1;i>=0;i--){
+        const fx=state.frays[i];fx.ageMs+=dtMs;
+        if(fx.ageMs>=fx.durationMs)state.frays.splice(i,1);
+      }
+      for(let i=state.particles.length-1;i>=0;i--){
+        const q=state.particles[i];q.ttl-=dtMs;
+        if(q.ttl<=0){state.particles.splice(i,1);continue;}
+        q.x+=q.vx*dtMs/1000;q.y+=q.vy*dtMs/1000;q.vy+=290*dtMs/1000;
+      }
+      for(let i=state.rings.length-1;i>=0;i--){state.rings[i].ageMs+=dtMs;if(state.rings[i].ageMs>=state.rings[i].duration)state.rings.splice(i,1);}
+      for(let i=state.ricochetTrails.length-1;i>=0;i--){state.ricochetTrails[i].ttl-=dtMs;if(state.ricochetTrails[i].ttl<=0)state.ricochetTrails.splice(i,1);}
+      state.camera.shake*=Math.exp(-dtMs/160);
+    }
+    function renderStageClear(){
+      syncMenuChrome();
+      $('deathNotice').hidden=true;
+      const m=$('modal');m.hidden=false;
+      $('modalCard').querySelector('.brand').textContent='STAGE COMPLETE';
+      $('modalCard').querySelector('h1').textContent='CLEAR!';
+      $('modalCard').querySelector('.hero-yarns').hidden=false;
+      $('modalCard').querySelector('.hangul').textContent='균열이 사라지고 적이 잠잠해졌습니다.';
+      $('modalText').innerHTML='처치 목표를 달성하고 남은 적까지 모두 정리했습니다.<br>다음 무리도 맞이할 준비가 됐어요.';
+      $('modalControls').hidden=true;
+      const kpi=$('kpi');kpi.hidden=false;kpi.replaceChildren();
+      for(const t of ['처치 목표 '+state.stageKills+'/'+state.stageKillGoal,'물리 처치 '+state.defeats,'합체 '+state.stageMerges+' · 분열 '+state.stageSplits]){
+        const label=document.createElement('span');label.textContent=t;kpi.append(label);
+      }
+      const btn=$('mainButton');btn.hidden=false;
+      btn.disabled=net.role==='join';
+      btn.textContent=btn.disabled?'호스트의 진행을 기다립니다':'다음 단계';
+      btn.onclick=()=>submitWorldAction({kind:'next-stage'});
+    }
+    function finishStage(){
+      if(state.phase==='CLEAR'||state.phase==='DEAD')return;
+      state.phase='CLEAR';metrics.stageClears++;
+      sound('level',.8);
+      presentWorldPhase(state.phase);
+    }
+    function showFinish(victory){
+      syncMenuChrome();
+      const m=$('modal');m.hidden=false;
+      $('deathNotice').hidden=true;
+      $('modalCard').querySelector('.brand').textContent='RUN FINISHED';
+      $('modalCard').querySelector('h1').textContent=victory?'WIN!':'GAME OVER';
+      $('modalCard').querySelector('.hero-yarns').hidden=false;
+      $('modalCard').querySelector('.hangul').textContent='진화한 실타래의 반격';
+      $('modalText').textContent='투자한 기술과 누적 포인트는 유지됩니다. 바늘 성장과 점프·대시로 다음 모험에 도전하세요.';
+      $('modalControls').hidden=true;
+      const kpi=$('kpi');kpi.hidden=false;kpi.replaceChildren();
+      for(const t of ['스테이지 '+state.stage,'유효 처치 '+state.kills+' · 실제 격파 '+state.defeats,'합체 '+state.merges+' · 분열 '+state.splits]){
+        const label=document.createElement('span');label.textContent=t;kpi.append(label);
+      }
+      const btn=$('mainButton');btn.hidden=false;
+      btn.disabled=net.role==='join';
+      btn.textContent=btn.disabled?'방장의 재시작을 기다리는 중':'다시 시작 →';
+      btn.onclick=()=>submitWorldAction({kind:'start-run'});
+    }
+    function showPause() {
+      // A local pause must never stop the shared authoritative world.  The
+      // online room keeps simulating regardless of any player's UI focus.
+      if(net.role!=='solo'||state.phase!=='PLAYING')return;
+      state.phase='PAUSE';syncMenuChrome();
+      $('modal').hidden=false;
+      $('modalCard').querySelector('.brand').textContent='GAME PAUSED';
+      $('modalCard').querySelector('h1').textContent='PAUSE';
+      $('modalCard').querySelector('.hero-yarns').hidden=true;
+      $('modalCard').querySelector('.hangul').textContent='다시 이어서 플레이';
+      $('modalText').innerHTML='몬스터의 합체 AI와 물리 시뮬레이션이 일시 정지했어요.';
+      $('kpi').hidden=true;$('modalControls').hidden=true;
+      const btn=$('mainButton');btn.hidden=false;btn.textContent='계속 플레이 →';btn.onclick=resume;
+      mobileAttack.down=false;mobileAttack.pendingTap=false;
+      mobileJump.held=false;mobileJump.pressed=false;
+    }
+    function resume() {
+      $('modal').hidden=true;
+      state.phase='PLAYING';
+      capturePresentation();
+      loop?.resetTiming?.();
+      canvas.focus({preventScroll:true});
+    }
+    // Input-source adapter: same normalized schema for keyboard/touch and P2P.
+    // Only this boundary knows whether inputs arrived locally or over RTC.
+    function canonicalInput(raw){
+      const v=raw??NEUTRAL_INPUT;
+      const x=Number.isFinite(v.x)?clamp(v.x,-1,1):0;
+      const aim=v.aim&&Number.isFinite(v.aim.x)&&Number.isFinite(v.aim.y)
+        ?normalize(v.aim.x,v.aim.y):{x:1,y:0};
+      return {x,active:Math.abs(x)>.18,jumpPressed:!!v.jumpPressed,
+        jumpHeld:!!v.jumpHeld,downHeld:!!v.downHeld,dashPressed:!!v.dashPressed,
+        firePressed:!!v.firePressed,fireHeld:!!v.fireHeld,aim};
+    }
+    function readWorldInputs(){
+      if(net.role==='join'){
+        pollGuestInput();
+        return null; // Remote clients render canonical snapshots; never step Matter.
+      }
+      const now=performance.now(),inputByPlayer=new Map();
+      const collected=consumeControls();
+      const local=landscape.blocked?NEUTRAL_INPUT:canonicalInput({...collected,aim:getAimDirection(state.player)});
+      for(const p of state.players.values()){
+        const isLocal=p.id===localId();
+        const remote=isLocal?null:net.peerControls.get(p.id);
+        const supplied=isLocal?local:remote&&now-remote.updatedAt<800?remote.controls:NEUTRAL_INPUT;
+        inputByPlayer.set(p.id,canonicalInput(supplied));
+        if(!isLocal)resetPeerEdges(p.id);
+      }
+      return inputByPlayer;
+    }
+    function stepWorld(dtMs,inputByPlayer){
+      // This is the only place where the Matter world and gameplay advance.
+      // No solo/host/join tests, no client-side duplicate simulation.
+      state.tick++;
+      if(state.phase!=='PLAYING')return;
+      state.timeMs+=dtMs;
+      updateSpawnHoles();
+      for(const p of state.players.values()){
+        const input=inputByPlayer.get(p.id)??NEUTRAL_INPUT;
+        processDashRecharge(dtMs,p);
+        movePlayer(input,dtMs,p);
+        processAttack(input,p);
+      }
+      updateEnemyAI(dtMs);
+      updateShots(dtMs);
+      updateNeedleEchoes();updateEnemyControl(dtMs);
+      state.contactKeys.clear();state.terrainContacts.clear();state.reboundContacts.clear();
+      Engine.update(state.engine,dtMs);
+      if(settlePlayerDeaths())return;
+      updateContactState();
+      resolveControlContacts();
+      handleMergeContacts();
+      updateVfx(dtMs);
+      if(state.phase!=='PLAYING')return;
+      if(stageComplete())finishStage();
+      if(state.toastUntil && state.timeMs>state.toastUntil){$('stageToast').classList.remove('show');state.toastUntil=0;}
+      if(state.tick%5===0)updateHUD();
+    }
+    function updateSimulation(dtMs,inputs=readWorldInputs()){
+      if(disposed)return;
+      if(inputs===null)return;
+      const beforePhase=state.phase;
+      stepWorld(dtMs,inputs);
+      capturePresentation();
+      // Network output is a consequence of the single authoritative step.
+      // Broadcast terminal transitions immediately instead of waiting for a tick.
+      if(state.phase!==beforePhase||state.tick%2===0)broadcastFrame();
+    }
+    class BodyPose extends RenderObject {
+      static renderSchema = {'position.x':this.POSITION_X,'position.y':this.POSITION_Y,angle:this.LINEAR};
+    }
+    class ShotPose extends RenderObject {
+      static renderSchema = {x:this.POSITION_X,y:this.POSITION_Y};
+    }
+    const presentation={runtime:new PresentationRuntime({stepMs:CONFIG.tickMs,snapDistance:180}),
+      revision:0,sequence:0,worldKey:null,frame:null};
+    function capturePresentation(){
+      const key=state.runId+':'+state.stage+':'+net.role;
+      const reset=key!==presentation.worldKey;
+      if(reset){presentation.worldKey=key;presentation.revision++;}
+      const entities=[];
+      for(const p of state.players.values())entities.push({id:'p:'+p.id,generation:p.hp>0?1:0,source:p.body,type:BodyPose});
+      for(const e of state.enemies)entities.push({id:'e:'+e.id,generation:e.tier,source:e.body,type:BodyPose});
+      for(const shot of state.shots)entities.push({id:'s:'+shot.id,generation:0,source:shot,type:ShotPose});
+      presentation.runtime.capture({revision:presentation.revision,sequence:++presentation.sequence,
+        timeMs:state.timeMs,mode:reset?'reset':'continuous',entities},performance.now());
+    }
+    function shadowUnder(body,radius) {
+      let ground=CONFIG.world.groundY;
+      for(const s of state.surfaces){
+        if(body.position.x>s.x1&&body.position.x<s.x2 && s.top>=body.position.y+radius*.58 && s.top<ground)ground=s.top;
+      }
+      return ground;
+    }
+    const MAP_SURFACE_PALETTES=Object.freeze([
+      {body:[.25,.41,.40,1],hem:[.48,.69,.64,.82],detail:[.81,1,.80,.28]},
+      {body:[.37,.36,.49,1],hem:[.62,.56,.72,.83],detail:[.91,.79,1,.28]},
+      {body:[.28,.45,.52,1],hem:[.54,.78,.82,.82],detail:[.80,.96,1,.26]},
+      {body:[.40,.39,.33,1],hem:[.75,.68,.46,.78],detail:[.99,.87,.66,.25]},
+      {body:[.32,.37,.51,1],hem:[.53,.61,.85,.82],detail:[.83,.89,1,.29]},
+    ]);
+    function drawNeedleTrail(path,alpha,step=1){
+      const c=CHAIN_COLORS[clamp(step-1,0,2)];
+      for(let i=1;i<path.length;i++){
+        const a=path[i-1],b=path[i];
+        if(Math.hypot(b[0]-a[0],b[1]-a[1])<.1)continue;
+        renderer.line(a[0],a[1],b[0],b[1],5,[.06,.19,.21,alpha*.85]);
+        renderer.line(a[0],a[1],b[0],b[1],2.2,[c[0],c[1],c[2],alpha]);
+      }
+    }
+    function drawBackdrop() {
+      // Biome-specific yarn trims make each topology recognizable without clutter.
+      const mapPaint=MAP_SURFACE_PALETTES[(state.stage-1)%MAP_SURFACE_PALETTES.length];
+      // Distant, deliberately low-contrast shapes; important physics objects dominate.
+      for(let i=0;i<19;i++){
+        const x=135+i*163,y=240+Math.sin(i*2.11)*85;
+        renderer.ellipse(x,y,95+Math.sin(i*5)*30,22,[.78,.96,.80,.055],15);
+        renderer.ellipse(x+47,y+30,60,13,[.76,.94,.78,.03],12);
+      }
+      for(let i=0;i<60;i++){
+        const x=i*53+13,y=385+Math.sin(i*7)*260;
+        renderer.ellipse(x,y,2.5,2.5,[.95,.99,.79,.08],7);
+      }
+      // Render the existing collision faces, not a decorative wall at a different coordinate.
+      const halfHeight=cameraSize.h/(2*state.camera.zoom)+80;
+      for(const wall of state.collisionWalls){
+        const side=wall.position.x<CONFIG.world.width/2?-1:1;
+        const face=side<0?wall.bounds.max.x:wall.bounds.min.x;
+        if(!worldVisible(face,state.camera.y,80))continue;
+        const top=Math.max(wall.bounds.min.y,state.camera.y-halfHeight),bottom=Math.min(wall.bounds.max.y,state.camera.y+halfHeight);
+        if(bottom<=top)continue;
+        renderer.rect(wall.position.x,(top+bottom)/2,wall.bounds.max.x-wall.bounds.min.x,bottom-top,mapPaint.body);
+        renderer.line(face,top,face,bottom,3,mapPaint.hem);
+        for(let y=Math.ceil(top/32)*32;y<bottom;y+=32){
+          renderer.line(face+side*7,y-5,face+side*19,y+5,1.8,mapPaint.detail);
+        }
+      }
+      for(const s of state.surfaces){
+        const isFloor=s.kind==='ground';
+        if(!worldVisible((s.x1+s.x2)*.5,s.top,(s.x2-s.x1)*.5+80))continue;
+        const visibleThick=isFloor?Math.min(66,s.thick):s.thick;
+        renderer.rect((s.x1+s.x2)/2,s.top+visibleThick*.5,s.x2-s.x1,visibleThick,isFloor?PALETTE.soil:mapPaint.body);
+        renderer.rect((s.x1+s.x2)/2,s.top+3,s.x2-s.x1,isFloor?7:5,isFloor?PALETTE.edge:mapPaint.hem);
+        for(let px=s.x1+20;px<s.x2-10;px+=35){
+          renderer.line(px,s.top+6,px+11,s.top+6,1.1,[.94,1,.83,.19]);
+          if(!isFloor)renderer.ellipse(px+7,s.top+17,1.7,1.7,[.87,1,.84,.32],7);
+        }
+        if(s.oneWay){
+          // Two sparse, stage-stable hand-stitched accents per ledge.
+          const accent=(Math.imul(s.id+31,state.stage+17)>>>0)%5;
+          const motifX=s.x1+Math.min(70,(s.x2-s.x1)*.30);
+          if(accent===0||accent===3){
+            renderer.line(motifX,s.top-7,motifX,s.top+3,1.8,mapPaint.detail);
+            renderer.ellipse(motifX,s.top-9,5,5,mapPaint.detail,11);
+            renderer.ellipse(motifX-8,s.top-6,4,3,mapPaint.detail,9);
+          }else if(accent===2){
+            const ex=s.x2-50;
+            renderer.line(ex,s.top+10,ex+3,s.top+28,1.5,mapPaint.detail);
+            renderer.ellipse(ex+3,s.top+31,6,4,mapPaint.detail,11);
+          }
+          renderer.ellipse(s.x1+13,s.top+8,6,5,[.69,.89,.76,.28],10);
+          renderer.ellipse(s.x2-13,s.top+8,6,5,[.69,.89,.76,.28],10);
+          // Thin upward arrow stitches indicate one-way landable platforms.
+          for(let px=s.x1+45;px<s.x2-30;px+=90){
+            renderer.line(px-5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
+            renderer.line(px+5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
+          }
+        }
+      }
+    }
+    function worldVisible(x,y,r=50){
+      const cam=state.camera,z=cam.zoom;
+      return Math.abs(x-cam.x) < cameraSize.w/(2*z)+r && Math.abs(y-cam.y)<cameraSize.h/(2*z)+r;
+    }
+    function drawSpawnHoles(){
+      const cfg=CONFIG.enemy.spawn,now=state.timeMs;
+      for(const hole of state.spawnHoles){
+        const phase=riftPhase(hole,now),age=now-hole.createdAtMs;
+        const progress=phase==='opening'?clamp(age/cfg.openMs,0,1):phase==='closing'?
+          clamp((hole.expiresAtMs-now)/cfg.closeMs,0,1):1;
+        const alpha=phase==='opening'?.48+.42*progress:phase==='closing'?.88*progress:.9;
+        const x=hole.x+hole.normalX*3,y=hole.y+hole.normalY*3;
+        if(!worldVisible(x,y,100))continue;
+        const background=hole.surfaceKind==='background',top=hole.surfaceKind==='top';
+        const clip=phase==='opening'?'open':phase==='closing'?'close':'idle';
+        const startedAtMs=phase==='opening'?hole.createdAtMs:phase==='closing'?hole.expiresAtMs-cfg.closeMs:hole.createdAtMs;
+        drawVector('riftHole',{expression:background?'background':'surface',clip,startedAtMs,timeMs:now,x,y,
+          scaleX:background?.8:.68,scaleY:background?.8:.97,rotation:top?Math.PI/2:0,originX:100,originY:100,alpha});
+        const sincePop=now-hole.lastPopAtMs;
+        if(hole.spawns>0&&sincePop>=0&&sincePop<240){
+          const t=sincePop/240,open=progress*progress*(3-2*progress);
+          const rx=background?8+14*open:(top?24+22*progress:3+progress*6);
+          const ry=background?14+24*Math.sqrt(open):(top?3+progress*5:24+22*progress);
+          const width=background?2*rx*(.40+t*.12):2*(top?17+t*19:5+t*4);
+          const height=background?2*ry*(.38+t*.15):2*(top?5+t*4:17+t*19);
+          drawVector('riftPulse',{expression:'pulse',clip:'pop',startedAtMs:hole.lastPopAtMs,timeMs:now,x:x+hole.normalX*(background?0:5),
+            y:y+hole.normalY*(background?0:5),scaleX:width/40,scaleY:height/66,rotation:top?Math.PI/2:0,originX:100,originY:100,alpha:(1-t)*(background?.50:.70)*alpha});
+        }
+      }
+    }
+    function drawSpawnHoleFronts(){
+      const cfg=CONFIG.enemy.spawn,paint=MAP_SURFACE_PALETTES[(state.stage-1)%MAP_SURFACE_PALETTES.length],now=state.timeMs;
+      for(const hole of state.spawnHoles){
+        if(hole.surfaceKind!=='background'||!hole.spawns)continue;
+        const since=now-hole.lastPopAtMs;if(since<0||since>=180)continue;
+        const phase=riftPhase(hole,now),progress=phase==='closing'?
+          clamp((hole.expiresAtMs-now)/cfg.closeMs,0,1):1;
+        const open=progress*progress*(3-2*progress),rx=8+14*open,ry=14+24*Math.sqrt(open);
+        const alpha=.56*(1-since/180),x=hole.x,y=hole.y;
+        // The two short lower lips sit over the new body's feet for a few frames.
+        for(const side of [-1,1]){
+          renderer.line(x+side*rx*.96,y+ry*.04,x+side*rx*.61,y+ry*.30,1.7,
+            [paint.hem[0],paint.hem[1],paint.hem[2],alpha]);
+          renderer.line(x+side*rx*.61,y+ry*.30,x+side*rx*.34,y+ry*.42,1.3,
+            [paint.detail[0],paint.detail[1],paint.detail[2],alpha*.78]);
+        }
+      }
+    }
+    function drawAbsorptions() {
+      for(const a of state.absorptions){
+        if(!worldVisible(a.x,a.y,110))continue;
+        const p=clamp(a.ageMs/a.durationMs,0,1),s=1-Math.pow(1-p,3);
+        const color=CONFIG.colors['t'+a.fromTier],alpha=(1-p)*.68;
+        for(const origin of [{x:a.ax,y:a.ay},{x:a.bx,y:a.by}]){
+          const cx=origin.x+(a.x-origin.x)*s,cy=origin.y+(a.y-origin.y)*s;
+          renderer.ellipse(cx,cy,Math.max(1,a.r*(1-p)*.9),Math.max(1,a.r*(1-p)*.9),[color[0],color[1],color[2],alpha*.50],15);
+          for(let k=0;k<4;k++){
+            const phase=a.seed+k*1.57+p*8;
+            const swirl=(1-s)*a.r*(.65+k*.11);
+            renderer.line(cx+Math.cos(phase)*swirl,cy+Math.sin(phase)*swirl,a.x,a.y,
+              Math.max(.7,2.5*(1-p)),[1,.91,.66,alpha*.65]);
+          }
+        }
+        const spiralR=RADII[a.tier-1]*(.95-.7*p);
+        for(let k=0;k<16;k++){
+          const t=k/16*Math.PI*2+p*8,u=(k+1)/16*Math.PI*2+p*8;
+          renderer.line(a.x+Math.cos(t)*spiralR,a.y+Math.sin(t)*spiralR,
+            a.x+Math.cos(u)*spiralR,a.y+Math.sin(u)*spiralR,
+            Math.max(.8,2.5*(1-p)),[1,.93,.73,alpha*.55]);
+        }
+      }
+    }
+    function drawSplitFrays(){
+      for(const effect of state.frays){
+        if(!worldVisible(effect.x,effect.y,effect.r+160))continue;
+        const t=clamp(effect.ageMs/effect.durationMs,0,1);
+        const fade=(1-t)*.88,reach=effect.r*(.70+t*.95);
+        const c=CONFIG.colors['t'+effect.tier];
+        // Two loose winding threads travel outward in opposite directions.
+        for(const sign of [-1,1]){
+          let x0=effect.x,y0=effect.y;
+          for(let i=1;i<=7;i++){
+            const q=i/7;
+            const x1=effect.x+sign*reach*q;
+            const y1=effect.y-Math.sin(q*Math.PI)*effect.r*.18+Math.sin(q*11+t*8+sign)*effect.r*.08;
+            renderer.line(x0,y0,x1,y1,Math.max(1.4,effect.r*.017),[c[0],c[1],c[2],fade]);
+            x0=x1;y0=y1;
+          }
+          renderer.ellipse(x0,y0,Math.max(2,effect.r*.055),Math.max(2,effect.r*.055),[1,.95,.70,fade],10);
+        }
+      }
+    }
+    function drawEnemyControl(e,pose,bodyVisual,foreground=false){
+      const center=bodyVisual||pose.position,p=pose.position,r=e.body.circleRadius,now=state.timeMs;
+      const c=e.control&&e.control.mode!=='rebound'&&e.control.untilMs>now?e.control:null;
+      if(!worldVisible(center.x,center.y,r+300))return;
+      if(!c){
+        if(foreground||!(e.controlReleaseUntilMs>now))return;
+        const t=clamp(1-(e.controlReleaseUntilMs-now)/CONFIG.combat.releaseFxMs,0,1),fade=1-t;
+        const dx=e.controlReleaseDx??1,dy=e.controlReleaseDy??0;
+        let px=p.x-dx*r*.4,py=p.y-dy*r*.4;
+        for(let i=1;i<=12;i++){
+          const q=i/12,nx=p.x-dx*(r*.4+q*86)+Math.sin(q*10+t*4)*q*12;
+          const ny=p.y-dy*(r*.4+q*86)+q*q*(15+95*t*t)+Math.sin(q*8-t*5)*q*8;
+          renderer.line(px,py,nx,ny,1.7,[1,.92,.72,fade*.75]);px=nx;py=ny;
+        }
+        return;
+      }
+      const sx=center.sx??1,sy=center.sy??1;
+      if(foreground){
+        const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-center.x,c.anchorY-center.y):normalize(c.dx,c.dy);
+        const dist=pinned?Math.hypot(c.anchorX-center.x,c.anchorY-center.y):((r+2)+23);
+        const edge=(r+2)/Math.hypot(axis.x/sx,axis.y/sy),width=clamp(r*.018+2.4,2.8,5);
+        if(dist-edge<=1)return;
+        const player=vectorPlayers.needle;
+        setVectorPose(player,'front',{scaleX:dist/78,scaleY:width/6});
+        setVectorPose(player,'rear');setVectorPose(player,'puncture',{x:edge,scaleY:width/6});
+        setVectorPose(player,'pin-tip',{x:dist});
+        drawVector('needle',{expression:'pinned-front',clip:'idle',startedAtMs:0,timeMs:now,x:center.x,y:center.y,
+          rotation:Math.atan2(axis.y,axis.x),originX:100,originY:100});
+        return;
+      }
+      const pinned=c.mode==='pinned',axis=pinned?normalize(c.anchorX-center.x,c.anchorY-center.y):normalize(c.dx,c.dy);
+      const dx=axis.x,dy=axis.y,edge=(r+2)/Math.hypot(dx/sx,dy/sy),rear=clamp(r*.45+22,30,75);
+      const length=pinned?clamp(r*1.6+70,105,240):clamp(r*1.4+110,140,285);
+      const reach=edge+rear+length+20;let rearLimit=reach;
+      if(pinned)for(const terrain of Composite.allBodies(state.engine.world)){
+        if(!terrain.isStatic||!['wall','terrain'].includes(terrain.label))continue;
+        const b=terrain.bounds,t=segmentAabb(center.x,center.y,center.x-dx*reach,center.y-dy*reach,b.min.x-6,b.min.y-6,b.max.x+6,b.max.y+6);
+        if(t!==null)rearLimit=Math.min(rearLimit,t*reach);
+      }
+      const width=clamp(r*.018+2.4,2.8,5),player=vectorPlayers.needle;
+      setVectorPose(player,'rear',{scaleX:rearLimit/89,scaleY:width/6});
+      setVectorPose(player,'front');setVectorPose(player,'puncture',{x:-edge,scaleY:width/6});setVectorPose(player,'pin-tip');
+      drawVector('needle',{expression:'pinned-rear',clip:'idle',startedAtMs:0,timeMs:now,x:center.x,y:center.y,
+        rotation:Math.atan2(dy,dx),originX:100,originY:100});
+    }
+    function enemyBodyClip(e,now){
+      const c=e.control&&e.control.untilMs>now?e.control:null;
+      if(c)return {name:c.mode==='pinned'?'pinned':'flying',at:c.startedMs};
+      const a=e.attack;
+      if(a?.phase==='charge')return {name:'charge',at:a.untilMs-CONFIG.enemy.chargeMs};
+      if(a?.phase==='dash')return {name:'dash',at:a.untilMs-CONFIG.enemy.dashHoldMs};
+      if(a?.phase==='attack')return {name:'attack',at:a.untilMs-CONFIG.enemy.attackMs};
+      if(now<e.hitFlashUntil)return {name:'hit',at:e.hitFlashUntil-115};
+      if(e.fromHole&&now<e.popUntilMs)return {name:'spawn',at:e.popUntilMs-380};
+      const hop=e.locomotion;
+      if(hop.phase==='land'||hop.phase==='compress')return {name:'land',at:hop.landedMs};
+      if(hop.phase==='air'||hop.phase==='takeoff')return {name:'hop',at:hop.takeoffMs};
+      return {name:'idle',at:0};
+    }
+    function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
+    function drawYarnActor(x,y,radius,expression,clip,startedAtMs,color,scaleX=1,scaleY=1,angle=0,actorKey=null,seedAngle=0){
+      const player=vectorPlayers.yarnBody;
+      player.setExpression(expression);player.play(clip,startedAtMs).seek(state.timeMs);
+      setVectorPose(player,'shell',{rotation:angle});
+      setVectorPose(player,'shell-base',{rotation:angle+seedAngle,opacity:1});
+      for(let i=1;i<=6;i++)setVectorPose(player,`winding-${i}`,{rotation:seedAngle});
+      const world=vectorMatrixFor(x,y,radius/120*scaleX,radius/120*scaleY,0,120,120);
+      const root=player.getPartPose('root');
+      drawVector('yarnBody',{expression,clip,startedAtMs,timeMs:state.timeMs,matrix:world,color,actorKey});
+      return multiplyVectorMatrix(world,root.transform);
+    }
+    function drawQueuedVectorFaces(){
+      for(const face of vectorFaceCommands)drawYarnFace(face.x,face.y,face.radius,face.expression,face.matrix,face.flash,face.actorKey,false);
+      meshRenderer.flush();
+      vectorFaceCommands.length=0;
+    }
+    function drawQueuedVectorNeedles(){
+      for(const n of vectorNeedleCommands){
+        const player=vectorPlayers.needle;setVectorPose(player,'rear');setVectorPose(player,'front');
+        setVectorPose(player,'puncture');setVectorPose(player,'pin-tip');
+        drawVector('needle',{expression:n.expression,clip:n.expression==='flight'?'flight':'idle',
+          startedAtMs:n.startedAtMs??0,timeMs:state.timeMs,x:n.x,y:n.y,rotation:n.rotation,scaleX:n.scale,scaleY:n.scale,
+          originX:100,originY:100,alpha:n.alpha??1,color:n.color||[1,1,1,1],actorKey:n.actorKey??null});
+      }
+      vectorNeedleCommands.length=0;
+    }
+    function drawEntity(e,pose) {
+      const pos=pose.position,tier=e.tier,r=e.body.circleRadius,now=state.timeMs;
+      const controlVisible=e.control?.untilMs>now||e.controlReleaseUntilMs>now;
+      if(!worldVisible(pos.x,pos.y,r+(controlVisible?300:0)))return;
+      const floor=shadowUnder(pose,r),height=Math.max(0,floor-(pos.y+r)),scale=clamp(1-height/430,.22,1);
+      renderer.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
+      if(e.fromHole&&now<e.popUntilMs){
+        const t=1-(e.popUntilMs-now)/380;
+        renderer.ellipse(pos.x,pos.y+r*.8,r*(1-t*.45),r*.19,[1,.88,.65,(1-t)*.32],12);
+      }
+      const control=e.control&&e.control.untilMs>now?e.control:null;
+      const pinned=control?.mode==='pinned';
+      const age=control?Math.max(0,now-control.startedMs):0;
+      const squash=pinned?.09+.26*Math.exp(-age/235)*Math.cos(age*.026):0;
+      const stretch=control?.mode==='flying'?.06*Math.exp(-age/300):0;
+      const nx=pinned?control.normalX:0,ny=pinned?control.normalY:0;
+      const hitMark=state.impactMarks.findLast(m=>m.targetId===e.id&&m.ageMs<120);
+      const hitSquash=hitMark?.06*Math.sin(hitMark.ageMs/120*Math.PI):0;
+      const hop=e.locomotion,cfg=CONFIG.enemy.bounce;
+      const press=!control&&!e.attack&&(hop.phase==='land'||hop.phase==='compress')
+        ?(hop.phase==='land'?.04*Math.min(1,(now-hop.landedMs)/cfg.landMs):.04+.025*(1-clamp((hop.untilMs-now)/(cfg.compressMs+(tier-1)*cfg.tierCompressMs),0,1))):0;
+      const dashStretch=(e.attack?.phase==='dash'?.08:0)+hitSquash+press;
+      const sx=1+dashStretch-squash*Math.abs(nx)+squash*.48*Math.abs(ny)+stretch;
+      const sy=1-dashStretch-squash*Math.abs(ny)+squash*.48*Math.abs(nx)-stretch*.35;
+      const visualX=pos.x+nx*r*squash,visualY=pos.y+ny*r*squash+r*press;
+      const bodyVisual={x:visualX,y:visualY,sx,sy};
+      const clip=enemyBodyClip(e,now),face='tier-'+tier+(e.hp<=e.maxHp*.5?'-panic':'');
+      drawEnemyControl(e,pose,bodyVisual);
+      const actorKey=`enemy:${e.id}`;
+      const matrix=drawYarnActor(visualX,visualY,r,'tier-'+tier,clip.name,clip.at,CONFIG.colors['t'+tier],sx,sy,pose.angle,actorKey,e.visualSeed);
+      vectorFaceCommands.push({x:visualX,y:visualY,radius:r,expression:face,matrix,flash:now<e.hitFlashUntil,actorKey});
+      enemyOverlayCommands.push({e,pose,bodyVisual,pos,tier,r});
+    }
+    function drawEnemyOverlays(){
+      for(const item of enemyOverlayCommands){
+        const {e,pose,bodyVisual,pos,tier,r}=item;
+        drawEnemyControl(e,pose,bodyVisual,true);
+        if(tier>=3){
+          const dots=tier===3?3:tier===4?4:5,seedAngle=e.visualSeed??0;
+          const markerColor=[PALETTE.cream[0]*.8,PALETTE.cream[1]*.8,PALETTE.cream[2]*.8,.95];
+          for(let i=0;i<dots;i++){
+            const angle=-Math.PI*.82+i*(Math.PI*1.64/Math.max(1,dots-1))+seedAngle*.14;
+            const dx=Math.cos(angle)*r*.78,dy=Math.sin(angle)*r*.78;
+            renderer.ellipse(bodyVisual.x+dx*bodyVisual.sx,bodyVisual.y+dy*bodyVisual.sy,
+              r*.1*bodyVisual.sx,r*.1*bodyVisual.sy,markerColor,10);
+          }
+        }
+        if(tier>=2||e.hp<e.maxHp){
+          const width=r*1.6,y=pos.y-r-12;renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
+          const fillWidth=width*clamp(e.hp/Math.max(1,e.maxHp),0,1);
+          if(fillWidth>0)renderer.rect(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
+        }
+        if(e.tier>=2&&e.goalKind==='merge')renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
+        if(e.fromSplit){
+          const curl=r*.29;
+          renderer.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
+          renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
+        }
+      }
+      enemyOverlayCommands.length=0;
+    }
+    function drawPlayer(now,p,pose) {
+      if(!p)return;
+      const pos=pose.position,r=CONFIG.player.radius;
+      if(p.hp<=0){
+        const startAt=p.deathUntilMs-5000;
+        const actorKey=`player:${p.id}`;
+        const matrix=drawYarnActor(pos.x,pos.y,r,'fallen','fallen',startAt,[.50,.61,.68,.88],1,.92,0,actorKey);
+        vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:'fallen',matrix,flash:false,actorKey});
+        const rest=Math.max(0,p.deathUntilMs-now);
+        if(rest>0&&state.players.size>1){
+          const progress=clamp(1-rest/CONFIG.player.respawnMs,0,1),player=vectorPlayers.yarnProgress;
+          player.setExpression('revive');for(let i=1;i<=14;i++)player.setPartVisible('segment-'+i,i<=Math.floor(progress*14));
+          drawVector('yarnProgress',{expression:'revive',clip:'revive',startedAtMs:0,timeMs:now,x:pos.x,y:pos.y,
+            scaleX:(r+10)/45,scaleY:(r+10)/45,originX:50,originY:50,alpha:.77,actorKey});
+        }
+        return;
+      }
+      const shadowY=shadowUnder(pose,r),scale=clamp(1-(shadowY-pos.y-r)/430,.25,1);
+      renderer.ellipse(pos.x,shadowY+1,r*1.1*scale,r*.27*scale,[.06,.17,.21,.29*scale],15);
+      const dashing=now<p.dash.untilMs,clip=dashing?'dash':now<p.hitInvulnerableUntil?'invulnerable':'idle';
+      const clipStart=clip==='dash'?p.dash.untilMs-p.stats.dashHoldMs:0;
+      const actorKey=`player:${p.id}`;
+      const matrix=drawYarnActor(pos.x,pos.y,r,'player',clip,clipStart,PALETTE.player,dashing?1.08:1,dashing?.92:1,pose.angle,actorKey,.2);
+      vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:'player',matrix,flash:now<p.hitInvulnerableUntil,actorKey});
+      if(state.players.size>1){
+        const labelColor=p.id===localId()?[.65,1,.72,1]:[.91,.72,1,1];
+        renderer.rect(pos.x,pos.y-r-14,40,4,[.12,.21,.21,.66]);
+        const fillWidth=40*clamp(p.hp/Math.max(1,p.maxHp),0,1);
+        if(fillWidth>0)renderer.rect(pos.x-20+fillWidth*.5,pos.y-r-14,fillWidth,3,labelColor);
+        renderer.ellipse(pos.x,pos.y-r-22,3,3,labelColor,10);
+      }
+      const aim=p.lastShotDir;
+      vectorNeedleCommands.push({x:pos.x+aim.x*24.5,y:pos.y+aim.y*24.5,rotation:Math.atan2(aim.y,aim.x),expression:'launcher',scale:27/47.5,actorKey:`player:${p.id}`});
+    }
+    function renderWorld() {
+      vectorFaceCommands.length=0;vectorNeedleCommands.length=0;enemyOverlayCommands.length=0;
+      // Spectate a living teammate while waiting for the host's revive.
+      const observed=state.player?.hp>0?state.player:
+        [...state.players.values()].find(actor=>actor.hp>0)??state.player;
+      const p=observed?presentation.frame.modelFor(observed.body)?.position:null;
+      if(!p)return;
+      const cam=state.camera;
+      const zoom=cameraSize.w<650?.91:1.06;
+      cam.zoom=zoom;
+      const halfW=cameraSize.w/(zoom*2),halfH=cameraSize.h/(zoom*2);
+      const targetX=halfW>=CONFIG.world.width/2+CONFIG.world.wallReveal?CONFIG.world.width/2:clamp(p.x,halfW-CONFIG.world.wallReveal,CONFIG.world.width-halfW+CONFIG.world.wallReveal);
+      const targetY=halfH>=CONFIG.world.height/2?CONFIG.world.height/2:clamp(p.y-40,halfH,CONFIG.world.height-halfH);
+      cam.x+=(targetX-cam.x)*.115;cam.y+=(targetY-cam.y)*.115;
+      const shake=cam.shake;
+      renderer.setCamera({x:cam.x+Math.sin(metrics.frames*2.43)*shake*.5,y:cam.y+Math.cos(metrics.frames*1.71)*shake*.5,zoom,rotation:0});
+      if(!device.beginFrame({clearColor:[0,0,0,0]}))return;
+      meshRenderer.beginFrame();
+      for(const key of Object.keys(vectorDrawCounts))vectorDrawCounts[key]=0;
+      for(const key of Object.keys(vectorActorDraws))delete vectorActorDraws[key];
+      if(!renderer.beginFrame([0,0,0,0])){device.endFrame();return;}
+      drawBackdrop();
+      drawSpawnHoles();
+      for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
+      drawQueuedVectorFaces();
+      drawEnemyOverlays();
+      drawSpawnHoleFronts();
+      drawAbsorptions();
+      drawSplitFrays();
+      for(const trail of state.ricochetTrails)drawNeedleTrail(trail.path,trail.ttl/CONFIG.feedback.trailMs*.8,trail.step);
+      for(const source of state.shots){
+        const pose=presentation.frame.modelFor(source);if(!pose)continue;
+        const shot={...source,...pose};
+        if(!worldVisible(shot.x,shot.y,30))continue;
+        if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path.slice(-1),[shot.x,shot.y]],.95,shot.ricochet.hits+1);
+        const enemy=shot.owner==='enemy';
+        const dir=normalize(shot.vx,shot.vy);
+        if(shot.ricochet)renderer.ellipse(shot.x+dir.x*13,shot.y+dir.y*13,3.2,3.2,PALETTE.cream,8);
+        vectorNeedleCommands.push({x:shot.x,y:shot.y,rotation:Math.atan2(dir.y,dir.x),
+          expression:'flight',startedAtMs:state.timeMs-(CONFIG.combat.flightMs-shot.remainingMs),scale:30/171,color:enemy?[1,.62,.65,1]:[1,1,1,1],actorKey:`projectile:${shot.id}`});
+      }
+      drawQueuedVectorNeedles();
+      drawImpactMarks();
+      for(const actor of state.players.values()){const pose=presentation.frame.modelFor(actor.body);if(pose)drawPlayer(state.timeMs,actor,pose);}
+      drawQueuedVectorFaces();
+      drawQueuedVectorNeedles();
+      for(const q of state.particles){
+        if(!worldVisible(q.x,q.y,10))continue;
+        renderer.ellipse(q.x,q.y,q.size,q.size,[q.color[0],q.color[1],q.color[2],q.color[3]*(q.ttl/q.maxTtl)],9);
+      }
+      for(const fx of state.rings){
+        if(!worldVisible(fx.x,fx.y,fx.radius))continue;
+        const pct=fx.ageMs/fx.duration,r=fx.radius*(.20+pct*.80);
+        const tint=[fx.color[0],fx.color[1],fx.color[2],(.7-pct*.7)*(fx.color[3]||1)];
+        for(let i=0;i<15;i++){
+          const a=i*Math.PI*2/15,nt=(i+1)*Math.PI*2/15;
+          renderer.line(fx.x+Math.cos(a)*r,fx.y+Math.sin(a)*r,fx.x+Math.cos(nt)*r,fx.y+Math.sin(nt)*r,2.7,tint);
+        }
+      }
+      const renderingStats=renderer.endFrame();
+      meshRenderer.flush();
+      const meshStats=meshRenderer.stats();
+      device.endFrame();
+      if(renderingStats){
+        metrics.drawCalls=(renderingStats.drawCalls??0)+(meshStats.draws??0);
+        metrics.vertices=(renderingStats.vertices??0)+(meshStats.vertices??0);
+        metrics.vectorInstances=meshStats.instances??0;
+      }
+    }
+    function resize() {
+      const box=canvas.getBoundingClientRect();
+      if(box.width<1||box.height<1)return;
+      const dpr=Math.min(2,Math.max(1,globalThis.devicePixelRatio||1));
+      if(cameraSize.w===box.width&&cameraSize.h===box.height&&cameraSize.dpr===dpr)return;
+      cameraSize={w:box.width,h:box.height,dpr};
+      renderer.resize(box.width,box.height,dpr);
+    }
+    function drawRadar() {
+      const mini=$('radar');if(getComputedStyle(mini).display==='none')return;
+      const context=mini.getContext('2d');if(!context)return;
+      const w=mini.width,h=mini.height;
+      context.clearRect(0,0,w,h);context.fillStyle='#152f37';context.fillRect(0,0,w,h);
+      const sx=w/CONFIG.world.width,sy=h/CONFIG.world.height;
+      context.fillStyle='#60867e';
+      for(const a of state.platforms)context.fillRect(a.x1*sx,a.top*sy,Math.max(1,(a.x2-a.x1)*sx),2);
+      for(const hole of state.spawnHoles){context.fillStyle='#f3d69b';context.beginPath();context.arc(hole.x*sx,(hole.top+3)*sy,3,0,Math.PI*2);context.fill();}
+      context.fillStyle='#d9b6a2';
+      for(const e of state.enemies){context.beginPath();context.arc(e.body.position.x*sx,e.body.position.y*sy,Math.min(6,1.5+e.tier*.52),0,Math.PI*2);context.fill();}
+      for(const actor of state.players.values()){const p=actor.body.position;
+        context.fillStyle=actor.id===localId()?'#bcffdb':'#e5b9f6';context.beginPath();context.arc(p.x*sx,p.y*sy,5,0,Math.PI*2);context.fill();}
+      const c=state.camera;
+      context.strokeStyle='#d4ffb982';context.lineWidth=2;
+      context.strokeRect((c.x-cameraSize.w/(2*c.zoom))*sx,(c.y-cameraSize.h/(2*c.zoom))*sy,cameraSize.w/c.zoom*sx,cameraSize.h/c.zoom*sy);
+    }
+    function updateHUD(force=false) {
+      if(!state.player)return;
+      if(!force && state.tick===lastHudFrame)return;
+      lastHudFrame=state.tick;
+      const p=state.player,stats=p.stats;
+      $('stageTag').textContent='STAGE '+String(state.stage).padStart(2,'0');
+      $('levelTag').textContent='LV. '+state.level;
+      $('hpBar').style.width=clamp(p.hp/p.maxHp*100,0,100)+'%';
+      $('hpNumber').textContent=Math.round(p.hp)+'/'+Math.round(p.maxHp);
+      $('xpBar').style.width=clamp(state.xp/state.xpGoal*100,0,100)+'%';
+      $('xpNumber').textContent=state.xp+' / '+state.xpGoal;
+      $('leftEnemies').textContent='처치 '+state.stageKills+'/'+state.stageKillGoal+' · 남은 적 '+state.enemies.length;
+      $('mergeCount').textContent=state.stageKills>=state.stageKillGoal?
+        (state.spawnHoles.length?'목표 달성 · 열린 실구멍 '+state.spawnHoles.length+'개가 닫히는 중':'목표 달성 · 남은 적 '+state.enemies.length):
+        '열린 실구멍 '+state.spawnHoles.length+'개 · 적을 처치해 목표를 채우세요';
+      const orbRoot=$('dashOrbs');
+      if(orbRoot.children.length!==stats.dashMax){
+        orbRoot.replaceChildren();for(let i=0;i<stats.dashMax;i++){const e=document.createElement('span');e.className='dash-orb';orbRoot.append(e);}
+      }
+      for(let i=0;i<stats.dashMax;i++){
+        const orb=orbRoot.children[i];
+        if(i<p.dash.charges){orb.className='dash-orb';orb.style.removeProperty('--charge');}
+        else if(i===p.dash.charges){orb.className='dash-orb partial';orb.style.setProperty('--charge',clamp((1-p.dash.rechargeLeftMs/stats.dashRechargeMs)*100,0,100)+'%');}
+        else{orb.className='dash-orb empty';orb.style.removeProperty('--charge');}
+      }
+      if(state.tick%11===0||force)drawRadar();
+      if(state.tick%5===0||force)updateTechUI();
+    }
+    function renderFrame() {
+      if(disposed)return;
+      resize();
+      const now=performance.now();
+      if(now-lastFrame>0){const instantaneous=1000/(now-lastFrame);fps=fps*.92+Math.min(120,instantaneous)*.08;}
+      if(net.role==='join'&&net.remoteReady){updateVfx(Math.min(50,Math.max(0,now-lastFrame)));}
+      lastFrame=now;metrics.frames++;
+      presentation.frame=presentation.runtime.frame(now);
+      renderWorld();
+      updateDeathNotice();
+    }
+    // === UI and lifecycle ===
+    function startNewRun() {
+      state.runId++;state.kills=0;state.defeats=0;state.merges=0;state.splits=0;state.level=1;state.xp=0;state.xpGoal=10;state.score=0;
+      state.shotsFired=0;state.timeMs=0;state.tick=0;state.preservedHp=CONFIG.player.maxHp;
+
+      pointerAim.seen=false;pointerAim.source='virtual';
+      for(const player of state.players.values())player.hp=player.stats.maxHp;
+      startStage(1);broadcastFrame();
+    }
+    function startStage(stage) {
+      $('modal').hidden=true;
+      setTechOpen(false,false);history.replaceState(null,'',location.pathname+location.search);
+      $('deathNotice').hidden=true;
+      state.phase='PLAYING';
+      initStage(stage,false);
+      presentWorldPhase(state.phase);
+      loop?.resetTiming?.();
+      canvas.focus({preventScroll:true});broadcastFrame();
+    }
+    function bindInput() {
+      for(const id of ['stick','jumpButton','dashButton','fireButton'])$(id).addEventListener('pointercancel',cancelGameplayInput);
+      inputAdapter=createDOMInput({target:canvas,state:actions,touchAction:'none',
+        keys:{KeyW:'jump',ArrowUp:'jump',Space:'jump',KeyS:'down',ArrowDown:'down',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'dash',ShiftRight:'dash'},
+        pointerButtons:{0:'fire'},
+        onPointer:e=>{
+          if(e.pointerType!=='mouse'&&e.pointerType!=='pen'&&e.type!=='down')return;
+          if(Number.isFinite(e.x)&&Number.isFinite(e.y)){
+            pointerAim.x=e.x;pointerAim.y=e.y;pointerAim.seen=true;pointerAim.source=e.pointerType;
+          }
+        },
+        onRelease:()=>{pointerAim.seen=false;mobileAttack.down=false;mobileAttack.pendingTap=false;mobileAttack.axis=null;mobilePad.x=0;mobilePad.y=0;mobilePad.pointerId=null;mobileDash.pressed=false;mobileJump.held=false;mobileJump.pressed=false;},
+      });
+      // Virtual controls are UI elements, so they don't register in the game canvas adapter.
+      const stick=$('stick'),knob=$('stickKnob');
+      const setStick=(event,initial=false)=>{
+        const box=stick.getBoundingClientRect(),cx=box.left+box.width/2,cy=box.top+box.height/2;
+        const dx=event.clientX-cx,dy=event.clientY-cy,max=box.width*.37;
+        const d=Math.hypot(dx,dy);const mult=d>max?max/d:1;
+        const x=dx*mult/max,y=dy*mult/max;
+        mobilePad.x=Math.abs(x)<.10?0:x;mobilePad.y=Math.abs(y)<.10?0:y;
+        knob.style.transform=`translate(${Math.round(dx*mult)}px, ${Math.round(dy*mult)}px)`;
+      };
+      stick.addEventListener('pointerdown',e=>{
+        e.preventDefault();if(mobilePad.pointerId!==null)return;
+        mobilePad.pointerId=e.pointerId;stick.setPointerCapture(e.pointerId);
+        setStick(e,true);
+      });
+      stick.addEventListener('pointermove',e=>{
+        if(e.pointerId!==mobilePad.pointerId)return;
+        e.preventDefault();setStick(e);
+      });
+      function releaseStick(e){if(e.pointerId!==mobilePad.pointerId)return;
+        if(e.type==='pointerup')setStick(e);
+        mobilePad.pointerId=null;mobilePad.x=0;mobilePad.y=0;
+        knob.style.transform='translate(0, 0)';
+      }
+      stick.addEventListener('pointerup',releaseStick);stick.addEventListener('pointercancel',releaseStick);
+      const dashButton=$('dashButton');
+      dashButton.addEventListener('pointerdown',e=>{
+        e.preventDefault();if(mobileDash.pointerId!==null)return;
+        mobileDash.pointerId=e.pointerId;mobileDash.pressed=true;
+        dashButton.setPointerCapture(e.pointerId);dashButton.classList.add('active');
+      });
+      const releaseDash=e=>{if(mobileDash.pointerId!==e.pointerId)return;
+        mobileDash.pointerId=null;dashButton.classList.remove('active');};
+      dashButton.addEventListener('pointerup',releaseDash);dashButton.addEventListener('pointercancel',releaseDash);
+      const jumpButton=$('jumpButton');
+      jumpButton.addEventListener('pointerdown',e=>{
+        e.preventDefault();if(mobileJump.pointerId!==null)return;
+        mobileJump.pointerId=e.pointerId;mobileJump.pressed=true;mobileJump.held=true;
+        jumpButton.setPointerCapture(e.pointerId);jumpButton.classList.add('active');
+      });
+      function releaseJump(e){if(mobileJump.pointerId!==e.pointerId)return;
+        mobileJump.pointerId=null;mobileJump.held=false;jumpButton.classList.remove('active');
+      }
+      jumpButton.addEventListener('pointerup',releaseJump);jumpButton.addEventListener('pointercancel',releaseJump);
+      const fire=$('fireButton');
+      fire.addEventListener('pointerdown',e=>{
+        e.preventDefault();if(mobileAttack.pointerId!==null)return;
+        mobileAttack.pointerId=e.pointerId;mobileAttack.down=true;mobileAttack.pendingTap=true;mobileAttack.axis=null;
+        mobileAttack.originX=e.clientX;mobileAttack.originY=e.clientY;
+        pointerAim.source='virtual';pointerAim.seen=false;
+        fire.setPointerCapture(e.pointerId);fire.classList.add('active');
+        audio.unlock().catch(()=>{});
+      });
+      fire.addEventListener('pointermove',e=>{
+        if(mobileAttack.pointerId!==e.pointerId)return;
+        e.preventDefault();const x=e.clientX-mobileAttack.originX,y=e.clientY-mobileAttack.originY;
+        mobileAttack.axis=Math.hypot(x,y)>17?normalize(x,y):null;
+      });
+      function releaseFire(e){if(mobileAttack.pointerId!==e.pointerId)return;
+        mobileAttack.pointerId=null;mobileAttack.down=false;mobileAttack.axis=null;fire.classList.remove('active');
+      }
+      fire.addEventListener('pointerup',releaseFire);fire.addEventListener('pointercancel',releaseFire);
+      $('pause').addEventListener('click',()=>net.role!=='solo'?roomMessage('협동 중에는 일시정지하지 않습니다.'):state.phase==='PLAYING'?showPause():state.phase==='PAUSE'?resume():null);
+      document.addEventListener('keydown',e=>{
+        if(e.code==='Escape'&&!$('techPanel').hidden){
+          e.preventDefault();closeTech();return;
+        }
+        if(e.code==='Escape'&&state.phase==='MENU'&&menuScreen!=='home'){e.preventDefault();$('menuBack').click();return;}
+        if(e.code==='KeyP'||e.code==='Escape'){
+          // The same world cannot be paused by one of up to four players.
+          // Keep this shortcut local to single-player presentation only.
+          if(net.role!=='solo')return;
+          if(state.phase==='PLAYING'){e.preventDefault();showPause();}
+          else if(state.phase==='PAUSE'){e.preventDefault();resume();}
+        }
+      });
+      document.addEventListener('visibilitychange',()=>{
+        if(document.hidden&&state.phase==='PLAYING'&&net.role==='solo')showPause();
+      });
+      window.addEventListener('blur',()=>{if(state.phase==='PLAYING'&&net.role==='solo')showPause();});
+      window.addEventListener('resize',()=>{resize();updateHUD(true);});
+    }
+    let menuScreen='home';
+    function navigateMenu(path='',replace=false){
+      history[replace?'replaceState':'pushState'](null,'',path?'#/'+path:location.pathname+location.search);
+      applyMenuRoute();
+    }
+    function syncMenuChrome(){
+      $('modalCard').dataset.phase=state.phase;
+      const menu=state.phase==='MENU';
+      $('roomControls').hidden=!menu||menuScreen!=='multiplayer';
+      for(const id of ['menuBack','menuTitle','menuHint','modeChoices','helpContent','helpOpen'])if(!menu)$(id).hidden=true;
+      if(!menu){$('saveNotice').hidden=true;$('modalText').hidden=false;$('modalCard').removeAttribute('data-view');}
+    }
+    function renderMainMenu(focus=false){
+      if(state.phase!=='MENU'){syncMenuChrome();return;}
+      const screen=menuScreen;$('modalCard').dataset.view=screen;
+      $('saveNotice').hidden=!progressMigrationNotice||screen!=='home';$('saveNotice').textContent=progressMigrationNotice;
+      $('menuBack').hidden=screen==='home';$('menuTitle').hidden=$('menuHint').hidden=screen==='home';
+      $('menuTitle').textContent=screen==='start'?'어떻게 플레이할까요?':screen==='multiplayer'?'함께 플레이':'플레이 방법';
+      $('menuHint').textContent=screen==='start'?'혼자 또는 친구와 모험을 시작하세요.':screen==='multiplayer'?'방을 만들고 코드를 공유하거나, 친구의 방에 참가하세요.':'실구멍을 봉쇄하고 다음 스테이지로';
+      $('modalText').hidden=screen!=='home';$('modeChoices').hidden=screen!=='start';$('helpContent').hidden=screen!=='help';
+      $('helpOpen').hidden=screen==='help';$('roomControls').hidden=screen!=='multiplayer';
+      const button=$('mainButton');button.hidden=!(screen==='home'||screen==='multiplayer'&&net.role==='host');button.disabled=false;
+      button.textContent=screen==='home'?'시작 →':'함께 시작 →';
+      button.onclick=()=>{if(screen==='home')navigateMenu('start');else if(net.role==='host')beginRun();};
+      $('soloStart').disabled=net.role!=='solo';
+      $('soloStart').querySelector('small').textContent=net.role==='solo'?'혼자 새로운 모험 시작':'멀티 플레이에서 방을 나간 뒤 선택';
+      if(focus)(screen==='home'?button:$('menuBack')).focus({preventScroll:true});
+    }
+    function applyMenuRoute(){
+      const path=location.hash.replace(/^#\/?/,'');
+      if(path==='tech'||path.startsWith('tech/')){const id=path.slice(5);selectTech(TECH_INDEX.has(id)?id:techView.selected,false);setTechOpen(true);$('techPanel').dataset.pane=id?'detail':'list';return;}
+      const wasTech=!$('techPanel').hidden;setTechOpen(false);
+      menuScreen=['start','multiplayer','help'].includes(path)?path:'home';
+      if(state.phase!=='MENU'&&path){history.replaceState(null,'',location.pathname+location.search);menuScreen='home';}
+      renderMainMenu(!wasTech);
+    }
+    function beginRun(){audio.unlock().catch(()=>{});submitWorldAction({kind:'start-run'});}
+    function bindMain() {
+      for(const button of $('helpTabs').children)button.onclick=()=>{for(const b of $('helpTabs').children)b.setAttribute('aria-pressed',String(b===button));for(const page of $('helpContent').querySelectorAll('[data-help-page]'))page.hidden=page.dataset.helpPage!==button.dataset.help;};
+      $('soloStart').onclick=()=>{if(net.role==='solo')beginRun();};
+      $('multiOpen').onclick=()=>navigateMenu('multiplayer');$('helpOpen').onclick=()=>navigateMenu('help');
+      $('menuBack').onclick=()=>navigateMenu(menuScreen==='multiplayer'?'start':'');
+      window.addEventListener('hashchange',applyMenuRoute);
+      document.addEventListener('keydown',event=>{
+        const panel=landscape.blocked?$('rotationGuide'):!$('techPanel').hidden?$('techPanel'):!$('modal').hidden?$('modalCard'):null;
+        if(!panel||event.key!=='Tab')return;
+        const controls=[...panel.querySelectorAll('button:not(:disabled),input:not(:disabled)')].filter(el=>el.getClientRects().length);
+        const first=controls[0],last=controls.at(-1);
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+      });
+      document.body.addEventListener('pointerdown',()=>{audio.unlock().catch(()=>{});},{once:true});
+    }
+    const session={
+      profile:{tickRate:30,maxCatchupSteps:3},pace:1,closed:false,resimulating:false,
+      poll(){},
+      advance(inputs){updateSimulation(CONFIG.tickMs,inputs);return {status:'advanced'};},
+      releaseInput(){cancelGameplayInput();},
+    };
+    bindMain();
+    initRoomUI();initTechUI();
+    bindInput();
+    initStage(1,true);
+    capturePresentation();
+    resize();
+    loop=createLoop({session,getInput:()=>({input:readWorldInputs()}),render:renderFrame,onError:error=>{
+      console.error('[Yarn Mayhem] simloop',error);
+      showFatal(error);
+    }});
+    loop.start();landscape.bind();
+    loading.hidden=true;applyMenuRoute();
+    // Read-only diagnostics available for checking real Matter/GameKit browser behavior.
+    globalThis.__YARN_MAYHEM={
+      snapshot:()=>({phase:state.phase,tick:state.tick,stage:state.stage,level:state.level,kills:state.kills,shotsFired:state.shotsFired,
+        runtime:{canonicalStep:'stepWorld',inputSource:net.role==='join'?'remote-snapshot':'local-and-peer-commands',roster:[...state.players.keys()]},
+        tps:session.profile.tickRate,room:{role:net.role,code:net.code,players:state.players.size,connected:net.room?.transports.size??0,remoteReady:net.remoteReady,runId:state.runId},
+        attack:{power:state.player?.stats.needlePower,intervalMs:state.player?.stats.fireIntervalMs,techPoints:techPoints(state.player)},
+        mergeCount:state.merges,stageKills:state.stageKills,stageKillGoal:state.stageKillGoal,
+        remainingEnemies:state.enemies.length,spawnCandidateCount:state.spawnSites.length,
+        spawnConfig:{firstMs:CONFIG.enemy.spawn.firstMs,openMs:CONFIG.enemy.spawn.openMs,closeMs:CONFIG.enemy.spawn.closeMs,
+          perHoleIntervalMs:CONFIG.enemy.spawn.perHoleIntervalMs,perHoleStageMultiplier:CONFIG.enemy.spawn.perHoleStageMultiplier,
+          riftIntervalMs:CONFIG.enemy.spawn.riftIntervalMs,riftStageMultiplier:CONFIG.enemy.spawn.riftStageMultiplier,riftLifetimeMs:CONFIG.enemy.spawn.riftLifetimeMs,
+          maxConcurrent:CONFIG.enemy.spawn.maxConcurrent},
+        activeRifts:state.spawnHoles.length,nextRiftAtMs:state.nextRiftAtMs,stageComplete:stageComplete(),
+        mapStyle:state.mapStyle,mapSeed:state.mapSeed,reachableSurfaces:state.reachableSurfaces,
+        nextSpawnAtMs:state.nextSpawnAtMs,nextSpawnHoleId:state.nextSpawnHoleId,
+        spawnHoles:state.spawnHoles.map(h=>({id:h.id,x:h.x,y:h.y,top:h.top,base:h.base,surfaceId:h.surfaceId,surfaceKind:h.surfaceKind,
+          normalX:h.normalX,normalY:h.normalY,spawns:h.spawns,spawned:h.spawned,open:h.openProgress,phase:riftPhase(h),nextAtMs:h.nextAtMs,
+          createdAtMs:h.createdAtMs,expiresAtMs:h.expiresAtMs,remainingMs:Math.max(0,h.expiresAtMs-state.timeMs)})),
+        spawnSiteKinds:[...new Set(state.spawnSites.map(site=>site.kind))],
+        tierCounts:TIER_DEFS.map(t=>state.enemies.filter(e=>e.tier===t.tier).length),
+        maxTier:CONFIG.enemy.maxTier,splitCount:state.splits,stageSplits:state.stageSplits,defeats:state.defeats,
+        activeSplitFrays:state.frays.length,
+        uncreditedFragments:state.enemies.filter(e=>!e.killCredit).length,
+        hp:state.player?.hp,death:{spectating:!!state.player?.spectating,untilMs:state.player?.deathUntilMs??0,noticeVisible:!$('deathNotice').hidden},
+        dash:state.player?.dash.charges,dashMax:state.player?.stats.dashMax,projectiles:state.shots.length,
+        grounded:state.player?isGrounded(state.player):false,standing:state.player?standingSurface(state.player)?.kind??null:null,
+        oneWayPlatforms:state.oneWayByBody.size,playerDrop:!!state.player?.body.plugin.dropThrough,
+        supportContactCount:[...state.contacts.values()].filter(c=>c.support).length,
+        playerContact:(()=>{const c=state.contacts.get(state.player?.body.id);return c?{
+          supportId:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight}:null;})(),
+        world:{...CONFIG.world},moveSpeed:state.player?.stats.moveSpeed,
+        spawnSites:state.spawnSites.map(site=>({...site})),
+        mapLayout:state.surfaces.map(s=>({id:s.id,kind:s.kind,x1:s.x1,x2:s.x2,top:s.top})),
+        navigationEdges:[...state.navGraph.values()].reduce((n,adj)=>n+adj.length,0)/2,
+        enemyDropCount:state.enemies.filter(e=>e.body.plugin.dropThrough).length,
+        playerV:state.player?worldVelocity(state.player.body):null,
+        camera:{x:state.camera.x,y:state.camera.y,zoom:state.camera.zoom},player:{...state.player?.body.position},fps:Math.round(fps),
+        physicalBodies:state.engine?Composite.allBodies(state.engine.world).length:0,
+        ...metrics}),
+      // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
+      ...((globalThis.__YARN_MAYHEM_QA===true)?{
+        qaWorldPoint:(x,y)=>{const point={};renderer.worldToScreenInto(x,y,point);return point;},
+        qaQuietArena:()=>{state.nextSpawnAtMs=1e10;state.nextRiftAtMs=Infinity;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
+        qaSpawn:(tier,x,y,extra={})=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y,extra),
+        qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
+        qaHit:(id,damage)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
+          // Exercise the actual projectile-hit path, not a separate QA-only damage policy.
+          hitEnemy(e,{x:e.body.position.x,y:e.body.position.y,vx:1000,vy:0,damage,impulse:CONFIG.shot.impulse});return true;},
+        qaEnemies:()=>state.enemies.map(e=>({id:e.id,tier:e.tier,hp:e.hp,maxHp:e.maxHp,goal:e.goalKind,
+          recentHitUntilMs:e.recentHitUntilMs,killCredit:e.killCredit,splitOrigin:e.splitOrigin,
+          locomotion:{...e.locomotion},grounded:isGrounded(e),bounds:{min:{...e.body.bounds.min},max:{...e.body.bounds.max}},attack:e.attack?{...e.attack}:null,dash:{...e.dash},control:e.control?{...e.control}:null,controlCooldownUntilMs:e.controlCooldownUntilMs,
+          vx:e.body.velocity.x,vy:e.body.velocity.y,
+          mergeLockedMs:Math.max(0,e.noMergeUntilMs-state.timeMs),splitFlightMs:Math.max(0,e.splitFlightUntilMs-state.timeMs),
+          x:e.body.position.x,y:e.body.position.y,radius:e.body.circleRadius,face:TIER_DEFS[e.tier-1].face})),
+        qaNeedleHit:(id,dx,dy,carry=true)=>hitEnemy(state.enemies.find(e=>e.id===id),{owner:'player',ownerId:state.player.id,kind:'needle',x:0,y:0,vx:dx*1000,vy:dy*1000,damage:1,impulse:0,carry}),
+        qaPlayer:(x,y)=>Body.setPosition(state.player.body,{x,y}),
+        qaPlayerVelocity:(vx,vy)=>Body.setVelocity(state.player.body,{x:vx,y:vy}),
+        qaEnemyPosition:(id,x,y)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;Body.setPosition(e.body,{x,y});return true;},
+        qaEnemyVelocity:(id,vx,vy)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;Body.setVelocity(e.body,{x:vx,y:vy});return true;},
+        qaSetEnemyGoal:(id,kind)=>{const e=state.enemies.find(e=>e.id===id);if(!e)return false;
+          e.goalKind=kind;e.goalId=kind==='attack'?0:null;e.thinkLeftMs=100000;return true;},
+        qaOneWayAt:(x,y,vy=1,down=false,index=0)=>{
+          const surface=state.platforms[index];const stub={label:'enemy',circleRadius:18,position:{x,y},positionPrev:{x,y:y-vy},plugin:{dropThrough:down}};
+          return {top:surface.top,land:shouldResolveOneWay(stub,surface)};},
+        qaSetPhase:(phase)=>{state.phase=phase;},
+        qaNavigation:(fromId,toId)=>{const a=state.surfaces[fromId],b=state.surfaces[toId];return {fromId,toId,next:firstNavStep(a,b)?.id??null};},
+        qaContacts:()=>[...state.contacts].map(([id,c])=>({id,support:c.support?.id??null,wallLeft:c.wallLeft,wallRight:c.wallRight})),
+        qaEnemyNav:(id)=>{const e=state.enemies.find(e=>e.id===id);return e?{intent:routeIntent(e,state.player),navFrom:e.navFrom,hopTarget:e.hopTarget,dropFromTop:e.dropFromTop,velocity:velocity(e.body),standing:standingSurface(e)?.id??null,locomotion:{...e.locomotion}}:null;},
+        qaClearEnemies:()=>{for(const e of [...state.enemies])removeEnemy(e);},
+        qaKillAll:()=>{ // Fixture: reach the kill goal and clear the stage.
+          let remain=Math.max(0,state.stageKillGoal-state.stageKills);
+          for(const e of [...state.enemies]){if(!remain)break;if(e.killCredit){removeEnemy(e);state.kills++;state.stageKills++;remain--;}}
+          while(remain-->0){state.kills++;state.stageKills++;}
+          state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=Infinity;state.spawnHoles=[];
+          for(const e of [...state.enemies])removeEnemy(e);
+        },
+        qaSpawnSites:()=>state.spawnSites.map(site=>({...site})),
+        qaSpawnRules:()=>({viewInset:RIFT_VIEW_INSET,periphery:RIFT_VIEW_PERIPHERY,playerGap:CONFIG.player.radius+RADII[0]+RIFT_PLAYER_CLEARANCE,viewMaxAgeMs:RIFT_VIEW_MAX_AGE_MS}),
+        qaSpawnObserverViews:()=>spawnObserverViews().map(({id,view})=>({id,view:{...view,b:view.b.map(rect=>[...rect])}})),
+        qaSpawnDiagnostics:site=>{const pos=riftSpawnPosition({x:site.x,y:site.y,surfaceKind:site.kind,normalX:site.normalX,normalY:site.normalY});
+          return {playerGaps:[...state.players.values()].filter(p=>p.hp>0).map(p=>({id:p.id,gap:Math.hypot(pos.x-p.body.position.x,pos.y-p.body.position.y)})),
+            observers:spawnObserverViews().map(({id,view})=>({id,periphery:spawnSiteObserverScore(site,view)}))};},
+        qaAutomaticSpawnRift:()=>{const hole=createSpawnHole(state.timeMs);if(!hole)return null;state.nextRiftAtMs=Infinity;
+          return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
+        qaPhysicsBodies:()=>state.engine?Composite.allBodies(state.engine.world).length:0,
+        qaSpawnRift:(kind,surfaceId=null,siteIndex=null)=>{const eligible=state.spawnSites.filter(s=>s.kind===kind&&(surfaceId===null||s.surfaceId===surfaceId));
+          const site=Number.isInteger(siteIndex)?eligible[siteIndex]:eligible.sort((a,b)=>Math.hypot(a.x-(state.player?.body.position.x??CONFIG.world.width/2),a.y-(state.player?.body.position.y??CONFIG.world.groundY))-Math.hypot(b.x-(state.player?.body.position.x??CONFIG.world.width/2),b.y-(state.player?.body.position.y??CONFIG.world.groundY)))[0];if(!site)return null;
+          const hole=createSpawnHole(state.timeMs,site);if(!hole)return null;state.nextRiftAtMs=Infinity;return {id:hole.id,kind:hole.surfaceKind,x:hole.x,y:hole.y,normalX:hole.normalX,normalY:hole.normalY};},
+        qaSetRiftSpawns:(id,spawns)=>{const hole=state.spawnHoles.find(candidate=>candidate.id===id);
+          if(!hole||!Number.isSafeInteger(spawns)||spawns<0)return false;hole.spawns=spawns;hole.nextAtMs=hole.expiresAtMs;return true;},
+        qaRenewRiftLifetime:id=>{const hole=state.spawnHoles.find(candidate=>candidate.id===id);
+          if(!hole)return false;hole.createdAtMs=state.timeMs;hole.openingStartedAtMs=state.timeMs;
+          hole.expiresAtMs=state.timeMs+CONFIG.enemy.spawn.riftLifetimeMs;hole.nextAtMs=hole.expiresAtMs;hole.openProgress=0;return true;},
+        qaClearRifts:()=>{state.spawnHoles=[];state.nextRiftAtMs=Infinity;state.nextSpawnAtMs=Infinity;},
+        qaReachKillGoal:()=>{for(const e of [...state.enemies])removeEnemy(e);state.stageKills=state.stageKillGoal;state.nextRiftAtMs=Infinity;
+          state.nextSpawnAtMs=Math.min(state.nextSpawnAtMs,...state.spawnHoles.filter(h=>riftPhase(h)!=='closing').map(h=>h.nextAtMs));},
+        qaForceSpawns:()=>{if(!state.spawnHoles.length)createSpawnHole(state.timeMs);state.nextRiftAtMs=Infinity;updateSpawnHoles();},
+        qaStartStage:stage=>{const value=Math.floor(Number(stage));if(!Number.isSafeInteger(value)||value<1||value>1000)return false;startStage(value);return true;},
+        qaStart:()=>startNewRun(),
+        qaDamagePlayer:(id,amount=9999)=>{const p=state.players.get(id);if(!p)return false;
+          const point={x:p.body.position.x-90,y:p.body.position.y};
+          return hurtPlayer(amount,point,p,0);},
+        qaSetHp:(id,hp)=>{const p=state.players.get(id);if(!p)return false;p.hp=clamp(hp,0,p.maxHp);return true;},
+        qaNeedle:(angle=0)=>needleShot(state.player,{x:Math.cos(angle),y:Math.sin(angle)}),
+        qaBuyTech:id=>buyTech(state.player,id),
+        qaJoinActor:id=>{if(state.players.size>=roomMaxPlayers)return null;return addRemotePlayer(id);},
+        qaAttackBy:(id,angle=0)=>needleShot(state.players.get(id),{x:Math.cos(angle),y:Math.sin(angle)}),
+        qaNetworkFrame:()=>packWorld(),
+        qaPlayers:()=>[...state.players.values()].map(p=>({id:p.id,hp:p.hp,maxHp:p.maxHp,x:p.body.position.x,y:p.body.position.y,needlePower:p.stats.needlePower,fireIntervalMs:p.stats.fireIntervalMs,techPoints:techPoints(p),earnedPoints:p.progress.earnedPoints,upgrades:{...p.progress.upgrades}})),
+        qaSetActor:(id,x,y)=>{const a=state.players.get(id);if(!a)return false;Body.setPosition(a.body,{x,y});setWorldVelocity(a.body,0,0);return true;},
+        qaSetTime:ms=>{if(!Number.isFinite(ms)||ms<0)return false;state.timeMs=ms;capturePresentation();return true;},
+        qaTimeMs:()=>state.timeMs,
+        qaRender:()=>renderFrame(),
+        qaStopSimulation:()=>loop?.stop(),
+        qaStartSimulation:()=>loop?.start(),
+        qaVectorStats:()=>({renderer:meshRenderer.stats(),yarnSurface:{state:'ready',surfaceCount:yarnShaderSurfaces.length,fiberEnabled:yarnSurfaceStyle.fiber===true,patternEnabled:yarnSurfaceStyle.pattern!==false,fillVertices:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.fillVertices.length/6,0),outlinePoints:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.outline.length/2,0),draws:vectorDrawTotals.yarnBody},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}])),assets:Object.entries(vectorAssets).map(([name,asset])=>({
+          name,bytes:asset.mesh.byteLength,vertices:asset.mesh.count,parts:asset.mesh.partCount,
+        }))}),
+      }:{}),
+    };
+    window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
+      for(const asset of Object.values(vectorAssets))asset.dispose();yarnSurfaceRenderer.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
+      Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
+  } catch(error) {showFatal(error);}
+  function showFatal(error) {
+    const node=document.getElementById('error');
+    if(node){
+      const message=String(error?.message||error);
+      const dependencyError=/Matter\.js .*불러오지 못|Failed to fetch dynamically imported module|Failed to load module script|network error|CORS|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED/i.test(message);
+      const hint=dependencyError?'의존성 로딩 오류입니다. 인터넷 연결과 HTTPS 배포 환경을 확인하세요.':'게임 실행 오류입니다. 브라우저 콘솔에 상세 오류를 기록했습니다.';
+      const frame=String(error?.stack||'').split('\n').slice(1,5).join('\n').slice(0,520);
+      node.textContent='\n\n실행 오류: '+message+'\n'+hint+(frame?'\n'+frame:'');
+    }
+    const title=document.getElementById('loading');if(title)title.hidden=false;
+    console.error('[Yarn Mayhem]',error);
+  }
+})();
+

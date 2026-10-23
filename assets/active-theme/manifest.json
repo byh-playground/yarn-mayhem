@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "compileMode": "browser-startup",
+  "assets": [
+    {
+      "key": "needle",
+      "id": "needle",
+      "path": "assets/active-theme/needle.svg",
+      "sha256": "8a9d9bdef132daac7159bef51072d67faf1556be13bd118b1b8a185592667218"
+    },
+    {
+      "key": "riftHole",
+      "id": "rift-hole",
+      "path": "assets/active-theme/rift-hole.svg",
+      "sha256": "5cc57c4246925798375853781a65b34a9a17d8eb7cce88e95a1c1ea64d9e71ed"
+    },
+    {
+      "key": "riftPulse",
+      "id": "rift-pulse",
+      "path": "assets/active-theme/rift-pulse.svg",
+      "sha256": "f1a871cd66675a6c38914944020e6c4252ceec52e6a0b3ed0779a10428a64f4e"
+    },
+    {
+      "key": "yarnBody",
+      "id": "yarn-body",
+      "path": "assets/active-theme/yarn-body.svg",
+      "sha256": "799efa07339834a09233869a8078c731ba6fa575d556c7ac49accc82f99060a8"
+    },
+    {
+      "key": "yarnFace",
+      "id": "yarn-face",
+      "path": "assets/active-theme/yarn-face.svg",
+      "sha256": "fc999939aa0f61565138d7bec4f6ba49510a51775395a8e9536fe10cbd627d2e"
+    },
+    {
+      "key": "yarnProgress",
+      "id": "yarn-progress",
+      "path": "assets/active-theme/yarn-progress.svg",
+      "sha256": "ba03b6437e9dce7343656882b6211980f3ebd260e625966bd607ad706d6935b4"
+    }
+  ]
+}
