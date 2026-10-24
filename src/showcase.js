@@ -14,12 +14,12 @@ const SHOWCASE = installShowcase({
     "caption": "바늘을 발사하며 전장에 나타나는 털실 무리를 상대합니다."
   },
   {
-    "atMs": 500,
+    "atMs": 120,
     "action": "click",
     "selector": "#mainButton"
   },
   {
-    "atMs": 1400,
+    "atMs": 340,
     "action": "click",
     "selector": "#soloStart"
   },
