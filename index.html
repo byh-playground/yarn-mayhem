@@ -6,6 +6,20 @@
 <meta name="theme-color" content="#142b31">
 <title>털실 대소동 / Yarn Mayhem 0.20.5</title>
 <link rel="stylesheet" href="./src/styles/main.css">
+<script>
+// An intro iframe is a disposable real game run, never a saved player session.
+if (new URLSearchParams(location.search).get('showcaseDemo') === '1') {
+  const stores = new WeakMap();
+  const getStore = storage => {
+    if (!stores.has(storage)) stores.set(storage, new Map());
+    return stores.get(storage);
+  };
+  Storage.prototype.getItem = function (key) { return getStore(this).get(String(key)) ?? null; };
+  Storage.prototype.setItem = function (key, value) { getStore(this).set(String(key), String(value)); };
+  Storage.prototype.removeItem = function (key) { getStore(this).delete(String(key)); };
+  Storage.prototype.clear = function () { getStore(this).clear(); };
+}
+</script>
 </head>
 <body>
 <div id="app" class="theme-1">
@@ -63,5 +77,6 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 <script type="module" data-game-module src="./src/main.js"></script>
+<script type="module" src="./src/showcase.js"></script>
 </body>
 </html>
