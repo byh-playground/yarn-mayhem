@@ -11,7 +11,7 @@ Defend against yarn enemies emerging from map-wide temporary rifts; needles figh
 
 ## 0.20.6 - Browser startup SVG compilation
 
-- Loads and SHA-256 verifies the six authored SVGs with the pinned GameKit 0.26.5 browser loader at startup, then reuses its cached compiled assets.
+- Loads and SHA-256 verifies the six authored SVGs with the pinned GameKit 0.26.6 browser loader at startup, then reuses its cached compiled assets.
 - Keeps the authored yarn silhouette, winding paths, expressions, tier faces, deformation, and gameplay effects; the yarn shader is ordered with the SVG's own mesh layers.
 - Runs the shader pattern at a thickness scaled for small mobile actors and compares fixed-time PC and landscape-touch captures with the public v0.20.4 baseline.
 

@@ -4,7 +4,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@6ef60d922541329af05e070b464caf66c970a041/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@b83464e445efaf86d66499859d3d05463df2b22a/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
