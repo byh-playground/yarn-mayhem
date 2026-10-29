@@ -6,13 +6,13 @@
       "key": "needle",
       "id": "needle",
       "path": "assets/active-theme/needle.svg",
-      "sha256": "8a9d9bdef132daac7159bef51072d67faf1556be13bd118b1b8a185592667218"
+      "sha256": "6adc7223ac0c5ecc54fd1d44c94c6821fcd1f53081d4b6dff7f2ce66f8597746"
     },
     {
       "key": "riftHole",
       "id": "rift-hole",
       "path": "assets/active-theme/rift-hole.svg",
-      "sha256": "5cc57c4246925798375853781a65b34a9a17d8eb7cce88e95a1c1ea64d9e71ed"
+      "sha256": "14ec6677785ac4050cd2a07a3727d98d67b8c2edfcb4ab39e66d84e1b8cf5b24"
     },
     {
       "key": "riftPulse",
@@ -24,13 +24,13 @@
       "key": "yarnBody",
       "id": "yarn-body",
       "path": "assets/active-theme/yarn-body.svg",
-      "sha256": "799efa07339834a09233869a8078c731ba6fa575d556c7ac49accc82f99060a8"
+      "sha256": "8cc69c419b41b278d5889c5182be8249dfb6866817853b6565f7fa411a4fcc41"
     },
     {
       "key": "yarnFace",
       "id": "yarn-face",
       "path": "assets/active-theme/yarn-face.svg",
-      "sha256": "fc999939aa0f61565138d7bec4f6ba49510a51775395a8e9536fe10cbd627d2e"
+      "sha256": "3d07bdaa079e1966e9c6d992b4449ff5357552a68869a68e0dda127acceb460e"
     },
     {
       "key": "yarnProgress",

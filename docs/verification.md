@@ -1,3 +1,11 @@
+# 0.20.6 GameKit 0.26.3 VectorContext migration
+
+Runtime pin: GameKit v0.26.3 source `32e4301ac1296c39a14145e356889f75ce787813`, dist `ed3bbafc0440ec6ea01f775df3f92d05a7947bb5` (official manifest SHA-256 `df8532a6504aa0e39578ab16f109b75c946fae3bb9cb02ec854dd7fa9f2a6d60`; the same bundle bytes as a local `npm run build` of GameKit main). `docs/gamekit-manifest.json` lists the nine imported modules, now including `camera.js`.
+
+- Rendering: `WebGLDevice` + one `VectorContext` replace the three previous renderers (2D shapes, meshes, shader surfaces); actors come from `createVectorActor` and draw with `context.drawVectorActor(actor, { matrix, alpha, color })`; shapes use `PrimitivePainter`; the camera is `CameraViewport.applyToContext`.
+- The four SVGs whose default expression hides parts carry `display="none"` on those part groups (GameKit v0.16.0 authoring rule); their SHA-256 values changed in both manifests. The other two SVGs are unchanged.
+- `scripts/build.cjs` and `tests/game-server.cjs` had not been updated for the module split (inline `index.html` assumptions, `_site` without `src/`, no `text/css`); they now build/serve the real layout.
+
 # 0.20.6 GameKit 0.14.3 fixed distribution pin
 
 Base: `main` `0f0ef43de185cab0da67c03430f3f2e5f3e0d212`. Update the runtime from GameKit v0.10.4 dist `95d8676e3eaaa9f80aeed2e3361e258381511c77` to v0.14.3 source `dd59a57fcf66409cef16632ffb433c0b760324fa`, dist `418e17c455db56d6ed073d82d115191d9dd8bf04`. The official dist manifest SHA-256 is `20244c2beeee33719f407a9baa92c55a4bd55a0e4eb9f094590bb0eed652296e`; `docs/gamekit-manifest.json`, `index.html`, build provenance checks and the third-party notice now agree. The project consumes eight pinned modules through `index.html`; GameKit is not a package/lockfile dependency.

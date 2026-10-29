@@ -1,16 +1,44 @@
 {
-  "version": "0.14.3",
-  "sourceCommit": "dd59a57fcf66409cef16632ffb433c0b760324fa",
-  "distCommit": "418e17c455db56d6ed073d82d115191d9dd8bf04",
-  "officialManifestSha256": "20244c2beeee33719f407a9baa92c55a4bd55a0e4eb9f094590bb0eed652296e",
+  "version": "0.26.3",
+  "sourceCommit": "32e4301ac1296c39a14145e356889f75ce787813",
+  "distCommit": "ed3bbafc0440ec6ea01f775df3f92d05a7947bb5",
+  "officialManifestSha256": "df8532a6504aa0e39578ab16f109b75c946fae3bb9cb02ec854dd7fa9f2a6d60",
   "modules": [
-    { "file": "rendering.js", "sha256": "021b11f83b49be3e94cfe0a67769dcd248b9463325b6dcc55ea4943a0ea6c18b" },
-    { "file": "vector-assets.js", "sha256": "288eadf3830df2836f0b103dc513a906b5b9dbd58660885c18b2a0941d0e877a" },
-    { "file": "vector-assets-loader.js", "sha256": "56042179b1b669d69d4791c5a1ad7bbd1927d8686fa4e9192504fb248c2170e2" },
-    { "file": "input.js", "sha256": "a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f" },
-    { "file": "simloop.js", "sha256": "c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8" },
-    { "file": "audio.js", "sha256": "f792c0b56b4829d20dfecb03f087bc435e377d9e772a7c5caa3611afef281d20" },
-    { "file": "transport.js", "sha256": "cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a" },
-    { "file": "interpolation.js", "sha256": "061960f311ad57894914186baa01f6b257269637353056ac93f86d34265a4ef8" }
+    {
+      "file": "rendering.js",
+      "sha256": "d4d7dd153ce9d1b7111f9f4727b39eb539905f789d4b2d89f3b5f0ef59814092"
+    },
+    {
+      "file": "vector-assets.js",
+      "sha256": "f5026e18cdc45b1888a2f7c62f5c36c4e828ef4f6cf9a473fbb7d4c83b7a41f7"
+    },
+    {
+      "file": "vector-assets-loader.js",
+      "sha256": "a9d9eaa61d891fb1dd9d7d8ac9d9781fe2545cc2a7f8ede6202556c2a7a2f48f"
+    },
+    {
+      "file": "camera.js",
+      "sha256": "99c1be43b6a38945028d029a5ecc594f7ff6dfc71075305264930748cafe88b6"
+    },
+    {
+      "file": "input.js",
+      "sha256": "a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f"
+    },
+    {
+      "file": "simloop.js",
+      "sha256": "c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8"
+    },
+    {
+      "file": "audio.js",
+      "sha256": "f792c0b56b4829d20dfecb03f087bc435e377d9e772a7c5caa3611afef281d20"
+    },
+    {
+      "file": "transport.js",
+      "sha256": "cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a"
+    },
+    {
+      "file": "interpolation.js",
+      "sha256": "acad7ad93615633609a62e484bff918980fc84282840db9b5cd108e8f5bb133a"
+    }
   ]
 }

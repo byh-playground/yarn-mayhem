@@ -10,17 +10,8 @@ const baselineHtml = process.env.YARN_TEST_BASELINE_HTML ? path.resolve(process.
 const servers = [createGameServer()];
 let baselineTestHtml = null;
 if (baselineHtml && fs.existsSync(baselineHtml)) {
-  let html = fs.readFileSync(baselineHtml, 'utf8');
-  const stopHook = 'qaStopSimulation:()=>loop?.stop(),';
-  if (!html.includes('qaSetTime:') || !html.includes('qaTimeMs:') || !html.includes('qaRender:')) {
-    if (!html.includes(stopHook)) throw new Error('Baseline QA stop hook is missing; cannot synchronize its display clock');
-    if (!html.includes('qaSetTime:'))
-    html = html.replace(stopHook, 'qaSetTime:ms=>{if(!Number.isFinite(ms)||ms<0)return false;state.timeMs=ms;capturePresentation();return true;},'+stopHook);
-    if (!html.includes('qaTimeMs:'))
-      html = html.replace(stopHook, 'qaTimeMs:()=>state.timeMs,'+stopHook);
-    if (!html.includes('qaRender:'))
-      html = html.replace(stopHook, 'qaRender:()=>renderFrame(),'+stopHook);
-  }
+  // The QA hooks live in src/main.js, which the baseline asset root serves; the page needs no patching.
+  const html = fs.readFileSync(baselineHtml, 'utf8');
   baselineTestHtml = path.join(outputDir, 'baseline-main.qa.html');
   fs.writeFileSync(baselineTestHtml, html);
   const baselinePublicRoot = process.env.YARN_TEST_BASELINE_ASSET_ROOT
@@ -94,12 +85,13 @@ async function runScene(browser, server, tag, mobile) {
     q.qaNeedle(0);
     const rift = q.qaSpawnRift('background');
     if (!rift) throw new Error('No deterministic background rift site was available');
+    q.qaStep(1); // newly spawned bodies get a presentation pose only after one simulation tick
     q.qaSetTime(120);
     const snap = q.snapshot();
     return { player: q.qaPlayers()[0], enemies: q.qaEnemies(), rift, world: snap.world, mapSeed: snap.mapSeed, timeMs: q.qaTimeMs() };
   });
   await page.waitForTimeout(180);
-  await page.evaluate(() => __YARN_MAYHEM.qaRender());
+  await page.evaluate(() => { for (let i = 0; i < 400; i++) __YARN_MAYHEM.qaRender(); }); // converge the eased camera so both builds frame the scene identically
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: path.join(outputDir, `${tag}.png`) });
   const measurements = await page.evaluate(() => {
@@ -114,14 +106,15 @@ async function runScene(browser, server, tag, mobile) {
     const y = q.snapshot().world.groundY - 38;
     const enemies = [q.qaSpawn(1, player.x + 150, y), q.qaSpawn(1, player.x + 245, y)];
     for (const enemy of enemies) q.qaSetEnemyGoal(enemy.id, 'none');
+    q.qaStep(1); // newly spawned bodies get a presentation pose only after one simulation tick
     q.qaSetTime(120);
     return { player, enemies: q.qaEnemies(), timeMs: q.qaTimeMs(), mapSeed: q.snapshot().mapSeed };
   });
   await page.waitForTimeout(180);
-  await page.evaluate(() => __YARN_MAYHEM.qaRender());
+  await page.evaluate(() => { for (let i = 0; i < 400; i++) __YARN_MAYHEM.qaRender(); }); // converge the eased camera so both builds frame the scene identically
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: path.join(outputDir, `${tag}-normal-scale.png`) });
-  if (measurements.stats?.assets?.some(asset => asset.name === 'yarnProgress')) {
+  if (measurements.stats) {
     const previousPulseDraws = measurements.stats.totalDrawsByAsset.riftPulse;
     const pulse = await page.evaluate(() => {
       const q = __YARN_MAYHEM;
@@ -133,7 +126,7 @@ async function runScene(browser, server, tag, mobile) {
     });
     if (!pulse) throw new Error(`${tag}: no background rift selected for the pulse fixture`);
     await page.waitForTimeout(180);
-    await page.evaluate(() => __YARN_MAYHEM.qaRender());
+    await page.evaluate(() => { for (let i = 0; i < 400; i++) __YARN_MAYHEM.qaRender(); }); // converge the eased camera so both builds frame the scene identically
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().totalDrawsByAsset.riftPulse > previous,
       previousPulseDraws, { timeout: 5000 });
     await page.screenshot({ path: path.join(outputDir, `${tag}-rift-pulse.png`) });
@@ -145,7 +138,7 @@ async function runScene(browser, server, tag, mobile) {
       q.qaSetTime(1800);
     });
     await page.waitForTimeout(180);
-    await page.evaluate(() => __YARN_MAYHEM.qaRender());
+    await page.evaluate(() => { for (let i = 0; i < 400; i++) __YARN_MAYHEM.qaRender(); }); // converge the eased camera so both builds frame the scene identically
     await page.waitForFunction(previous => __YARN_MAYHEM.qaVectorStats().drawsByAsset.yarnProgress > previous,
       measurements.riftPulse.drawsByAsset.yarnProgress, { timeout: 5000 });
     measurements.progress = await page.evaluate(() => __YARN_MAYHEM.qaVectorStats());
@@ -168,10 +161,9 @@ async function runScene(browser, server, tag, mobile) {
       const current = await runScene(browser, servers[0], `${tag}-candidate`, mobile);
       const baseline = servers[1] ? await runScene(browser, servers[1], `${tag}-baseline`, mobile) : null;
       const stats = current.measurements.stats;
-      const assets = stats?.assets ?? [];
       const renderer = stats?.renderer ?? {};
       const yarnSurface = stats?.yarnSurface ?? {};
-      check(`${tag}: GameKit YarnSurfaceRenderer draws the single authored yarn contour`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 1 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === true && yarnSurface.outlinePoints >= 32 && yarnSurface.fillVertices >= 96 && yarnSurface.draws > 0, yarnSurface);
+      check(`${tag}: GameKit mesh material draws the single authored yarn surface`, yarnSurface.state === 'ready' && yarnSurface.surfaceCount === 1 && yarnSurface.fiberEnabled === true && yarnSurface.patternEnabled === true && yarnSurface.draws > 0, yarnSurface);
       check(`${tag}: visible high-tier enemy is present`, current.setup.enemies.some(enemy => enemy.tier === 10), current.setup);
       if (baseline) {
         check(`${tag}: baseline and candidate use the same map seed and display time`,
@@ -182,9 +174,8 @@ async function runScene(browser, server, tag, mobile) {
           { baseline: { mapSeed: baseline.normalScale.mapSeed, timeMs: baseline.normalScale.timeMs, enemies: baseline.normalScale.enemies.length }, current: { mapSeed: current.normalScale.mapSeed, timeMs: current.normalScale.timeMs, enemies: current.normalScale.enemies.length } });
       }
       check(`${tag}: all six retained character, prop and UI SVG meshes load`,
-        ['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnProgress'].every(name => assets.some(asset => asset.name === name && asset.bytes > 0 && asset.parts > 0)) &&
-          Number(renderer.instances) > 0 && Number(renderer.draws) > 0,
-        { assets, renderer });
+        Number(renderer.meshCount) >= 6 && Number(renderer.retainedBytes) > 0 && Number(renderer.instances) > 0 && Number(renderer.draws) > 0,
+        { renderer });
       check(`${tag}: yarn body, face and needle meshes draw in the play scene`,
         stats.drawsByAsset.yarnBody >= 4 && stats.drawsByAsset.yarnFace >= 4 && stats.drawsByAsset.needle > 0,
         { drawsByAsset: stats.drawsByAsset });
@@ -207,10 +198,10 @@ async function runScene(browser, server, tag, mobile) {
       check(`${tag}: revive progress is drawn from its SVG asset`,
         current.measurements.progress?.drawsByAsset.yarnProgress > 0,
         { drawsByAsset: current.measurements.progress?.drawsByAsset });
-      const retainedBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0) + Number(yarnSurface.retainedBytes ?? 0);
+      const retainedBytes = Number(renderer.retainedBytes ?? Infinity);
       check(`${tag}: retained vector and yarn surface geometry stays below 4 MiB`,
         retainedBytes < 4 * 1024 * 1024,
-        { bytes: retainedBytes, assets, yarnSurface });
+        { bytes: retainedBytes, yarnSurface });
       report.comparisons.push({
         name: baseline ? `${tag}: PR base baseline versus yarn surface capture` : `${tag}: yarn surface visual/performance capture`,
         status: 'CAPTURED',
@@ -223,7 +214,7 @@ async function runScene(browser, server, tag, mobile) {
           mapSeed: current.setup.mapSeed, timeMs: current.setup.timeMs,
           normalScale: { mapSeed: current.normalScale.mapSeed, timeMs: current.normalScale.timeMs, actorCount: current.normalScale.enemies.length + 1 },
           baselineFps: baseline?.measurements.fps ?? null, surfaceFps: current.measurements.fps,
-          renderer, yarnSurface, assets, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
+          renderer, yarnSurface, drawsByAsset: current.measurements.progress?.totalDrawsByAsset ?? stats.totalDrawsByAsset,
           actorDraws: current.measurements.progress?.actorDraws ?? stats.actorDraws,
         },
       });
