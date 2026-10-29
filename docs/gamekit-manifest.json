@@ -1,16 +1,16 @@
 {
-  "version": "0.26.3",
-  "sourceCommit": "32e4301ac1296c39a14145e356889f75ce787813",
-  "distCommit": "ed3bbafc0440ec6ea01f775df3f92d05a7947bb5",
-  "officialManifestSha256": "df8532a6504aa0e39578ab16f109b75c946fae3bb9cb02ec854dd7fa9f2a6d60",
+  "version": "0.26.5",
+  "sourceCommit": "d287ca4e2268486b00a8155585b0bf6855f71f0d",
+  "distCommit": "6ef60d922541329af05e070b464caf66c970a041",
+  "officialManifestSha256": "d114896850e6f99d279bd80b549b0eb2c366b8ebd9afaa1f28d2c2dde9028130",
   "modules": [
     {
       "file": "rendering.js",
-      "sha256": "d4d7dd153ce9d1b7111f9f4727b39eb539905f789d4b2d89f3b5f0ef59814092"
+      "sha256": "5d6620b7ff04434c42883d51629cc1307eda7ae7135f06e1b6d60ee8ea5b63e4"
     },
     {
       "file": "vector-assets.js",
-      "sha256": "f5026e18cdc45b1888a2f7c62f5c36c4e828ef4f6cf9a473fbb7d4c83b7a41f7"
+      "sha256": "de7093c51d5ffd80d6bd716a0023a9b78586a1a9b10d607eb730109ba1af694c"
     },
     {
       "file": "vector-assets-loader.js",

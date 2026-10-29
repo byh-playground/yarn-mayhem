@@ -1,6 +1,6 @@
-# 0.20.6 GameKit 0.26.3 VectorContext migration
+# 0.20.6 GameKit 0.26.5 VectorContext migration
 
-Runtime pin: GameKit v0.26.3 source `32e4301ac1296c39a14145e356889f75ce787813`, dist `ed3bbafc0440ec6ea01f775df3f92d05a7947bb5` (official manifest SHA-256 `df8532a6504aa0e39578ab16f109b75c946fae3bb9cb02ec854dd7fa9f2a6d60`; the same bundle bytes as a local `npm run build` of GameKit main). `docs/gamekit-manifest.json` lists the nine imported modules, now including `camera.js`.
+Runtime pin: GameKit v0.26.5 source `d287ca4e2268486b00a8155585b0bf6855f71f0d`, dist `6ef60d922541329af05e070b464caf66c970a041` (official manifest SHA-256 `d114896850e6f99d279bd80b549b0eb2c366b8ebd9afaa1f28d2c2dde9028130`; bundle hashes re-checked against jsdelivr). `docs/gamekit-manifest.json` lists the nine imported modules, now including `camera.js`.
 
 - Rendering: `WebGLDevice` + one `VectorContext` replace the three previous renderers (2D shapes, meshes, shader surfaces); actors come from `createVectorActor` and draw with `context.drawVectorActor(actor, { matrix, alpha, color })`; shapes use `PrimitivePainter`; the camera is `CameraViewport.applyToContext`.
 - The four SVGs whose default expression hides parts carry `display="none"` on those part groups (GameKit v0.16.0 authoring rule); their SHA-256 values changed in both manifests. The other two SVGs are unchanged.
