@@ -4,15 +4,16 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@418e17c455db56d6ed073d82d115191d9dd8bf04/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@6ef60d922541329af05e070b464caf66c970a041/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const [{ Renderer2D, WebGLDevice, MeshRenderer, YarnSurfaceRenderer }, { createVectorAsset }, { createVectorAssetLoader },
+    const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
       { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
       { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
       import(GAMEKIT_DIST + 'vector-assets.js'),
       import(GAMEKIT_DIST + 'vector-assets-loader.js'),
+      import(GAMEKIT_DIST + 'camera.js'),
       import(GAMEKIT_DIST + 'input.js'),
       import(GAMEKIT_DIST + 'simloop.js'),
       import(GAMEKIT_DIST + 'audio.js'),
@@ -31,45 +32,35 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     const Matter = globalThis.Matter;
     const { Engine, Bodies, Body, Composite, Constraint, Events } = Matter;
     const canvas = $('gl');
-    const renderer = new Renderer2D(canvas, { batchVertices: 12288, antialias: true });
     const device = new WebGLDevice(canvas, { alpha: true, antialias: true, depth: false, stencil: false });
-    const meshRenderer = new MeshRenderer(device, { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 });
-    const yarnSurfaceRenderer = new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 });
-    const yarnShaderSurfaces = ACTIVE_THEME_ASSETS.yarnBody.geometry.shaderSurfaces ?? [];
+    const context = new VectorContext(device, { mesh: { maxMeshes: 8, maxMeshBytes: 16 * 1024 * 1024, maxInstances: 2048 } });
+    const shapes = new PrimitivePainter(context);
+    const camera = new CameraViewport({ width: 1, height: 1, dpr: 1 });
+    const yarnSurfaceCount = (ACTIVE_THEME_ASSETS.yarnBody.geometry.materials?.table.length ?? 0) / 20; // 5 vec4 per surface
     const yarnSurfaceStyle = ACTIVE_THEME_ASSETS.yarnBody.metadata.styles.find(style => style.kind === 'yarn' && style.target === 'yarn-shell');
-    if (yarnShaderSurfaces.length !== 1 || yarnSurfaceStyle?.backend !== 'shader') throw new Error('Authored yarn SVG did not compile to one GameKit shader surface');
-    const vectorAssets = Object.freeze({
-      yarnBody:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnBody,{surfaceRenderer:yarnSurfaceRenderer}),
-      yarnFace:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnFace,{surfaceRenderer:yarnSurfaceRenderer}),
-      needle:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.needle,{surfaceRenderer:yarnSurfaceRenderer}),
-      riftHole:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftHole,{surfaceRenderer:yarnSurfaceRenderer}),
-      riftPulse:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.riftPulse,{surfaceRenderer:yarnSurfaceRenderer}),
-      yarnProgress:createVectorAsset(meshRenderer,ACTIVE_THEME_ASSETS.yarnProgress,{surfaceRenderer:yarnSurfaceRenderer}),
-    });
-    const vectorPlayers = Object.freeze(Object.fromEntries(Object.entries(vectorAssets).map(([name,asset])=>[name,asset.createPlayer()])));
-    const vectorDrawCounts = Object.fromEntries(Object.keys(vectorAssets).map(name=>[name,0]));
-    const vectorDrawTotals = Object.fromEntries(Object.keys(vectorAssets).map(name=>[name,0]));
+    if (yarnSurfaceCount !== 1 || yarnSurfaceStyle?.backend !== 'shader') throw new Error('Authored yarn SVG did not compile to one GameKit shader surface');
+    const vectorActors = Object.freeze(Object.fromEntries(['yarnBody','yarnFace','needle','riftHole','riftPulse','yarnProgress']
+      .map(name=>[name,createVectorActor(context,ACTIVE_THEME_ASSETS[name])])));
+    const vectorDrawCounts = Object.fromEntries(Object.keys(vectorActors).map(name=>[name,0]));
+    const vectorDrawTotals = Object.fromEntries(Object.keys(vectorActors).map(name=>[name,0]));
     const vectorActorDraws=Object.create(null);
     const vectorFaceCommands=[];const vectorNeedleCommands=[];const enemyOverlayCommands=[];
     function setVectorPose(player,part,pose={}){
       player.setBasePose(part,{x:0,y:0,rotation:0,scaleX:1,scaleY:1,opacity:1,...pose});
     }
     function drawVector(name,{expression,clip='idle',startedAtMs=0,timeMs=state.timeMs,x=0,y=0,scaleX=1,scaleY=scaleX,
-      rotation=0,originX=100,originY=100,matrix,alpha=1,color=[1,1,1,1],forceColor=false,actorKey=null,flushMesh=true}={}){
-      const player=vectorPlayers[name];
+      rotation=0,originX=100,originY=100,matrix,alpha=1,color=[1,1,1,1],forceColor=false,actorKey=null}={}){
+      const player=vectorActors[name];
       if(expression)player.setExpression(expression);
       player.play(clip,startedAtMs).seek(timeMs);
-      renderer.flush();
-      player.draw({projection:renderer.projection,matrix:matrix||vectorMatrixFor(x,y,scaleX,scaleY,rotation,originX,originY),alpha,color,forceColor});
-      if(flushMesh)meshRenderer.flush();
+      context.drawVectorActor(player,{matrix:matrix||vectorMatrixFor(x,y,scaleX,scaleY,rotation,originX,originY),alpha,color,forceColor});
       vectorDrawCounts[name]++;vectorDrawTotals[name]++;
       if(actorKey){const draws=vectorActorDraws[actorKey]||(vectorActorDraws[actorKey]={});draws[name]=(draws[name]||0)+1;}
       return player;
     }
-    function drawYarnFace(x,y,radius,expression,bodyMatrix,whiteFlash=false,actorKey=null,flushMesh=true){
-      const player=vectorPlayers.yarnFace;
+    function drawYarnFace(x,y,radius,expression,bodyMatrix,whiteFlash=false,actorKey=null){
       return drawVector('yarnFace',{expression,clip:'idle',startedAtMs:0,x,y,scaleX:radius/100,scaleY:radius/100,
-        originX:100,originY:100,matrix:bodyMatrix,alpha:1,color:[1,1,1,1],forceColor:whiteFlash,actorKey,flushMesh});
+        originX:100,originY:100,matrix:bodyMatrix,alpha:1,color:[1,1,1,1],forceColor:whiteFlash,actorKey});
     }
     function effectTint(color){return [Math.min(1,color[0]/.78),Math.min(1,color[1]/.82),Math.min(1,color[2]/.71),Math.min(1,color[3]??1)];}
     const actions = new ActionState();
@@ -601,7 +592,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       state.nextSpawnAtMs=Number.isFinite(nextHoleAt)?nextHoleAt:Infinity;
       if(state.stageKills>=state.stageKillGoal&&!state.spawnHoles.some(h=>riftPhase(h,now)!=='closing'))state.nextSpawnAtMs=Infinity;
     }
-    function createPlayer(x,y,id=localId(),progress=emptyProgress()) {
+    function createPlayerEntity(x,y,id=localId(),progress=emptyProgress()) {
       const actorStats=deriveTechStats(progress);
       const body=Bodies.circle(x,y,CONFIG.player.radius,{
         label:'player',friction:CONFIG.rolling.friction,frictionStatic:CONFIG.rolling.staticFriction,
@@ -660,7 +651,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       const roster=[...new Set(rosterIds)];
       if(roster.length<1||roster.length>roomMaxPlayers)throw new Error('invalid stage roster');
       for(const [i,id] of roster.entries()){
-        const old=prior.get(id),p=createPlayer(315+(i%4)*57,CONFIG.world.groundY-64,id,old?.progress??(id===localId()?localProgress:emptyProgress()));
+        const old=prior.get(id),p=createPlayerEntity(315+(i%4)*57,CONFIG.world.groundY-64,id,old?.progress??(id===localId()?localProgress:emptyProgress()));
         if(old){
           // A fallen teammate always returns to play at the next stage.
           // Same between-stage restoration for every participant (1..4).
@@ -1045,7 +1036,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       const pos=player.body.position;
       if(mobileAttack.down && mobileAttack.axis){player.lastShotDir=mobileAttack.axis;return mobileAttack.axis;}
       if(pointerAim.seen && pointerAim.source!=='virtual') {
-        const out={};renderer.screenToWorldInto(pointerAim.x,pointerAim.y,out);
+        const out={};camera.screenToPlaneInto(pointerAim.x,pointerAim.y,out);
         const diff=normalize(out.x-pos.x,out.y-pos.y);
         player.lastShotDir=diff;return diff;
       }
@@ -1073,10 +1064,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const turn=Math.atan2(m.dy||0,m.dx||1),reach=m.radius*(.35+.65*t);
         for(let j=0;j<4;j++){
           const a=turn+j*Math.PI/2,dx=Math.cos(a),dy=Math.sin(a);
-          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,5*fade,[.08,.20,.22,.9*fade]);
-          renderer.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,2.4*fade,[c[0],c[1],c[2],fade]);
+          shapes.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,5*fade,[.08,.20,.22,.9*fade]);
+          shapes.line(m.x+dx*4,m.y+dy*4,m.x+dx*reach,m.y+dy*reach,2.4*fade,[c[0],c[1],c[2],fade]);
         }
-        if(t<.4)renderer.ellipse(m.x,m.y,4*(1-t),4*(1-t),[1,.97,.8,fade],8);
+        if(t<.4)shapes.ellipse(m.x,m.y,4*(1-t),4*(1-t),[1,.97,.8,fade],8);
       }
     }
     // Presentation only: authority and guests call this once per combat event.
@@ -1763,7 +1754,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }
     function addRemotePlayer(id,progress=emptyProgress()){
       if(state.players.has(id))return state.players.get(id);
-      const index=state.players.size,p=createPlayer(315+(index%4)*57,CONFIG.world.groundY-64,id,progress);
+      const index=state.players.size,p=createPlayerEntity(315+(index%4)*57,CONFIG.world.groundY-64,id,progress);
       state.players.set(id,p);return p;
     }
     function removeRemotePlayer(id){
@@ -2248,7 +2239,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }
     function floatText(text,x,y,kind='damage') {
       if(!worldVisible(x,y,80))return;
-      const out={};renderer.worldToScreenInto(x,y,out);
+      const out={};camera.planeToScreenInto(x,y,out);
       const el=document.createElement('div');el.className='float';el.textContent=text;
       el.style.left=out.x+'px';el.style.top=out.y+'px';
       if(kind==='merge')el.style.color='#fff1a7';
@@ -2446,8 +2437,8 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       for(let i=1;i<path.length;i++){
         const a=path[i-1],b=path[i];
         if(Math.hypot(b[0]-a[0],b[1]-a[1])<.1)continue;
-        renderer.line(a[0],a[1],b[0],b[1],5,[.06,.19,.21,alpha*.85]);
-        renderer.line(a[0],a[1],b[0],b[1],2.2,[c[0],c[1],c[2],alpha]);
+        shapes.line(a[0],a[1],b[0],b[1],5,[.06,.19,.21,alpha*.85]);
+        shapes.line(a[0],a[1],b[0],b[1],2.2,[c[0],c[1],c[2],alpha]);
       }
     }
     function drawBackdrop() {
@@ -2456,12 +2447,12 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       // Distant, deliberately low-contrast shapes; important physics objects dominate.
       for(let i=0;i<19;i++){
         const x=135+i*163,y=240+Math.sin(i*2.11)*85;
-        renderer.ellipse(x,y,95+Math.sin(i*5)*30,22,[.78,.96,.80,.055],15);
-        renderer.ellipse(x+47,y+30,60,13,[.76,.94,.78,.03],12);
+        shapes.ellipse(x,y,95+Math.sin(i*5)*30,22,[.78,.96,.80,.055],15);
+        shapes.ellipse(x+47,y+30,60,13,[.76,.94,.78,.03],12);
       }
       for(let i=0;i<60;i++){
         const x=i*53+13,y=385+Math.sin(i*7)*260;
-        renderer.ellipse(x,y,2.5,2.5,[.95,.99,.79,.08],7);
+        shapes.ellipse(x,y,2.5,2.5,[.95,.99,.79,.08],7);
       }
       // Render the existing collision faces, not a decorative wall at a different coordinate.
       const halfHeight=cameraSize.h/(2*state.camera.zoom)+80;
@@ -2471,41 +2462,41 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         if(!worldVisible(face,state.camera.y,80))continue;
         const top=Math.max(wall.bounds.min.y,state.camera.y-halfHeight),bottom=Math.min(wall.bounds.max.y,state.camera.y+halfHeight);
         if(bottom<=top)continue;
-        renderer.rect(wall.position.x,(top+bottom)/2,wall.bounds.max.x-wall.bounds.min.x,bottom-top,mapPaint.body);
-        renderer.line(face,top,face,bottom,3,mapPaint.hem);
+        shapes.box(wall.position.x,(top+bottom)/2,wall.bounds.max.x-wall.bounds.min.x,bottom-top,mapPaint.body);
+        shapes.line(face,top,face,bottom,3,mapPaint.hem);
         for(let y=Math.ceil(top/32)*32;y<bottom;y+=32){
-          renderer.line(face+side*7,y-5,face+side*19,y+5,1.8,mapPaint.detail);
+          shapes.line(face+side*7,y-5,face+side*19,y+5,1.8,mapPaint.detail);
         }
       }
       for(const s of state.surfaces){
         const isFloor=s.kind==='ground';
         if(!worldVisible((s.x1+s.x2)*.5,s.top,(s.x2-s.x1)*.5+80))continue;
         const visibleThick=isFloor?Math.min(66,s.thick):s.thick;
-        renderer.rect((s.x1+s.x2)/2,s.top+visibleThick*.5,s.x2-s.x1,visibleThick,isFloor?PALETTE.soil:mapPaint.body);
-        renderer.rect((s.x1+s.x2)/2,s.top+3,s.x2-s.x1,isFloor?7:5,isFloor?PALETTE.edge:mapPaint.hem);
+        shapes.box((s.x1+s.x2)/2,s.top+visibleThick*.5,s.x2-s.x1,visibleThick,isFloor?PALETTE.soil:mapPaint.body);
+        shapes.box((s.x1+s.x2)/2,s.top+3,s.x2-s.x1,isFloor?7:5,isFloor?PALETTE.edge:mapPaint.hem);
         for(let px=s.x1+20;px<s.x2-10;px+=35){
-          renderer.line(px,s.top+6,px+11,s.top+6,1.1,[.94,1,.83,.19]);
-          if(!isFloor)renderer.ellipse(px+7,s.top+17,1.7,1.7,[.87,1,.84,.32],7);
+          shapes.line(px,s.top+6,px+11,s.top+6,1.1,[.94,1,.83,.19]);
+          if(!isFloor)shapes.ellipse(px+7,s.top+17,1.7,1.7,[.87,1,.84,.32],7);
         }
         if(s.oneWay){
           // Two sparse, stage-stable hand-stitched accents per ledge.
           const accent=(Math.imul(s.id+31,state.stage+17)>>>0)%5;
           const motifX=s.x1+Math.min(70,(s.x2-s.x1)*.30);
           if(accent===0||accent===3){
-            renderer.line(motifX,s.top-7,motifX,s.top+3,1.8,mapPaint.detail);
-            renderer.ellipse(motifX,s.top-9,5,5,mapPaint.detail,11);
-            renderer.ellipse(motifX-8,s.top-6,4,3,mapPaint.detail,9);
+            shapes.line(motifX,s.top-7,motifX,s.top+3,1.8,mapPaint.detail);
+            shapes.ellipse(motifX,s.top-9,5,5,mapPaint.detail,11);
+            shapes.ellipse(motifX-8,s.top-6,4,3,mapPaint.detail,9);
           }else if(accent===2){
             const ex=s.x2-50;
-            renderer.line(ex,s.top+10,ex+3,s.top+28,1.5,mapPaint.detail);
-            renderer.ellipse(ex+3,s.top+31,6,4,mapPaint.detail,11);
+            shapes.line(ex,s.top+10,ex+3,s.top+28,1.5,mapPaint.detail);
+            shapes.ellipse(ex+3,s.top+31,6,4,mapPaint.detail,11);
           }
-          renderer.ellipse(s.x1+13,s.top+8,6,5,[.69,.89,.76,.28],10);
-          renderer.ellipse(s.x2-13,s.top+8,6,5,[.69,.89,.76,.28],10);
+          shapes.ellipse(s.x1+13,s.top+8,6,5,[.69,.89,.76,.28],10);
+          shapes.ellipse(s.x2-13,s.top+8,6,5,[.69,.89,.76,.28],10);
           // Thin upward arrow stitches indicate one-way landable platforms.
           for(let px=s.x1+45;px<s.x2-30;px+=90){
-            renderer.line(px-5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
-            renderer.line(px+5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
+            shapes.line(px-5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
+            shapes.line(px+5,s.top+18,px,s.top+12,1.6,[.78,.96,.79,.45]);
           }
         }
       }
@@ -2551,9 +2542,9 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const alpha=.56*(1-since/180),x=hole.x,y=hole.y;
         // The two short lower lips sit over the new body's feet for a few frames.
         for(const side of [-1,1]){
-          renderer.line(x+side*rx*.96,y+ry*.04,x+side*rx*.61,y+ry*.30,1.7,
+          shapes.line(x+side*rx*.96,y+ry*.04,x+side*rx*.61,y+ry*.30,1.7,
             [paint.hem[0],paint.hem[1],paint.hem[2],alpha]);
-          renderer.line(x+side*rx*.61,y+ry*.30,x+side*rx*.34,y+ry*.42,1.3,
+          shapes.line(x+side*rx*.61,y+ry*.30,x+side*rx*.34,y+ry*.42,1.3,
             [paint.detail[0],paint.detail[1],paint.detail[2],alpha*.78]);
         }
       }
@@ -2565,18 +2556,18 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const color=CONFIG.colors['t'+a.fromTier],alpha=(1-p)*.68;
         for(const origin of [{x:a.ax,y:a.ay},{x:a.bx,y:a.by}]){
           const cx=origin.x+(a.x-origin.x)*s,cy=origin.y+(a.y-origin.y)*s;
-          renderer.ellipse(cx,cy,Math.max(1,a.r*(1-p)*.9),Math.max(1,a.r*(1-p)*.9),[color[0],color[1],color[2],alpha*.50],15);
+          shapes.ellipse(cx,cy,Math.max(1,a.r*(1-p)*.9),Math.max(1,a.r*(1-p)*.9),[color[0],color[1],color[2],alpha*.50],15);
           for(let k=0;k<4;k++){
             const phase=a.seed+k*1.57+p*8;
             const swirl=(1-s)*a.r*(.65+k*.11);
-            renderer.line(cx+Math.cos(phase)*swirl,cy+Math.sin(phase)*swirl,a.x,a.y,
+            shapes.line(cx+Math.cos(phase)*swirl,cy+Math.sin(phase)*swirl,a.x,a.y,
               Math.max(.7,2.5*(1-p)),[1,.91,.66,alpha*.65]);
           }
         }
         const spiralR=RADII[a.tier-1]*(.95-.7*p);
         for(let k=0;k<16;k++){
           const t=k/16*Math.PI*2+p*8,u=(k+1)/16*Math.PI*2+p*8;
-          renderer.line(a.x+Math.cos(t)*spiralR,a.y+Math.sin(t)*spiralR,
+          shapes.line(a.x+Math.cos(t)*spiralR,a.y+Math.sin(t)*spiralR,
             a.x+Math.cos(u)*spiralR,a.y+Math.sin(u)*spiralR,
             Math.max(.8,2.5*(1-p)),[1,.93,.73,alpha*.55]);
         }
@@ -2595,10 +2586,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
             const q=i/7;
             const x1=effect.x+sign*reach*q;
             const y1=effect.y-Math.sin(q*Math.PI)*effect.r*.18+Math.sin(q*11+t*8+sign)*effect.r*.08;
-            renderer.line(x0,y0,x1,y1,Math.max(1.4,effect.r*.017),[c[0],c[1],c[2],fade]);
+            shapes.line(x0,y0,x1,y1,Math.max(1.4,effect.r*.017),[c[0],c[1],c[2],fade]);
             x0=x1;y0=y1;
           }
-          renderer.ellipse(x0,y0,Math.max(2,effect.r*.055),Math.max(2,effect.r*.055),[1,.95,.70,fade],10);
+          shapes.ellipse(x0,y0,Math.max(2,effect.r*.055),Math.max(2,effect.r*.055),[1,.95,.70,fade],10);
         }
       }
     }
@@ -2614,7 +2605,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         for(let i=1;i<=12;i++){
           const q=i/12,nx=p.x-dx*(r*.4+q*86)+Math.sin(q*10+t*4)*q*12;
           const ny=p.y-dy*(r*.4+q*86)+q*q*(15+95*t*t)+Math.sin(q*8-t*5)*q*8;
-          renderer.line(px,py,nx,ny,1.7,[1,.92,.72,fade*.75]);px=nx;py=ny;
+          shapes.line(px,py,nx,ny,1.7,[1,.92,.72,fade*.75]);px=nx;py=ny;
         }
         return;
       }
@@ -2624,7 +2615,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const dist=pinned?Math.hypot(c.anchorX-center.x,c.anchorY-center.y):((r+2)+23);
         const edge=(r+2)/Math.hypot(axis.x/sx,axis.y/sy),width=clamp(r*.018+2.4,2.8,5);
         if(dist-edge<=1)return;
-        const player=vectorPlayers.needle;
+        const player=vectorActors.needle;
         setVectorPose(player,'front',{scaleX:dist/78,scaleY:width/6});
         setVectorPose(player,'rear');setVectorPose(player,'puncture',{x:edge,scaleY:width/6});
         setVectorPose(player,'pin-tip',{x:dist});
@@ -2641,7 +2632,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const b=terrain.bounds,t=segmentAabb(center.x,center.y,center.x-dx*reach,center.y-dy*reach,b.min.x-6,b.min.y-6,b.max.x+6,b.max.y+6);
         if(t!==null)rearLimit=Math.min(rearLimit,t*reach);
       }
-      const width=clamp(r*.018+2.4,2.8,5),player=vectorPlayers.needle;
+      const width=clamp(r*.018+2.4,2.8,5),player=vectorActors.needle;
       setVectorPose(player,'rear',{scaleX:rearLimit/89,scaleY:width/6});
       setVectorPose(player,'front');setVectorPose(player,'puncture',{x:-edge,scaleY:width/6});setVectorPose(player,'pin-tip');
       drawVector('needle',{expression:'pinned-rear',clip:'idle',startedAtMs:0,timeMs:now,x:center.x,y:center.y,
@@ -2663,7 +2654,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }
     function rgbScale(color,k,a=color[3]??1){return [clamp(color[0]*k,0,1),clamp(color[1]*k,0,1),clamp(color[2]*k,0,1),a];}
     function drawYarnActor(x,y,radius,expression,clip,startedAtMs,color,scaleX=1,scaleY=1,angle=0,actorKey=null,seedAngle=0){
-      const player=vectorPlayers.yarnBody;
+      const player=vectorActors.yarnBody;
       player.setExpression(expression);player.play(clip,startedAtMs).seek(state.timeMs);
       setVectorPose(player,'shell',{rotation:angle});
       setVectorPose(player,'shell-base',{rotation:angle+seedAngle,opacity:1});
@@ -2674,13 +2665,12 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       return multiplyVectorMatrix(world,root.transform);
     }
     function drawQueuedVectorFaces(){
-      for(const face of vectorFaceCommands)drawYarnFace(face.x,face.y,face.radius,face.expression,face.matrix,face.flash,face.actorKey,false);
-      meshRenderer.flush();
+      for(const face of vectorFaceCommands)drawYarnFace(face.x,face.y,face.radius,face.expression,face.matrix,face.flash,face.actorKey);
       vectorFaceCommands.length=0;
     }
     function drawQueuedVectorNeedles(){
       for(const n of vectorNeedleCommands){
-        const player=vectorPlayers.needle;setVectorPose(player,'rear');setVectorPose(player,'front');
+        const player=vectorActors.needle;setVectorPose(player,'rear');setVectorPose(player,'front');
         setVectorPose(player,'puncture');setVectorPose(player,'pin-tip');
         drawVector('needle',{expression:n.expression,clip:n.expression==='flight'?'flight':'idle',
           startedAtMs:n.startedAtMs??0,timeMs:state.timeMs,x:n.x,y:n.y,rotation:n.rotation,scaleX:n.scale,scaleY:n.scale,
@@ -2693,10 +2683,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       const controlVisible=e.control?.untilMs>now||e.controlReleaseUntilMs>now;
       if(!worldVisible(pos.x,pos.y,r+(controlVisible?300:0)))return;
       const floor=shadowUnder(pose,r),height=Math.max(0,floor-(pos.y+r)),scale=clamp(1-height/430,.22,1);
-      renderer.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
+      shapes.ellipse(pos.x,floor+1,r*.90*scale,r*.18*scale,[.09,.21,.22,.26*scale],13);
       if(e.fromHole&&now<e.popUntilMs){
         const t=1-(e.popUntilMs-now)/380;
-        renderer.ellipse(pos.x,pos.y+r*.8,r*(1-t*.45),r*.19,[1,.88,.65,(1-t)*.32],12);
+        shapes.ellipse(pos.x,pos.y+r*.8,r*(1-t*.45),r*.19,[1,.88,.65,(1-t)*.32],12);
       }
       const control=e.control&&e.control.untilMs>now?e.control:null;
       const pinned=control?.mode==='pinned';
@@ -2731,20 +2721,20 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
           for(let i=0;i<dots;i++){
             const angle=-Math.PI*.82+i*(Math.PI*1.64/Math.max(1,dots-1))+seedAngle*.14;
             const dx=Math.cos(angle)*r*.78,dy=Math.sin(angle)*r*.78;
-            renderer.ellipse(bodyVisual.x+dx*bodyVisual.sx,bodyVisual.y+dy*bodyVisual.sy,
+            shapes.ellipse(bodyVisual.x+dx*bodyVisual.sx,bodyVisual.y+dy*bodyVisual.sy,
               r*.1*bodyVisual.sx,r*.1*bodyVisual.sy,markerColor,10);
           }
         }
         if(tier>=2||e.hp<e.maxHp){
-          const width=r*1.6,y=pos.y-r-12;renderer.rect(pos.x,y,width,4,[.1,.22,.25,.74]);
+          const width=r*1.6,y=pos.y-r-12;shapes.box(pos.x,y,width,4,[.1,.22,.25,.74]);
           const fillWidth=width*clamp(e.hp/Math.max(1,e.maxHp),0,1);
-          if(fillWidth>0)renderer.rect(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
+          if(fillWidth>0)shapes.box(pos.x-width*.5+fillWidth*.5,y,fillWidth,3,[.91,.69,.49,.96]);
         }
-        if(e.tier>=2&&e.goalKind==='merge')renderer.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
+        if(e.tier>=2&&e.goalKind==='merge')shapes.ellipse(pos.x,pos.y-r-20,2.5,2.5,[1,.84,.43,.79],8);
         if(e.fromSplit){
           const curl=r*.29;
-          renderer.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
-          renderer.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
+          shapes.line(pos.x-r*.40,pos.y-r*.80,pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(1.6,r*.018),PALETTE.cream);
+          shapes.ellipse(pos.x-r*.40-curl*.35,pos.y-r*.80-curl,Math.max(2,r*.046),Math.max(2,r*.046),PALETTE.gold,10);
         }
       }
       enemyOverlayCommands.length=0;
@@ -2759,7 +2749,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:'fallen',matrix,flash:false,actorKey});
         const rest=Math.max(0,p.deathUntilMs-now);
         if(rest>0&&state.players.size>1){
-          const progress=clamp(1-rest/CONFIG.player.respawnMs,0,1),player=vectorPlayers.yarnProgress;
+          const progress=clamp(1-rest/CONFIG.player.respawnMs,0,1),player=vectorActors.yarnProgress;
           player.setExpression('revive');for(let i=1;i<=14;i++)player.setPartVisible('segment-'+i,i<=Math.floor(progress*14));
           drawVector('yarnProgress',{expression:'revive',clip:'revive',startedAtMs:0,timeMs:now,x:pos.x,y:pos.y,
             scaleX:(r+10)/45,scaleY:(r+10)/45,originX:50,originY:50,alpha:.77,actorKey});
@@ -2767,7 +2757,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         return;
       }
       const shadowY=shadowUnder(pose,r),scale=clamp(1-(shadowY-pos.y-r)/430,.25,1);
-      renderer.ellipse(pos.x,shadowY+1,r*1.1*scale,r*.27*scale,[.06,.17,.21,.29*scale],15);
+      shapes.ellipse(pos.x,shadowY+1,r*1.1*scale,r*.27*scale,[.06,.17,.21,.29*scale],15);
       const dashing=now<p.dash.untilMs,clip=dashing?'dash':now<p.hitInvulnerableUntil?'invulnerable':'idle';
       const clipStart=clip==='dash'?p.dash.untilMs-p.stats.dashHoldMs:0;
       const actorKey=`player:${p.id}`;
@@ -2775,10 +2765,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       vectorFaceCommands.push({x:pos.x,y:pos.y,radius:r,expression:'player',matrix,flash:now<p.hitInvulnerableUntil,actorKey});
       if(state.players.size>1){
         const labelColor=p.id===localId()?[.65,1,.72,1]:[.91,.72,1,1];
-        renderer.rect(pos.x,pos.y-r-14,40,4,[.12,.21,.21,.66]);
+        shapes.box(pos.x,pos.y-r-14,40,4,[.12,.21,.21,.66]);
         const fillWidth=40*clamp(p.hp/Math.max(1,p.maxHp),0,1);
-        if(fillWidth>0)renderer.rect(pos.x-20+fillWidth*.5,pos.y-r-14,fillWidth,3,labelColor);
-        renderer.ellipse(pos.x,pos.y-r-22,3,3,labelColor,10);
+        if(fillWidth>0)shapes.box(pos.x-20+fillWidth*.5,pos.y-r-14,fillWidth,3,labelColor);
+        shapes.ellipse(pos.x,pos.y-r-22,3,3,labelColor,10);
       }
       const aim=p.lastShotDir;
       vectorNeedleCommands.push({x:pos.x+aim.x*24.5,y:pos.y+aim.y*24.5,rotation:Math.atan2(aim.y,aim.x),expression:'launcher',scale:27/47.5,actorKey:`player:${p.id}`});
@@ -2798,12 +2788,11 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       const targetY=halfH>=CONFIG.world.height/2?CONFIG.world.height/2:clamp(p.y-40,halfH,CONFIG.world.height-halfH);
       cam.x+=(targetX-cam.x)*.115;cam.y+=(targetY-cam.y)*.115;
       const shake=cam.shake;
-      renderer.setCamera({x:cam.x+Math.sin(metrics.frames*2.43)*shake*.5,y:cam.y+Math.cos(metrics.frames*1.71)*shake*.5,zoom,rotation:0});
-      if(!device.beginFrame({clearColor:[0,0,0,0]}))return;
-      meshRenderer.beginFrame();
+      camera.setCamera({x:cam.x+Math.sin(metrics.frames*2.43)*shake*.5,y:cam.y+Math.cos(metrics.frames*1.71)*shake*.5,zoom,rotation:0});
+      if(!context.beginFrame({clearColor:[0,0,0,0]}))return;
+      camera.applyToContext(context);
       for(const key of Object.keys(vectorDrawCounts))vectorDrawCounts[key]=0;
       for(const key of Object.keys(vectorActorDraws))delete vectorActorDraws[key];
-      if(!renderer.beginFrame([0,0,0,0])){device.endFrame();return;}
       drawBackdrop();
       drawSpawnHoles();
       for(const enemy of state.enemies){const pose=presentation.frame.modelFor(enemy.body);if(pose)drawEntity(enemy,pose);}
@@ -2820,7 +2809,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         if(shot.ricochet)drawNeedleTrail([...shot.ricochet.path.slice(-1),[shot.x,shot.y]],.95,shot.ricochet.hits+1);
         const enemy=shot.owner==='enemy';
         const dir=normalize(shot.vx,shot.vy);
-        if(shot.ricochet)renderer.ellipse(shot.x+dir.x*13,shot.y+dir.y*13,3.2,3.2,PALETTE.cream,8);
+        if(shot.ricochet)shapes.ellipse(shot.x+dir.x*13,shot.y+dir.y*13,3.2,3.2,PALETTE.cream,8);
         vectorNeedleCommands.push({x:shot.x,y:shot.y,rotation:Math.atan2(dir.y,dir.x),
           expression:'flight',startedAtMs:state.timeMs-(CONFIG.combat.flightMs-shot.remainingMs),scale:30/171,color:enemy?[1,.62,.65,1]:[1,1,1,1],actorKey:`projectile:${shot.id}`});
       }
@@ -2831,7 +2820,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       drawQueuedVectorNeedles();
       for(const q of state.particles){
         if(!worldVisible(q.x,q.y,10))continue;
-        renderer.ellipse(q.x,q.y,q.size,q.size,[q.color[0],q.color[1],q.color[2],q.color[3]*(q.ttl/q.maxTtl)],9);
+        shapes.ellipse(q.x,q.y,q.size,q.size,[q.color[0],q.color[1],q.color[2],q.color[3]*(q.ttl/q.maxTtl)],9);
       }
       for(const fx of state.rings){
         if(!worldVisible(fx.x,fx.y,fx.radius))continue;
@@ -2839,18 +2828,13 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         const tint=[fx.color[0],fx.color[1],fx.color[2],(.7-pct*.7)*(fx.color[3]||1)];
         for(let i=0;i<15;i++){
           const a=i*Math.PI*2/15,nt=(i+1)*Math.PI*2/15;
-          renderer.line(fx.x+Math.cos(a)*r,fx.y+Math.sin(a)*r,fx.x+Math.cos(nt)*r,fx.y+Math.sin(nt)*r,2.7,tint);
+          shapes.line(fx.x+Math.cos(a)*r,fx.y+Math.sin(a)*r,fx.x+Math.cos(nt)*r,fx.y+Math.sin(nt)*r,2.7,tint);
         }
       }
-      const renderingStats=renderer.endFrame();
-      meshRenderer.flush();
-      const meshStats=meshRenderer.stats();
-      device.endFrame();
-      if(renderingStats){
-        metrics.drawCalls=(renderingStats.drawCalls??0)+(meshStats.draws??0);
-        metrics.vertices=(renderingStats.vertices??0)+(meshStats.vertices??0);
-        metrics.vectorInstances=meshStats.instances??0;
-      }
+      const renderingStats=context.endFrame();
+      metrics.drawCalls=renderingStats.drawCalls??0;
+      metrics.vertices=renderingStats.vertices??0;
+      metrics.vectorInstances=renderingStats.mesh?.instances??0;
     }
     function resize() {
       const box=canvas.getBoundingClientRect();
@@ -2858,7 +2842,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       const dpr=Math.min(2,Math.max(1,globalThis.devicePixelRatio||1));
       if(cameraSize.w===box.width&&cameraSize.h===box.height&&cameraSize.dpr===dpr)return;
       cameraSize={w:box.width,h:box.height,dpr};
-      renderer.resize(box.width,box.height,dpr);
+      camera.setViewport({width:box.width,height:box.height,dpr}).resizeCanvas(canvas);
     }
     function drawRadar() {
       const mini=$('radar');if(getComputedStyle(mini).display==='none')return;
@@ -3142,7 +3126,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         ...metrics}),
       // Built-in QA actions are explicitly gated; ordinary play does not expose spawn cheats.
       ...((globalThis.__YARN_MAYHEM_QA===true)?{
-        qaWorldPoint:(x,y)=>{const point={};renderer.worldToScreenInto(x,y,point);return point;},
+        qaWorldPoint:(x,y)=>{const point={};camera.planeToScreenInto(x,y,point);return point;},
         qaQuietArena:()=>{state.nextSpawnAtMs=1e10;state.nextRiftAtMs=Infinity;for(const h of state.spawnHoles){h.spawned=true;h.nextAtMs=1e10;}},
         qaSpawn:(tier,x,y,extra={})=>createEnemy(clamp(Math.round(tier),1,CONFIG.enemy.maxTier),x,y,extra),
         qaStep:(ticks=1)=>{for(let i=0;i<Math.min(300,ticks);i++)updateSimulation(CONFIG.tickMs);},
@@ -3216,13 +3200,11 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         qaRender:()=>renderFrame(),
         qaStopSimulation:()=>loop?.stop(),
         qaStartSimulation:()=>loop?.start(),
-        qaVectorStats:()=>({renderer:meshRenderer.stats(),yarnSurface:{state:'ready',surfaceCount:yarnShaderSurfaces.length,fiberEnabled:yarnSurfaceStyle.fiber===true,patternEnabled:yarnSurfaceStyle.pattern!==false,fillVertices:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.fillVertices.length/6,0),outlinePoints:yarnShaderSurfaces.reduce((sum,surface)=>sum+surface.outline.length/2,0),draws:vectorDrawTotals.yarnBody},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}])),assets:Object.entries(vectorAssets).map(([name,asset])=>({
-          name,bytes:asset.mesh.byteLength,vertices:asset.mesh.count,parts:asset.mesh.partCount,
-        }))}),
+        qaVectorStats:()=>({renderer:context.stats().mesh,yarnSurface:{state:'ready',surfaceCount:yarnSurfaceCount,fiberEnabled:yarnSurfaceStyle.fiber===true,patternEnabled:yarnSurfaceStyle.pattern!==false,draws:vectorDrawTotals.yarnBody},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}]))}),
       }:{}),
     };
     window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
-      for(const asset of Object.values(vectorAssets))asset.dispose();yarnSurfaceRenderer.dispose();meshRenderer.dispose();device.dispose();renderer.dispose();
+      for(const actor of Object.values(vectorActors))actor.dispose();context.dispose();device.dispose();
       Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
   } catch(error) {showFatal(error);}
   function showFatal(error) {

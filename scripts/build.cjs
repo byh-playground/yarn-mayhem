@@ -7,35 +7,23 @@ const packageJson = require('../package.json');
 const gamekit = require('../docs/gamekit-manifest.json');
 const sourceManifest = JSON.parse(fs.readFileSync('docs/vector-assets-manifest.json', 'utf8'));
 const html = fs.readFileSync('index.html');
-const htmlText = html.toString('utf8');
+const mainText = fs.readFileSync('src/main.js', 'utf8');
 const gamekitBase = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@' + gamekit.distCommit + '/';
-if (!htmlText.includes(gamekitBase) || !htmlText.includes("gamekitDist:'" + gamekit.distCommit + "'")
-    || !htmlText.includes("gamekitVersion:'" + gamekit.version + "'")) throw new Error('Runtime GameKit pin differs from docs/gamekit-manifest.json');
+// docs/gamekit-manifest.json is the lock file: src/main.js must import exactly the pinned dist and modules.
+if (!mainText.includes("const GAMEKIT_DIST = '" + gamekitBase + "'")) throw new Error('Runtime GameKit pin differs from docs/gamekit-manifest.json');
+if (!/^[0-9a-f]{40}$/.test(gamekit.distCommit) || !/^[0-9a-f]{40}$/.test(gamekit.sourceCommit)) throw new Error('GameKit pin must be full commit SHAs');
 for (const module of gamekit.modules) {
-  if (!htmlText.includes("import(GAMEKIT_DIST + '" + module.file + "')")) throw new Error('Pinned GameKit module is not imported: ' + module.file);
+  if (!/^[0-9a-f]{64}$/.test(module.sha256)) throw new Error('GameKit module hash is invalid: ' + module.file);
+  if (!mainText.includes("import(GAMEKIT_DIST + '" + module.file + "')")) throw new Error('Pinned GameKit module is not imported: ' + module.file);
 }
-const expectedGamekitModules = [
-  { file: 'rendering.js', sha256: '021b11f83b49be3e94cfe0a67769dcd248b9463325b6dcc55ea4943a0ea6c18b' },
-  { file: 'vector-assets.js', sha256: '288eadf3830df2836f0b103dc513a906b5b9dbd58660885c18b2a0941d0e877a' },
-  { file: 'vector-assets-loader.js', sha256: '56042179b1b669d69d4791c5a1ad7bbd1927d8686fa4e9192504fb248c2170e2' },
-  { file: 'input.js', sha256: 'a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f' },
-  { file: 'simloop.js', sha256: 'c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8' },
-  { file: 'audio.js', sha256: 'f792c0b56b4829d20dfecb03f087bc435e377d9e772a7c5caa3611afef281d20' },
-  { file: 'transport.js', sha256: 'cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a' },
-  { file: 'interpolation.js', sha256: '061960f311ad57894914186baa01f6b257269637353056ac93f86d34265a4ef8' },
-];
-if (gamekit.version !== '0.14.3' || gamekit.sourceCommit !== 'dd59a57fcf66409cef16632ffb433c0b760324fa'
-    || gamekit.distCommit !== '418e17c455db56d6ed073d82d115191d9dd8bf04'
-    || gamekit.officialManifestSha256 !== '20244c2beeee33719f407a9baa92c55a4bd55a0e4eb9f094590bb0eed652296e'
-    || JSON.stringify(gamekit.modules) !== JSON.stringify(expectedGamekitModules)) {
-  throw new Error('Official GameKit 0.14.3 runtime module pin changed');
+for (const legacy of ['Renderer2D', 'YarnSurfaceRenderer', 'MeshRenderer', 'createVectorAsset(', '.createPlayer(', 'shaderSurfaces']) {
+  if (mainText.includes(legacy)) throw new Error('Legacy GameKit rendering API is still referenced: ' + legacy);
 }
-if (!htmlText.includes('createVectorAssetLoader({ maxEntries: 8 })') || !htmlText.includes('expectedSha256: item.sha256')
-    || !htmlText.includes('includeSourcePaths: true') || htmlText.includes('compiled-assets.mjs')
-    || htmlText.includes('compileVectorAssetFile')) throw new Error('Runtime must verify and compile source SVGs through the shared startup loader');
-if (!htmlText.includes('new YarnSurfaceRenderer(device, { maxSurfaces: 2, maxSurfaceBytes: 1024 * 1024 })')
-    || !htmlText.includes('{surfaceRenderer:yarnSurfaceRenderer}') || !htmlText.includes('yarnSurfaceRenderer.dispose()')) {
-  throw new Error('Authored shader SVG surfaces must use the shared GameKit surface renderer lifecycle');
+if (!mainText.includes('createVectorAssetLoader({ maxEntries: 8 })') || !mainText.includes('expectedSha256: item.sha256')
+    || !mainText.includes('includeSourcePaths: true') || mainText.includes('compiled-assets.mjs')
+    || mainText.includes('compileVectorAssetFile')) throw new Error('Runtime must verify and compile source SVGs through the shared startup loader');
+if (!mainText.includes('new VectorContext(device') || !mainText.includes('createVectorActor(context')) {
+  throw new Error('Authored SVG actors must be created on the shared GameKit VectorContext');
 }
 if (sourceManifest.schemaVersion !== 1 || sourceManifest.compileMode !== 'browser-startup'
     || !Array.isArray(sourceManifest.assets) || sourceManifest.assets.length !== 6) {
@@ -64,11 +52,11 @@ for (const item of sourceManifest.assets) {
 }
 fs.writeFileSync(path.join(outputDir, 'manifest.json'), JSON.stringify(sourceManifest, null, 2) + '\n');
 
-const source = htmlText.match(/<script type="module" data-game-module>([\s\S]*?)<\/script>/);
-if (!source) throw new Error('Inline game module was not found');
-cp.execFileSync(process.execPath, ['--input-type=module', '--check'], { input: source[1] });
+cp.execFileSync(process.execPath, ['--check', 'src/main.js']);
+cp.execFileSync(process.execPath, ['--check', 'src/visual/matrix.js']);
 fs.mkdirSync('_site', { recursive: true });
 fs.copyFileSync('index.html', '_site/index.html');
+fs.cpSync('src', path.join('_site', 'src'), { recursive: true });
 fs.writeFileSync('_site/.nojekyll', '');
 let localCommit = 'local';
 if (!process.env.GITHUB_SHA && fs.existsSync('.git')) localCommit = cp.execFileSync('git', ['rev-parse', 'HEAD']).toString().trim();
@@ -76,6 +64,7 @@ const buildInfo = {
   version: packageJson.version,
   commit: process.env.GITHUB_SHA || localCommit,
   htmlSha256: crypto.createHash('sha256').update(html).digest('hex'),
+  mainSha256: crypto.createHash('sha256').update(mainText).digest('hex'),
   gamekit: gamekit.distCommit,
   gamekitVersion: gamekit.version,
   gamekitSource: gamekit.sourceCommit,

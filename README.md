@@ -11,14 +11,14 @@ Defend against yarn enemies emerging from map-wide temporary rifts; needles figh
 
 ## 0.20.6 - Browser startup SVG compilation
 
-- Loads and SHA-256 verifies the six authored SVGs with the pinned GameKit 0.14.3 browser loader at startup, then reuses its cached compiled assets.
+- Loads and SHA-256 verifies the six authored SVGs with the pinned GameKit 0.26.5 browser loader at startup, then reuses its cached compiled assets.
 - Keeps the authored yarn silhouette, winding paths, expressions, tier faces, deformation, and gameplay effects; the yarn shader is ordered with the SVG's own mesh layers.
 - Runs the shader pattern at a thickness scaled for small mobile actors and compares fixed-time PC and landscape-touch captures with the public v0.20.4 baseline.
 
 ## 0.20.4 - Restore yarn winding and runtime effects
 
 - Restores the pre-migration yarn outline, six/five/four contour windings, nine short fibers, per-tier marker count and live squash/stretch.
-- Returns path-dependent needle trails, collision impacts, split and absorption particles to the shared Renderer2D path while keeping character and prop SVG art and authored clips.
+- Returns path-dependent needle trails, collision impacts, split and absorption particles to the shared GameKit `VectorContext` (`PrimitivePainter`) path while keeping character and prop SVG art and authored clips.
 - Keeps host-owned rift positions, timing, tier and concurrency rules unchanged.
 
 ## 0.20.3 - Restore original game presentation
