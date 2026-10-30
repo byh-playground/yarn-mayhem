@@ -1,0 +1,15 @@
+{
+  "$schema": "https://byh-playground.github.io/bloom-world/playground/bloom-game.schema.json",
+  "schemaVersion": 1,
+  "title": "털실 대소동",
+  "en": "YARN MAYHEM",
+  "genre": "action",
+  "tags": ["횡스크롤", "액션 RPG", "1–4인"],
+  "desc": "바늘로 합체·분열하는 털실 적을 상대하는 횡스크롤 액션 RPG입니다.",
+  "points": [
+    "합체·분열하는 물리 기반 적",
+    "스탯 트리로 바뀌는 전투 스타일",
+    "최대 4인 플레이"
+  ],
+  "showcase": "https://byh-playground.github.io/yarn-mayhem/#/showcase"
+}
