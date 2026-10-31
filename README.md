@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.21.0**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.21.1**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.21.1 - 읽을 수 없는 성장 기록에서 새로 시작
+
+- 성장 기록을 읽지 못해 멈춘 시작 화면에 **기록 지우고 새로 시작** 버튼을 둡니다. 누르면 되돌릴 수 없다는 확인을 받고, 확인하면 그 기록만 GameKit `save.reset()`으로 버린 뒤 첫 실행처럼 게임을 시작합니다. 취소하면 원본을 그대로 둡니다. 지우지 못하면 같은 안내 자리에 실패를 보여 줍니다.
+- 읽을 수 있는 기록이면 버튼이 나타나지 않습니다. 저장을 스스로 덮어쓰지 않는 잠금은 그대로입니다.
+- GameKit 고정본을 v0.38.1 dist `a099568`로 올립니다. 바뀐 모듈은 `save.js`(reset 추가)와 `audio.js`(v0.38.0 Breaking: `storageKey` 대신 save `settings`)입니다. 이 게임은 소리 설정을 저장한 적이 없고(`storageKey` 미사용, 음소거·음량 조작 없음) `AudioPlayer`를 `settings` 없이 그대로 쓰므로 소리 저장 레코드를 새로 만들지 않습니다.
 
 ## 0.21.0 - GameKit save 모듈로 성장 저장
 

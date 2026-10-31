@@ -4,7 +4,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@53361a10c66cec705a15e7857831a4c21537e592/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@a099568db08e60451d52b7d669676603e252cbc4/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
@@ -1528,7 +1528,25 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       storage:'이 브라우저에서 성장 기록 저장소를 열 수 없습니다. 사이트 데이터 저장 권한을 확인해 주세요.'};
     const GROWTH_SAVE_NOTICES={conflict:'다른 탭에서 성장이 바뀌었습니다 · 새로고침하면 최신 성장을 불러옵니다',
       storage:'이 기기에 저장하지 못했습니다 · 현재 플레이에는 유지',closed:'성장 저장이 종료되었습니다'};
-    await GROWTH_SAVE.load().catch(error=>{throw GROWTH_LOAD_MESSAGES[error?.kind]?new Error(GROWTH_LOAD_MESSAGES[error.kind],{cause:error}):error;});
+    // An unreadable record stays locked until the player confirms discarding it; only then does reset() overwrite it
+    // and boot continues as a first run. Cancelling leaves the stored bytes untouched.
+    function waitForSaveReset(save,error){
+      showFatal(new Error(GROWTH_LOAD_MESSAGES.unreadable,{cause:error}));
+      const button=$('saveReset');button.hidden=false;
+      return new Promise(resolve=>{
+        button.onclick=async()=>{
+          if(!globalThis.confirm?.('저장된 성장 기록을 지우고 새로 시작합니다.\n지운 기록은 되돌릴 수 없습니다. 계속할까요?'))return;
+          button.disabled=true;
+          try{await save.reset();}
+          catch(resetError){button.disabled=false;showFatal(new Error('성장 기록을 지우지 못했습니다: '+String(resetError?.message||resetError),{cause:resetError}));return;}
+          button.onclick=null;button.hidden=true;$('error').textContent='';resolve();
+        };
+      });
+    }
+    await GROWTH_SAVE.load().catch(error=>{
+      if(error?.kind==='unreadable')return waitForSaveReset(GROWTH_SAVE,error);
+      throw GROWTH_LOAD_MESSAGES[error?.kind]?new Error(GROWTH_LOAD_MESSAGES[error.kind],{cause:error}):error;
+    });
     let localProgress=validateProgress(GROWTH_SAVE.data),growthNotice='';
     function setGrowthNotice(text){growthNotice=text;updateTechUI();renderMainMenu();}
     GROWTH_SAVE.onExternalChange(()=>setGrowthNotice(GROWTH_SAVE_NOTICES.conflict));

@@ -1,3 +1,10 @@
+# 0.21.1 읽을 수 없는 성장 기록에서 새로 시작
+
+고정: GameKit v0.38.1 source `f71da69ecb09457bf63cd6a3d0b4b25438fa21ce`, dist `a099568db08e60451d52b7d669676603e252cbc4`(공식 manifest SHA-256 `0bca881fd0c864bf45c72e881f1ca3f91e7e1bc63a3fab6e342f2f4a1f34080d`). 10개 모듈을 같은 dist로 올렸고, 이전 dist `53361a1` 대비 바이트가 바뀐 모듈은 `save.js`(`reset()` 추가)와 `audio.js`(v0.38.0 Breaking: `storageKey` 제거, `settings`·`onSaveError`·`audioSettings`)입니다. 이 게임은 `storageKey`를 쓴 적이 없고 음소거·음량 조작이 없어 `AudioPlayer`를 `settings` 없이(기본 `null`) 그대로 씁니다. 나머지 8개는 바이트가 같습니다.
+
+- 직접 관찰(Playwright 헤드리스 Chromium, SwiftShader, 1280x720·844x390·568x280): 깨진 JSON 레코드에서 안내와 **기록 지우고 새로 시작** 버튼 표시 → 취소하면 원본 바이트 동일·잠금 유지. 확인하면 메인 메뉴로 시작하고 레코드는 `{earnedPoints:0,upgrades:{},schema:1,revision:0}`, 새로고침 뒤 잠금 없이 열림. 모양은 맞지만 검증에 실패하는 레코드(revision 5)도 같은 흐름이며 revision 6으로 이어짐. 잠기지 않은 저장(새 프로필·정상 레코드)에는 버튼이 없음. 쓰기를 실패시키면 같은 안내 자리에 실패를 보이고 원본 유지. `?showcaseDemo=1`은 메모리 저장이라 버튼 없이 시작하고 실제 레코드는 바이트 동일. localStorage에는 `yarn-mayhem.growth` 외 키가 생기지 않음.
+- 568x280에서는 main에서도 잠금 안내 끝줄이 화면 밖으로 잘렸으므로 높이 420px 이하에서만 잠금 화면 여백·줄 간격을 줄여 버튼까지 스크롤 없이 들어오게 했습니다.
+
 # 0.21.0 GameKit 0.37.6 save 모듈로 성장 저장 이관
 
 고정: GameKit v0.37.6 source `9beed252a85e3dc0a121203aee5559bfbdee3288`, dist `53361a10c66cec705a15e7857831a4c21537e592`(공식 manifest SHA-256 `168b283150cb0db4aecfa3227f47b72df7dd781756b49d550b29891f1c1d0417`). 빌드 검사가 모든 모듈을 같은 dist로 요구하므로 10개 모듈을 함께 올렸습니다. 이전 dist 대비 바이트가 바뀐 모듈은 `rendering.js`·`vector-assets-loader.js`(sketch 스타일 에코 계산·sprite `createActor` 이름, 이 게임은 yarn 스타일만 쓰고 sprite를 쓰지 않음), `audio.js`(v0.27~0.32 베드·`start` 옵션 객체, 이 게임은 `play`만 씀), 새로 더한 `save.js`입니다. 나머지 6개는 바이트가 같습니다.
