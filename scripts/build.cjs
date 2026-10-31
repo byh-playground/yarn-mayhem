@@ -16,6 +16,17 @@ for (const module of gamekit.modules) {
   if (!/^[0-9a-f]{64}$/.test(module.sha256)) throw new Error('GameKit module hash is invalid: ' + module.file);
   if (!mainText.includes("import(GAMEKIT_DIST + '" + module.file + "')")) throw new Error('Pinned GameKit module is not imported: ' + module.file);
 }
+// Every GameKit URL in the served sources (main.js modules and showcase.js scenario) uses the one pinned dist commit.
+for (const file of ['index.html', 'src/main.js', 'src/showcase.js']) {
+  for (const [, commit] of fs.readFileSync(file, 'utf8').matchAll(/bloom-gamekit@([0-9a-f]+)\//g)) {
+    if (commit !== gamekit.distCommit) throw new Error(file + ' uses GameKit ' + commit + ' instead of the pinned ' + gamekit.distCommit);
+  }
+}
+for (const tool of gamekit.tools) {
+  if (crypto.createHash('sha256').update(fs.readFileSync(tool.path)).digest('hex') !== tool.sha256) throw new Error('Pinned GameKit tool hash mismatch: ' + tool.path);
+}
+// The committed installable-app files must match their SVG sources, index.html and the precached files.
+cp.execFileSync(process.execPath, ['scripts/pwa.mjs', '--check'], { stdio: 'inherit' });
 for (const legacy of ['Renderer2D', 'YarnSurfaceRenderer', 'MeshRenderer', 'createVectorAsset(', '.createPlayer(', 'shaderSurfaces']) {
   if (mainText.includes(legacy)) throw new Error('Legacy GameKit rendering API is still referenced: ' + legacy);
 }
@@ -57,6 +68,8 @@ cp.execFileSync(process.execPath, ['--check', 'src/visual/matrix.js']);
 fs.mkdirSync('_site', { recursive: true });
 fs.copyFileSync('index.html', '_site/index.html');
 fs.cpSync('src', path.join('_site', 'src'), { recursive: true });
+for (const file of ['manifest.webmanifest', 'sw.js']) fs.copyFileSync(file, path.join('_site', file));
+fs.cpSync('pwa', path.join('_site', 'pwa'), { recursive: true });
 fs.writeFileSync('_site/.nojekyll', '');
 let localCommit = 'local';
 if (!process.env.GITHUB_SHA && fs.existsSync('.git')) localCommit = cp.execFileSync('git', ['rev-parse', 'HEAD']).toString().trim();

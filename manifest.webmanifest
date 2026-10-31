@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "털실 대소동 / Yarn Mayhem",
+  "short_name": "털실 대소동",
+  "description": "바늘로 합체·분열하는 털실 적을 상대하는 횡스크롤 액션 RPG입니다.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#142b31",
+  "theme_color": "#142b31",
+  "icons": [
+    {
+      "src": "pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { installShowcase } from 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2c6de8e749d88d00fd8c9825170ec957bdd64d35/scenario.js';
+import { installShowcase } from 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@fcd3a02db452b2e469898b05aa797d754a89fb76/scenario.js';
 const SHOWCASE = installShowcase({
     title:'털실 대소동',
     launcher:'#mainButton',

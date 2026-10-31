@@ -1,3 +1,13 @@
+# 0.22.0 설치 가능한 앱(PWA)
+
+고정: GameKit v0.39.1 source `47d9ec102622c84fb6fb66121eab74e8e91fd862`, dist `fcd3a02db452b2e469898b05aa797d754a89fb76`(공식 manifest SHA-256 `049171e4b5cd21e07083cc096f3e50aa7bc01f4d4f822e0bd9fc880cfb48c172`). 이전 dist `a099568` 대비 바이트가 바뀐 모듈은 `transport.js`(v0.39.0 Breaking `resume.storage` → `resume.adapter`, 쓰기 실패는 `resume-save-failed`)이고 `pwa.js`를 새로 더했습니다. 이 게임은 `createNostrDynamicRoom`에 `resume`을 넘기지 않으므로(기본은 저장 없음) 바꿀 코드가 없습니다. 나머지 9개와 `showcase.js`의 `scenario.js`(이전 `2c6de8e`)는 바이트가 같습니다. `scripts/vendor/gamekit/pwa-build.mjs`는 같은 dist의 파일 그대로이며 SHA-256 `dc00f87a…`를 `docs/gamekit-manifest.json`의 `tools`에 고정하고 `scripts/pwa.mjs`·`scripts/build.cjs`가 확인합니다.
+
+- 직접 관찰(Playwright 1.63.0 헤드리스 Chromium, SwiftShader, 로컬 `tests/game-server.cjs`): manifest 200 `application/manifest+json`, 아이콘 192·512·maskable 512·apple-touch 180이 실제 크기로 디코드됨. 일반 주소는 첫 방문에 `sw.js`를 등록하고 페이지를 제어하며 precache 18개를 보관, 두 번째 방문에서 GameKit 모듈 11개가 runtime 캐시에 들어감. `?showcaseDemo=1`·`#/showcase`는 8초 뒤에도 등록 0개.
+- 오프라인: 한 번 방문한 뒤 `context.setOffline(true)` 새로고침은 시작됨. 단 Matter.js(jsDelivr npm)는 service worker가 보관하지 않으므로 이는 브라우저 HTTP 캐시 덕분이며, HTTP 캐시를 비우면 "Matter.js 0.20.0을 불러오지 못했습니다" 오류로 멈춥니다. 오프라인 시작은 보장하지 않습니다.
+- 업데이트: 배포처럼 `sw.js`를 바꿔 새로고침하면 시작 화면에 "새 버전이 준비되었습니다 · 새 버전으로 다시 열기"가 나오고, 누르면 새 worker로 다시 읽고 이전 캐시를 지움. 1280x800·844x390 가로 터치에서 카드 스크롤 없이 들어감.
+- 설치 버튼: `beforeinstallprompt`를 합성해 보내면 시작 화면 버튼 줄에 **앱으로 설치**가 나타남(1280x800·844x390). 실제 브라우저 설치 창은 확인하지 못했습니다.
+- 시험: `npm test`·`test:combat`·`test:rift`·`test:rift:rtc`·`test:spawn:interval`·`test:hopping` PASS(Edge). `test:mobile`은 main `cff4dd7`에서도 같은 `save-notice mobile help fits`로 실패하는 기존 실패입니다. `test:vector-assets`(기준본 경로가 필요한 수동 CI)는 실행하지 않았습니다.
+
 # 0.21.1 읽을 수 없는 성장 기록에서 새로 시작
 
 고정: GameKit v0.38.1 source `f71da69ecb09457bf63cd6a3d0b4b25438fa21ce`, dist `a099568db08e60451d52b7d669676603e252cbc4`(공식 manifest SHA-256 `0bca881fd0c864bf45c72e881f1ca3f91e7e1bc63a3fab6e342f2f4a1f34080d`). 10개 모듈을 같은 dist로 올렸고, 이전 dist `53361a1` 대비 바이트가 바뀐 모듈은 `save.js`(`reset()` 추가)와 `audio.js`(v0.38.0 Breaking: `storageKey` 제거, `settings`·`onSaveError`·`audioSettings`)입니다. 이 게임은 `storageKey`를 쓴 적이 없고 음소거·음량 조작이 없어 `AudioPlayer`를 `settings` 없이(기본 `null`) 그대로 씁니다. 나머지 8개는 바이트가 같습니다.

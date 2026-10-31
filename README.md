@@ -2,12 +2,21 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.21.1**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.22.0**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.22.0 - 설치 가능한 앱(PWA)
+
+- GameKit v0.39.1 `pwa` 모듈로 홈 화면에 설치할 수 있는 앱이 됩니다. `manifest.webmanifest`·아이콘(192·512·maskable·apple-touch)·공유 이미지·`sw.js`·`<head>` 태그는 `npm run pwa`(`scripts/pwa.mjs`)가 `assets/pwa/*.svg`에서 만들고 저장소에 커밋합니다. `npm run check`(빌드와 Pages CI에서도 실행)는 커밋된 결과가 원본과 다르면 실패합니다.
+- 시작 화면에 브라우저가 설치를 허용할 때만 **앱으로 설치** 버튼이 나타납니다. 새 배포가 기다리면 같은 자리에 **새 버전으로 다시 열기** 안내가, 등록 실패는 그 이유가 나옵니다.
+- 소개 영상 iframe(`?showcaseDemo=1`), 소개 주소(`#/showcase`), 태그 미리보기(rawcdn.githack.com)는 service worker를 등록하지 않습니다.
+- 오프라인: 게임 파일과 GameKit 모듈은 service worker가 보관하지만 Matter.js 0.20.0은 jsDelivr에서 받으므로 service worker가 보관하지 않습니다. 브라우저 HTTP 캐시에 Matter가 남아 있을 때만 오프라인으로 시작합니다.
+- GameKit 고정본을 v0.39.1 dist `fcd3a02`로 올립니다. 바뀐 모듈은 `transport.js`(v0.39.0 Breaking: `resume.storage` → `resume.adapter`)와 새 `pwa.js`입니다. 이 게임은 방 resume을 쓰지 않아(`resume` 옵션 없음, 기본은 저장 없음) 코드 변경이 없습니다. 소개용 `scenario.js`도 같은 dist로 맞췄습니다(바이트 동일).
+- 아이콘·공유 이미지는 게임의 `yarn-body`·`yarn-face`·`needle`·`rift-hole` SVG를 복사해 구성했습니다. 공유 이미지의 글자는 Noto Serif KR Black(제목)·Noto Sans KR Bold(부제)를 외곽선으로 바꾼 것이며 두 글꼴은 SIL Open Font License 1.1입니다.
 
 ## 0.21.1 - 읽을 수 없는 성장 기록에서 새로 시작
 

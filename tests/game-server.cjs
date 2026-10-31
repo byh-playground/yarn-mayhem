@@ -10,6 +10,8 @@ const contentTypes = Object.freeze({
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
 });
 
 function createGameServer({ htmlPath = path.resolve(__dirname, '../index.html'), publicRoot = defaultPublicRoot } = {}) {

@@ -1,9 +1,11 @@
 {
   "name": "yarn-mayhem",
-  "version": "0.21.1",
+  "version": "0.22.0",
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
+    "pwa": "node scripts/pwa.mjs",
+    "check": "node scripts/pwa.mjs --check",
     "predev": "npm run build",
     "dev": "node scripts/serve.cjs",
     "pretest": "npm run build",

@@ -4,13 +4,13 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@a099568db08e60451d52b7d669676603e252cbc4/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@fcd3a02db452b2e469898b05aa797d754a89fb76/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
       { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
       { createNostrDynamicRoom }, { PresentationRuntime, RenderObject },
-      { createSave, localStorageAdapter, memoryAdapter }] = await Promise.all([
+      { createSave, localStorageAdapter, memoryAdapter }, { registerPwa }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
       import(GAMEKIT_DIST + 'vector-assets.js'),
       import(GAMEKIT_DIST + 'vector-assets-loader.js'),
@@ -21,6 +21,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       import(GAMEKIT_DIST + 'transport.js'),
       import(GAMEKIT_DIST + 'interpolation.js'),
       import(GAMEKIT_DIST + 'save.js'),
+      import(GAMEKIT_DIST + 'pwa.js'),
     ]);
     const sourceManifestResponse = await fetch(new URL('assets/active-theme/manifest.json', document.baseURI));
     if (!sourceManifestResponse.ok) throw new Error('Authored SVG manifest failed to load: ' + sourceManifestResponse.status);
@@ -1519,8 +1520,9 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }
     // The local player's growth is one GameKit save record. The showcase iframe shares this origin's storage,
     // so it runs on an in-memory adapter and can never overwrite the real record.
+    const SHOWCASE_DEMO=new URLSearchParams(location.search).get('showcaseDemo')==='1';
     const GROWTH_SAVE=createSave({
-      adapter:new URLSearchParams(location.search).get('showcaseDemo')==='1'?memoryAdapter():localStorageAdapter({prefix:'yarn-mayhem.'}),
+      adapter:SHOWCASE_DEMO?memoryAdapter():localStorageAdapter({prefix:'yarn-mayhem.'}),
       key:'growth',version:1,create:emptyProgress,
       validate:data=>{if(!validateProgress(data))throw new Error('invalid growth record');},
     });
@@ -3029,6 +3031,24 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       window.addEventListener('resize',()=>{resize();updateHUD(true);});
     }
     let menuScreen='home';
+    // Installable app (GameKit pwa). The intro iframe, the playground's #/showcase intro host and tag previews on
+    // rawcdn.githack.com are isolated scenes: they never register the service worker.
+    let appNotice=null,pwa=null;
+    function setAppNotice(notice){appNotice=notice;renderMainMenu();}
+    function startInstallableApp(){
+      if(SHOWCASE_DEMO||window.__BLOOM_SHOWCASE_DEEPLINK===true||location.hostname==='rawcdn.githack.com')return null;
+      const app=registerPwa({
+        serviceWorker:'./sw.js',
+        onUpdate:()=>setAppNotice({text:'새 버전이 준비되었습니다.',action:{label:'새 버전으로 다시 열기',run:()=>{
+          $('appNoticeAction').disabled=true;
+          app.update().catch(error=>{$('appNoticeAction').disabled=false;setAppNotice({text:'새 버전을 적용하지 못했습니다: '+String(error?.message||error)});});
+        }}}),
+        onError:error=>setAppNotice({text:'앱 설치·오프라인 준비를 하지 못했습니다: '+String(error?.message||error)}),
+        onInstallable:()=>renderMainMenu(),
+      });
+      $('installApp').onclick=()=>app.install().then(()=>renderMainMenu(),error=>setAppNotice({text:'앱을 설치하지 못했습니다: '+String(error?.message||error)}));
+      return app;
+    }
     function navigateMenu(path='',replace=false){
       history[replace?'replaceState':'pushState'](null,'',path?'#/'+path:location.pathname+location.search);
       applyMenuRoute();
@@ -3044,6 +3064,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       if(state.phase!=='MENU'){syncMenuChrome();return;}
       const screen=menuScreen;$('modalCard').dataset.view=screen;
       $('saveNotice').hidden=!growthNotice||screen!=='home';$('saveNotice').textContent=growthNotice;
+      $('appNotice').hidden=!appNotice||screen!=='home';$('appNoticeText').textContent=appNotice?.text??'';
+      $('appNoticeAction').hidden=!appNotice?.action;$('appNoticeAction').textContent=appNotice?.action?.label??'';
+      $('appNoticeAction').onclick=appNotice?.action?.run??null;
+      $('installApp').hidden=!pwa?.installable||screen!=='home';
       $('menuBack').hidden=screen==='home';$('menuTitle').hidden=$('menuHint').hidden=screen==='home';
       $('menuTitle').textContent=screen==='start'?'어떻게 플레이할까요?':screen==='multiplayer'?'함께 플레이':'플레이 방법';
       $('menuHint').textContent=screen==='start'?'혼자 또는 친구와 모험을 시작하세요.':screen==='multiplayer'?'방을 만들고 코드를 공유하거나, 친구의 방에 참가하세요.':'실구멍을 봉쇄하고 다음 스테이지로';
@@ -3099,6 +3123,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }});
     loop.start();landscape.bind();
     loading.hidden=true;applyMenuRoute();
+    pwa=startInstallableApp();
     // Read-only diagnostics available for checking real Matter/GameKit browser behavior.
     globalThis.__YARN_MAYHEM={
       snapshot:()=>({phase:state.phase,tick:state.tick,stage:state.stage,level:state.level,kills:state.kills,shotsFired:state.shotsFired,
