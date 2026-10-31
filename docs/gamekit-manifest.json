@@ -1,8 +1,8 @@
 {
-  "version": "0.38.1",
-  "sourceCommit": "f71da69ecb09457bf63cd6a3d0b4b25438fa21ce",
-  "distCommit": "a099568db08e60451d52b7d669676603e252cbc4",
-  "officialManifestSha256": "0bca881fd0c864bf45c72e881f1ca3f91e7e1bc63a3fab6e342f2f4a1f34080d",
+  "version": "0.39.1",
+  "sourceCommit": "47d9ec102622c84fb6fb66121eab74e8e91fd862",
+  "distCommit": "fcd3a02db452b2e469898b05aa797d754a89fb76",
+  "officialManifestSha256": "049171e4b5cd21e07083cc096f3e50aa7bc01f4d4f822e0bd9fc880cfb48c172",
   "modules": [
     {
       "file": "rendering.js",
@@ -34,7 +34,7 @@
     },
     {
       "file": "transport.js",
-      "sha256": "cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a"
+      "sha256": "06361120228fe158e8751a1a703e7d38a4680a4e0f00d2473e4de8da2f4468af"
     },
     {
       "file": "interpolation.js",
@@ -43,6 +43,17 @@
     {
       "file": "save.js",
       "sha256": "50164b43313c93dca7ebf076456a3b319b0825a0b5c6f5712af8d3286d604cfc"
+    },
+    {
+      "file": "pwa.js",
+      "sha256": "4f30dd7b16ca3d56f7cbeee4f6e17ff7d7ef04d8aacefaea0af93bd2f6afec8f"
+    }
+  ],
+  "tools": [
+    {
+      "file": "pwa-build.mjs",
+      "path": "scripts/vendor/gamekit/pwa-build.mjs",
+      "sha256": "dc00f87aa0194ec9721b1949888c310c219238fb9c2562704300d3cbd0003858"
     }
   ]
 }

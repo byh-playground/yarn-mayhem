@@ -3,8 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<!-- bloom-pwa:start -->
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.21.1</title>
+<meta name="description" content="바늘로 합체·분열하는 털실 적을 상대하는 횡스크롤 액션 RPG입니다.">
+<link rel="icon" type="image/png" sizes="192x192" href="pwa/icon-192.png">
+<link rel="apple-touch-icon" href="pwa/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="털실 대소동">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://byh-playground.github.io/yarn-mayhem/">
+<meta property="og:title" content="털실 대소동 / Yarn Mayhem">
+<meta property="og:description" content="바늘로 합체·분열하는 털실 적을 상대하는 횡스크롤 액션 RPG입니다.">
+<meta property="og:image" content="https://byh-playground.github.io/yarn-mayhem/pwa/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<!-- bloom-pwa:end -->
+<title>털실 대소동 / Yarn Mayhem 0.22.0</title>
 <link rel="stylesheet" href="./src/styles/main.css">
 <script>
 // An intro iframe is a disposable real game run; src/main.js gives it an in-memory growth save.
@@ -74,9 +89,10 @@ if (new URLSearchParams(location.search).get('showcaseDemo') === '1') {
     <section data-help-page="battle" hidden><h3>바늘과 적의 돌진</h3><ul><li>클릭·터치로 바늘 발사, 유지하면 연사</li><li>적의 주황색 충전 예고 뒤 대시 접촉은 피해</li><li>스탯: T / 스탯 버튼 · 레벨마다 1점</li><li>일시정지: P·Esc / Ⅱ · 싱글만 가능</li></ul></section>
     <section data-help-page="growth" hidden><h3>투자는 다음 모험에도 유지</h3><p>바늘: 피해 → 빠른 연사 → 분열 메아리<br>제어: 벽·발판 아래 고정 → 3체 튕겨꿰기 → 바늘 재명중 회수절단</p><p>기동·생존은 반복 투자할 수 있습니다. 새 모험·재시작·새로고침에도 투자는 보존됩니다.</p></section></div>
     <p id="saveNotice" role="status" hidden></p>
+    <div id="appNotice" role="status" hidden><span id="appNoticeText"></span><button id="appNoticeAction" type="button" hidden></button></div>
     <div id="kpi" class="kpi" hidden></div>
     <button class="primary" id="mainButton">시작 →</button>
-    <div class="menu-actions"><button id="techMenuOpen" type="button" aria-controls="techPanel" aria-expanded="false">스탯 트리</button><button id="helpOpen" type="button">플레이 방법</button></div>
+    <div class="menu-actions"><button id="techMenuOpen" type="button" aria-controls="techPanel" aria-expanded="false">스탯 트리</button><button id="helpOpen" type="button">플레이 방법</button><button id="installApp" type="button" hidden>앱으로 설치</button></div>
     <div id="modalControls" hidden></div>
   </div></div>
   <div id="loading"><div><div style="font-size:45px;margin-bottom:12px">🧶</div><strong>BLOOM GAMEKIT · MATTER.JS</strong><div style="font-size:12px;opacity:.65;margin-top:9px">물리 세계를 준비하는 중...</div><div id="error"></div><button id="saveReset" type="button" hidden>기록 지우고 새로 시작</button></div></div>
