@@ -1,3 +1,11 @@
+# 0.21.0 GameKit 0.37.6 save 모듈로 성장 저장 이관
+
+고정: GameKit v0.37.6 source `9beed252a85e3dc0a121203aee5559bfbdee3288`, dist `53361a10c66cec705a15e7857831a4c21537e592`(공식 manifest SHA-256 `168b283150cb0db4aecfa3227f47b72df7dd781756b49d550b29891f1c1d0417`). 빌드 검사가 모든 모듈을 같은 dist로 요구하므로 10개 모듈을 함께 올렸습니다. 이전 dist 대비 바이트가 바뀐 모듈은 `rendering.js`·`vector-assets-loader.js`(sketch 스타일 에코 계산·sprite `createActor` 이름, 이 게임은 yarn 스타일만 쓰고 sprite를 쓰지 않음), `audio.js`(v0.27~0.32 베드·`start` 옵션 객체, 이 게임은 `play`만 씀), 새로 더한 `save.js`입니다. 나머지 6개는 바이트가 같습니다.
+
+- 2026-10-31, Windows Edge 헤드리스: `npm test` 22개, `npm run test:combat` 20개, `test:rift`·`test:hopping`·`test:spawn:interval`·`test:rift:rtc`·`test:vector-assets`(main 기준본과 비교) 통과.
+- `npm run test:mobile`의 568x280 도움말 화면 맞춤 검사는 main에서도 같은 지점에서 실패하는 기존 실패입니다. 그 검사만 비치명으로 돌린 임시 실행에서 저장 실패 안내 표시·홈 맞춤을 포함한 나머지 검사는 main과 같은 결과였습니다.
+- 직접 관찰: 새 키 `yarn-mayhem.growth` 생성(revision 0)·구매 후 revision 1·새로고침 유지, 옛 키 `yarn-mayhem.progress`는 읽지도 쓰지도 않음, `?showcaseDemo=1`과 `#/showcase` 소개 iframe에서 레벨업·구매 뒤에도 실제 레코드 바이트 동일, 깨진 JSON·규칙 위반 레코드는 시작을 멈추고 안내하며 원본 바이트 동일, 쓰기 실패와 다른 탭 변경은 홈·스탯 창에 표시.
+
 # 0.20.6 GameKit 0.26.6 VectorContext migration
 
 Runtime pin: GameKit v0.26.6 source `88630ef4dea7fd3a7fd7aad22090fe74cb3a6fbc`, dist `b83464e445efaf86d66499859d3d05463df2b22a` (official manifest SHA-256 `bb92d60e2f7f84397d9055f990ba99d6a4d61da2bf0c053acf90bf42dc379e53`; bundle hashes re-checked against jsdelivr). `docs/gamekit-manifest.json` lists the nine imported modules, now including `camera.js`.

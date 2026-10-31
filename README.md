@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.20.6**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.21.0**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.21.0 - GameKit save 모듈로 성장 저장
+
+- 성장 저장을 GameKit v0.37.6 `save` 모듈의 레코드 하나(localStorage `yarn-mayhem.growth`)로 옮깁니다. 이전 키 `yarn-mayhem.progress`와 옛 검술 투자 전환은 없앴으므로 기존 성장은 이어지지 않습니다.
+- 읽을 수 없는 저장(깨진 JSON, 기술 규칙 위반)은 빈 성장으로 바꾸지 않고 시작 화면에 알린 뒤 멈춥니다. 원본은 덮어쓰지 않습니다. 쓰기 실패와 다른 탭의 변경은 홈과 스탯 창에 표시합니다.
+- 소개 영상 iframe(`?showcaseDemo=1`)은 브라우저 저장소를 가로채는 대신 메모리 저장소를 써서 실제 기록을 건드리지 않습니다.
 
 ## 0.20.6 - Browser startup SVG compilation
 
@@ -144,8 +150,8 @@ Defend against yarn enemies emerging from map-wide temporary rifts; needles figh
 ## 성장 저장과 함께 플레이
 
 - 획득한 스탯 포인트와 투자한 기술은 이 브라우저에 자동 저장합니다. 시작·재시작·새로고침·방 만들기·참가·나가기로 지워지지 않습니다. 새 게임은 스테이지/경험치/전투 상태를 새로 시작하고 체력·대시는 회복합니다. 누적 획득점과 이미 투자한 기술은 유지합니다.
-- 이전 검술 투자 3종은 저장을 처음 읽을 때 순서대로 바늘 피해·연사·메아리 기술로 전환하고 안내합니다. 이미 쓴 점수·누적 획득점·기동·생존·제어 투자를 보존하며, 변환 결과를 같은 저장 키에 기록합니다. 전투와 통신은 현행 바늘 기술만 사용합니다.
-- 저장은 누적 획득점과 기술별 투자 단계만 포함합니다. 남은 점수와 능력치는 기술 정의에서 다시 계산합니다. 체력, 현재 월드와 다른 사람의 성장은 저장하지 않습니다. 브라우저 데이터 삭제·다른 브라우저/기기는 별도이며, 저장이 차단되면 스탯 창에서 알립니다.
+- 저장은 GameKit `save` 레코드 하나(localStorage `yarn-mayhem.growth`, schema 1)이며 누적 획득점과 기술별 투자 단계만 포함합니다. 남은 점수와 능력치는 기술 정의에서 다시 계산합니다. 체력, 현재 월드와 다른 사람의 성장은 저장하지 않습니다. 브라우저 데이터 삭제·다른 브라우저/기기는 별도입니다.
+- 읽을 수 없는 기록은 게임을 시작하지 않고 알리며 원본을 덮어쓰지 않습니다. 저장이 차단되거나 다른 탭이 먼저 바꾸면 홈과 스탯 창에서 알립니다. 소개 영상 iframe은 메모리 저장소를 씁니다.
 - 싱글과 멀티 방장은 같은 `stepWorld`와 투자 액션을 사용합니다. 입력만 로컬/RTC에서 수집합니다. 참가자는 입력과 투자 요청을 보내고 호스트의 확정 결과를 표시합니다. 참가 전 자신의 투자는 입장 데이터로 전달하고, 호스트가 기술·최대 단계·선행 조건·포인트 비용을 검증한 뒤 적용합니다. 원격이 보낸 최종 능력치를 그대로 적용하지 않습니다.
 - 같은 0.19.1 클라이언트끼리 접속합니다. 함께 플레이하는 사람 모두 새로고침하세요.
 
