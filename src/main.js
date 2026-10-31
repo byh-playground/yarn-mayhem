@@ -4,12 +4,13 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@b83464e445efaf86d66499859d3d05463df2b22a/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@53361a10c66cec705a15e7857831a4c21537e592/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
       { ActionState, createDOMInput }, { createLoop }, { AudioPlayer },
-      { createNostrDynamicRoom }, { PresentationRuntime, RenderObject }] = await Promise.all([
+      { createNostrDynamicRoom }, { PresentationRuntime, RenderObject },
+      { createSave, localStorageAdapter, memoryAdapter }] = await Promise.all([
       import(GAMEKIT_DIST + 'rendering.js'),
       import(GAMEKIT_DIST + 'vector-assets.js'),
       import(GAMEKIT_DIST + 'vector-assets-loader.js'),
@@ -19,6 +20,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       import(GAMEKIT_DIST + 'audio.js'),
       import(GAMEKIT_DIST + 'transport.js'),
       import(GAMEKIT_DIST + 'interpolation.js'),
+      import(GAMEKIT_DIST + 'save.js'),
     ]);
     const sourceManifestResponse = await fetch(new URL('assets/active-theme/manifest.json', document.baseURI));
     if (!sourceManifestResponse.ok) throw new Error('Authored SVG manifest failed to load: ' + sourceManifestResponse.status);
@@ -1515,38 +1517,32 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       for(const id of Object.keys(progress.upgrades))if(!TECH_INDEX.get(id).requires.every(key=>progress.upgrades[key]>0))return null;
       return techSpends(progress)<=progress.earnedPoints?progress:null;
     }
-    const PROGRESS_KEY='yarn-mayhem.progress';
-    let progressStorageNotice='',progressMigrationNotice='',savedProgressText='';
-    function loadLocalProgress(){
-      try{
-        const text=globalThis.localStorage?.getItem(PROGRESS_KEY);
-        if(!text)return emptyProgress();
-        const value=JSON.parse(text),aliases={blade1:'needlePower',bladeLaunch:'needleTempo',bladeEcho:'needleEcho'};
-        let migrated=0;
-        if(value?.upgrades&&typeof value.upgrades==='object')for(const [old,id] of Object.entries(aliases)){
-          if(!(old in value.upgrades))continue;
-          const level=value.upgrades[old];if(!Number.isInteger(level)||level<0||level>1)throw new Error('invalid retired investment');
-          value.upgrades[id]=Math.max(value.upgrades[id]||0,level);delete value.upgrades[old];migrated+=level;
-        }
-        const progress=validateProgress(value);
-        if(!progress)throw new Error('invalid progression');
-        savedProgressText=JSON.stringify(progress);
-        if(migrated){
-          progressMigrationNotice='검술 투자 '+migrated+'개를 바늘 기술로 전환했습니다. 획득 포인트와 다른 투자는 유지됩니다.';
-          try{globalThis.localStorage.setItem(PROGRESS_KEY,savedProgressText);}catch{savedProgressText='';progressStorageNotice='전환한 투자를 기기에 저장하지 못했습니다 · 현재 플레이에는 유지';}
-        }
-        return progress;
-      }catch{progressStorageNotice='저장된 성장을 불러오지 못했습니다';return emptyProgress();}
-    }
-    let localProgress=loadLocalProgress();
+    // The local player's growth is one GameKit save record. The showcase iframe shares this origin's storage,
+    // so it runs on an in-memory adapter and can never overwrite the real record.
+    const GROWTH_SAVE=createSave({
+      adapter:new URLSearchParams(location.search).get('showcaseDemo')==='1'?memoryAdapter():localStorageAdapter({prefix:'yarn-mayhem.'}),
+      key:'growth',version:1,create:emptyProgress,
+      validate:data=>{if(!validateProgress(data))throw new Error('invalid growth record');},
+    });
+    const GROWTH_LOAD_MESSAGES={unreadable:'저장된 성장 기록을 읽을 수 없습니다. 기존 기록은 지우거나 덮어쓰지 않았습니다.',
+      storage:'이 브라우저에서 성장 기록 저장소를 열 수 없습니다. 사이트 데이터 저장 권한을 확인해 주세요.'};
+    const GROWTH_SAVE_NOTICES={conflict:'다른 탭에서 성장이 바뀌었습니다 · 새로고침하면 최신 성장을 불러옵니다',
+      storage:'이 기기에 저장하지 못했습니다 · 현재 플레이에는 유지',closed:'성장 저장이 종료되었습니다'};
+    await GROWTH_SAVE.load().catch(error=>{throw GROWTH_LOAD_MESSAGES[error?.kind]?new Error(GROWTH_LOAD_MESSAGES[error.kind],{cause:error}):error;});
+    let localProgress=validateProgress(GROWTH_SAVE.data),growthNotice='';
+    function setGrowthNotice(text){growthNotice=text;updateTechUI();renderMainMenu();}
+    GROWTH_SAVE.onExternalChange(()=>setGrowthNotice(GROWTH_SAVE_NOTICES.conflict));
     function saveLocalProgress(player){
       if(player.id!==localId())return;
       localProgress=player.progress;
-      const text=JSON.stringify(localProgress);if(text===savedProgressText)return;
-      try{
-        if(!globalThis.localStorage)throw new Error('storage unavailable');
-        globalThis.localStorage.setItem(PROGRESS_KEY,text);savedProgressText=text;progressStorageNotice='';
-      }catch{progressStorageNotice='이 기기에 저장하지 못했습니다 · 현재 플레이에는 유지';}
+      const earnedPoints=localProgress.earnedPoints,upgrades={...localProgress.upgrades},ids=Object.keys(upgrades);
+      GROWTH_SAVE.update(draft=>{
+        if(draft.earnedPoints===earnedPoints&&Object.keys(draft.upgrades).length===ids.length&&ids.every(id=>draft.upgrades[id]===upgrades[id]))return false;
+        draft.earnedPoints=earnedPoints;draft.upgrades=upgrades;
+      }).then(()=>{if(growthNotice)setGrowthNotice('');},error=>{
+        console.error('[Yarn Mayhem] growth save',error);
+        setGrowthNotice(GROWTH_SAVE_NOTICES[error?.kind]??String(error?.message||error));
+      });
     }
     function deriveTechStats(progress){
       const st=newStats(),n=k=>progress.upgrades[k]||0;
@@ -1608,7 +1604,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     }
     function updateTechUI(){
       const p=state.player;
-      $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(progressStorageNotice?' · '+progressStorageNotice:'');
+      $('techPoints').textContent='사용 가능 '+techPoints(p)+'점 · 레벨 '+state.level+(growthNotice?' · '+growthNotice:'');
       $('techOpen').textContent='스탯 '+techPoints(p);
       $('techOpen').classList.toggle('ready',techPoints(p)>0);
       for(const node of TECH_NODES){
@@ -3029,7 +3025,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     function renderMainMenu(focus=false){
       if(state.phase!=='MENU'){syncMenuChrome();return;}
       const screen=menuScreen;$('modalCard').dataset.view=screen;
-      $('saveNotice').hidden=!progressMigrationNotice||screen!=='home';$('saveNotice').textContent=progressMigrationNotice;
+      $('saveNotice').hidden=!growthNotice||screen!=='home';$('saveNotice').textContent=growthNotice;
       $('menuBack').hidden=screen==='home';$('menuTitle').hidden=$('menuHint').hidden=screen==='home';
       $('menuTitle').textContent=screen==='start'?'어떻게 플레이할까요?':screen==='multiplayer'?'함께 플레이':'플레이 방법';
       $('menuHint').textContent=screen==='start'?'혼자 또는 친구와 모험을 시작하세요.':screen==='multiplayer'?'방을 만들고 코드를 공유하거나, 친구의 방에 참가하세요.':'실구멍을 봉쇄하고 다음 스테이지로';
@@ -3203,7 +3199,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
         qaVectorStats:()=>({renderer:context.stats().mesh,yarnSurface:{state:'ready',surfaceCount:yarnSurfaceCount,fiberEnabled:yarnSurfaceStyle.fiber===true,patternEnabled:yarnSurfaceStyle.pattern!==false,draws:vectorDrawTotals.yarnBody},drawsByAsset:{...vectorDrawCounts},totalDrawsByAsset:{...vectorDrawTotals},actorDraws:Object.fromEntries(Object.entries(vectorActorDraws).map(([id,draws])=>[id,{...draws}]))}),
       }:{}),
     };
-    window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();clearWorld();
+    window.addEventListener('pagehide',()=>{disposed=true;net.abort?.abort();net.unsubscribe?.();for(const off of net.peers.values())off();net.room?.close();inputAdapter?.dispose();loop?.stop();audio.dispose();GROWTH_SAVE.dispose();clearWorld();
       for(const actor of Object.values(vectorActors))actor.dispose();context.dispose();device.dispose();
       Matter.Detector.collisions=nativeDetectorCollisions;},{once:true});
   } catch(error) {showFatal(error);}
@@ -3212,8 +3208,9 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
     if(node){
       const message=String(error?.message||error);
       const dependencyError=/Matter\.js .*불러오지 못|Failed to fetch dynamically imported module|Failed to load module script|network error|CORS|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED/i.test(message);
-      const hint=dependencyError?'의존성 로딩 오류입니다. 인터넷 연결과 HTTPS 배포 환경을 확인하세요.':'게임 실행 오류입니다. 브라우저 콘솔에 상세 오류를 기록했습니다.';
-      const frame=String(error?.stack||'').split('\n').slice(1,5).join('\n').slice(0,520);
+      const saveError=error?.cause?.name==='SaveError';
+      const hint=saveError?'성장 기록을 확인하기 전에는 게임을 시작하지 않습니다. 브라우저 콘솔에 상세 오류를 기록했습니다.':dependencyError?'의존성 로딩 오류입니다. 인터넷 연결과 HTTPS 배포 환경을 확인하세요.':'게임 실행 오류입니다. 브라우저 콘솔에 상세 오류를 기록했습니다.';
+      const frame=saveError?'':String(error?.stack||'').split('\n').slice(1,5).join('\n').slice(0,520);
       node.textContent='\n\n실행 오류: '+message+'\n'+hint+(frame?'\n'+frame:'');
     }
     const title=document.getElementById('loading');if(title)title.hidden=false;
