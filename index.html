@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#142b31">
-<title>털실 대소동 / Yarn Mayhem 0.21.0</title>
+<title>털실 대소동 / Yarn Mayhem 0.21.1</title>
 <link rel="stylesheet" href="./src/styles/main.css">
 <script>
 // An intro iframe is a disposable real game run; src/main.js gives it an in-memory growth save.
@@ -79,7 +79,7 @@ if (new URLSearchParams(location.search).get('showcaseDemo') === '1') {
     <div class="menu-actions"><button id="techMenuOpen" type="button" aria-controls="techPanel" aria-expanded="false">스탯 트리</button><button id="helpOpen" type="button">플레이 방법</button></div>
     <div id="modalControls" hidden></div>
   </div></div>
-  <div id="loading"><div><div style="font-size:45px;margin-bottom:12px">🧶</div><strong>BLOOM GAMEKIT · MATTER.JS</strong><div style="font-size:12px;opacity:.65;margin-top:9px">물리 세계를 준비하는 중...</div><div id="error"></div></div></div>
+  <div id="loading"><div><div style="font-size:45px;margin-bottom:12px">🧶</div><strong>BLOOM GAMEKIT · MATTER.JS</strong><div style="font-size:12px;opacity:.65;margin-top:9px">물리 세계를 준비하는 중...</div><div id="error"></div><button id="saveReset" type="button" hidden>기록 지우고 새로 시작</button></div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 <script type="module" data-game-module src="./src/main.js"></script>
