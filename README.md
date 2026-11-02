@@ -2,12 +2,18 @@
 
 통통 뛰는 같은 등급의 털실 적이 합쳐지고 다시 분열하는 횡스크롤 액션 RPG. 바늘 공격으로 적을 처치하고, 맵 곳곳에 잠시 열리는 균열에서 나오는 적의 공세를 막습니다. 스탯 트리를 키워 혼자 또는 최대 4명이 함께 도전합니다.
 
-**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.22.0**
+**[바로 플레이 / Play](https://byh-playground.github.io/yarn-mayhem/)** · **v0.22.1**
 
 ![실제 Edge에서 실행한 2인 플레이](docs/gameplay.png)
 
 Merge-and-split yarn enemies, primary ranged needles and shared charged-dash enemies in a physics action RPG for 1–4 players.
 Defend against yarn enemies emerging from map-wide temporary rifts; needles fight enemies and do not close rifts.
+
+## 0.22.1 - 새로고침하면 항상 최신 버전
+
+- GameKit 고정본을 v0.41.3 dist `c819a0b`로 올립니다. v0.41.0 Breaking에 맞춰 service worker는 게임 파일을 미리 받아 두지 않고, 페이지를 읽을 때(새로고침 포함) 매번 서버에 재확인해 항상 최신 버전을 엽니다. 받은 파일은 오프라인 사본으로만 씁니다.
+- 시작 화면의 **새 버전으로 다시 열기** 안내와 버튼을 없앴습니다. 대체 안내는 두지 않습니다(이 게임에는 설정의 "업데이트 확인" 항목이 없음). 등록·설치 실패 안내는 그대로입니다.
+- `scripts/pwa.mjs`에서 `precache`를 뺐습니다. 오프라인 시작은 한 번 읽은 뒤(두 번째 방문)부터이며, Matter.js(jsDelivr)는 여전히 service worker가 보관하지 않아 브라우저 HTTP 캐시에 맡깁니다.
 
 ## 0.22.0 - 설치 가능한 앱(PWA)
 

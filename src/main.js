@@ -4,7 +4,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
   'use strict';
   const $ = id => document.getElementById(id);
   const loading = $('loading');
-  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@fcd3a02db452b2e469898b05aa797d754a89fb76/';
+  const GAMEKIT_DIST = 'https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/';
   try {
     if (!globalThis.Matter) throw new Error('Matter.js 0.20.0을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
     const [{ WebGLDevice, VectorContext, PrimitivePainter }, { createVectorActor }, { createVectorAssetLoader }, { CameraViewport },
@@ -3039,14 +3039,10 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       if(SHOWCASE_DEMO||window.__BLOOM_SHOWCASE_DEEPLINK===true||location.hostname==='rawcdn.githack.com')return null;
       const app=registerPwa({
         serviceWorker:'./sw.js',
-        onUpdate:()=>setAppNotice({text:'새 버전이 준비되었습니다.',action:{label:'새 버전으로 다시 열기',run:()=>{
-          $('appNoticeAction').disabled=true;
-          app.update().catch(error=>{$('appNoticeAction').disabled=false;setAppNotice({text:'새 버전을 적용하지 못했습니다: '+String(error?.message||error)});});
-        }}}),
-        onError:error=>setAppNotice({text:'앱 설치·오프라인 준비를 하지 못했습니다: '+String(error?.message||error)}),
+        onError:error=>setAppNotice('앱 설치·오프라인 준비를 하지 못했습니다: '+String(error?.message||error)),
         onInstallable:()=>renderMainMenu(),
       });
-      $('installApp').onclick=()=>app.install().then(()=>renderMainMenu(),error=>setAppNotice({text:'앱을 설치하지 못했습니다: '+String(error?.message||error)}));
+      $('installApp').onclick=()=>app.install().then(()=>renderMainMenu(),error=>setAppNotice('앱을 설치하지 못했습니다: '+String(error?.message||error)));
       return app;
     }
     function navigateMenu(path='',replace=false){
@@ -3064,9 +3060,7 @@ import { vectorMatrixFor, multiplyVectorMatrix } from './visual/matrix.js';
       if(state.phase!=='MENU'){syncMenuChrome();return;}
       const screen=menuScreen;$('modalCard').dataset.view=screen;
       $('saveNotice').hidden=!growthNotice||screen!=='home';$('saveNotice').textContent=growthNotice;
-      $('appNotice').hidden=!appNotice||screen!=='home';$('appNoticeText').textContent=appNotice?.text??'';
-      $('appNoticeAction').hidden=!appNotice?.action;$('appNoticeAction').textContent=appNotice?.action?.label??'';
-      $('appNoticeAction').onclick=appNotice?.action?.run??null;
+      $('appNotice').hidden=!appNotice||screen!=='home';$('appNotice').textContent=appNotice??'';
       $('installApp').hidden=!pwa?.installable||screen!=='home';
       $('menuBack').hidden=screen==='home';$('menuTitle').hidden=$('menuHint').hidden=screen==='home';
       $('menuTitle').textContent=screen==='start'?'어떻게 플레이할까요?':screen==='multiplayer'?'함께 플레이':'플레이 방법';
