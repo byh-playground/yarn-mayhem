@@ -27,7 +27,6 @@ const RESULT = await buildPwa({
     scope: './',
     siteUrl: 'https://byh-playground.github.io/yarn-mayhem/',
     html: 'index.html',
-    precache: ['index.html', 'src/**', 'assets/active-theme/**'],
     out: '.',
     check: process.argv.includes('--check'),
 });
